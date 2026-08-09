@@ -1,18 +1,24 @@
-import { Navigate, Outlet } from "react-router-dom";
-
-
-const isLoggedIn = false;
+import { Navigate, Outlet } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 
 export const ProtectedRoute = () => {
-    if (!isLoggedIn) {
-        return <Navigate to="/login" />;
+    const { isAuthenticated, loading } = useAuth()
+
+    if (loading) return null // or a spinner, once you have one
+
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />
     }
-    return <Outlet/>;
-};
+    return <Outlet />
+}
 
 export const GuestRoute = () => {
-    if (isLoggedIn) {
-        return <Navigate to="/dashboard" />;
+    const { isAuthenticated, loading } = useAuth()
+
+    if (loading) return null
+
+    if (isAuthenticated) {
+        return <Navigate to="/dashboard" replace />
     }
-    return <Outlet/>;
-};
+    return <Outlet />
+}

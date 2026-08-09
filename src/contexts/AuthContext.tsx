@@ -1,6 +1,6 @@
-// src/context/AuthContext.tsx
+
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type {Session, User} from '@supabase/supabase-js'
+import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
 
 type AuthContextType = {
@@ -9,7 +9,7 @@ type AuthContextType = {
     isAuthenticated: boolean
     loading: boolean
     signUp: (email: string, password: string, username: string) => Promise<void>
-    login: (email: string, password: string) => Promise<void>
+    login: (identifier: string, password: string) => Promise<void>
     logout: () => Promise<void>
 }
 
@@ -25,12 +25,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSession(data.session)
             setLoading(false)
         })
-
         // listen for login/logout/token refresh events
         const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session)
         })
-
         return () => listener.subscription.unsubscribe()
     }, [])
 
@@ -45,7 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error
     }
 
-    const login = async (email: string, password: string) => {
+    const login = async (identifier: string, password: string) => {
+        // the login form collects a *username* (e.g. "guro"), but Supabase
+        // Auth only knows emails. Every seeded/signed-up account's email
+        // follows the "<username>@basaquest.local" convention, so map it
+        // here. If someone types a real email (contains "@"), use it as-is.
+        const email = identifier.includes('@') ? identifier : `${identifier}@basaquest.local`
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
     }
