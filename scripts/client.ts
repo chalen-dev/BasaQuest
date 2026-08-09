@@ -1,7 +1,21 @@
-// src/lib/supabaseClient.ts
+// File: scripts/client.ts
+import dotenv from 'dotenv'
+dotenv.config({ path: '.env.local' })
+
 import { createClient } from '@supabase/supabase-js'
 
-export const supabase = createClient(
-    import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.VITE_SUPABASE_ANON_KEY
-)
+const supabaseUrl = process.env.VITE_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error(
+        'Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in your .env.local file.'
+    )
+}
+
+export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+    },
+})

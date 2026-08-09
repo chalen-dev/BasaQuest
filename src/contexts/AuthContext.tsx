@@ -1,7 +1,7 @@
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type {Session, User} from '@supabase/supabase-js'
-import { supabase } from '../../scripts/client.ts'
+import { supabase } from '../lib/supabaseClient'
 
 type AuthContextType = {
     session: Session | null
@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
     const ctx = useContext(AuthContext)
     if (!ctx) throw new Error('useAuth must be used within AuthProvider')

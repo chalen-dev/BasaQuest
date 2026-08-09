@@ -1,9 +1,11 @@
+// File: scripts/seed/users.seeder.ts
 import { supabase } from '../client.ts'
 
 const DEMO_USERS = [
-    { username: 'guro', role: 'teacher', name: 'Teacher Guro' },
-    { username: 'ella', role: 'pupil', name: 'Ella', grade: 3, section: 'Masipag' },
-    { username: 'jose', role: 'pupil', name: 'Jose', grade: 4, section: 'Matulungin' },
+    { username: 'guro', name: 'Teacher Guro' },
+    { username: 'maria', name: 'Maria Santos' },
+    { username: 'ramon', name: 'Ramon Cruz' },
+    { username: 'liza', name: 'Liza Reyes' },
 ]
 
 export async function seedUsers() {
@@ -20,14 +22,16 @@ export async function seedUsers() {
             console.error(`  ✗ ${u.username}: ${error.message}`)
             continue
         }
-        const { error: profileError } = await supabase.from('profiles').insert({
-            id: data.user!.id,
-            username: u.username,
-            role: u.role,
-            name: u.name,
-            grade: u.grade ?? null,
-            section: u.section ?? null,
-        })
+        // the on_auth_user_created trigger already created this row
+        // (with id + username) the moment createUser() ran above —
+        // so we UPDATE it here, not insert.
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+                full_name: u.name,
+                role: 'teacher',
+            })
+            .eq('id', data.user!.id)
         console.log(profileError ? `  ✗ profile for ${u.username}: ${profileError.message}` : `  ✓ ${u.username}`)
     }
 }

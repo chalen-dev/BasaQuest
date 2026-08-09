@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed/index.ts",
+    "db:reset": "supabase db reset",
+    "db:fresh": "npm run db:reset && npm run seed"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",

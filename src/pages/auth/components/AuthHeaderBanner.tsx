@@ -1,5 +1,4 @@
-// File: src/pages/auth/components/AuthHeaderBanner.tsx
-import React from 'react'
+import React, { useId } from 'react'
 import { Owl } from '../../../components/Owl'
 
 interface AuthHeaderBannerProps {
@@ -11,6 +10,8 @@ export const AuthHeaderBanner: React.FC<AuthHeaderBannerProps> = ({
                                                                       title = 'BasaQuest',
                                                                       subtitle = 'Sto. Niño Elementary School',
                                                                   }) => {
+    const moonMaskId = useId()
+
     return (
         <div className="relative h-32 overflow-hidden bg-gradient-to-b from-orange-100 via-orange-200 to-orange-400 transition-colors duration-700 dark:from-indigo-950 dark:via-slate-900 dark:to-slate-950">
             {/* --- daytime sky: sun + rays + hills --- */}
@@ -41,9 +42,17 @@ export const AuthHeaderBanner: React.FC<AuthHeaderBannerProps> = ({
                 preserveAspectRatio="none"
                 aria-hidden="true"
             >
+                <defs>
+                    <mask id={moonMaskId}>
+                        {/* white = visible, black = cut out (true transparency, not a fake color) */}
+                        <circle cx="336" cy="34" r="26" fill="white" />
+                        <circle cx="346" cy="26" r="22" fill="black" />
+                    </mask>
+                </defs>
+
                 <circle cx="336" cy="34" r="46" className="fill-indigo-400/10" />
-                <circle cx="336" cy="34" r="26" className="fill-indigo-100" />
-                <circle cx="346" cy="26" r="22" className="fill-indigo-950" />
+                <circle cx="336" cy="34" r="26" className="fill-indigo-100" mask={`url(#${moonMaskId})`} />
+
                 <circle cx="60" cy="20" r="1.6" className="fill-indigo-100/80" />
                 <circle cx="120" cy="45" r="1.2" className="fill-indigo-100/60" />
                 <circle cx="180" cy="16" r="1.8" className="fill-indigo-100/70" />

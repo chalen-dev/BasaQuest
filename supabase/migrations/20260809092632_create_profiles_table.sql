@@ -1,10 +1,12 @@
+-- File: supabase/migrations/20260809092632_create_profiles_table.sql
 create table public.profiles(
-    id uuid primary key references auth.users(id) on delete cascade,
-    username text unique,
-    full_name text,
-    avatar_url text,
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
+                                id uuid primary key references auth.users(id) on delete cascade,
+                                username text unique,
+                                full_name text,
+                                role text not null default 'teacher',
+                                avatar_url text,
+                                created_at timestamptz default now(),
+                                updated_at timestamptz default now()
 );
 
 alter table public.profiles enable row level security;
@@ -33,3 +35,6 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
     after insert on auth.users
     for each row execute function public.handle_new_user();
+
+grant all on table public.profiles to service_role;
+grant select, update on table public.profiles to anon, authenticated;
