@@ -1,15 +1,12 @@
-// File: src/pages/auth/Register.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import { Text } from '../../components/input/Text';
 import { Password } from '../../components/input/Password';
+import { ThemeToggleButton } from '../../components/buttons/ThemeToggleButton';
 import { AuthHeaderBanner } from './components/AuthHeaderBanner';
 import { AuthTabs } from './components/AuthTabs';
-
-type Lang = 'fil' | 'en'
+import { LangToggle, type Lang } from '../../components/buttons/LangToggle';
 
 const STRINGS: Record<Lang, {
     welcome: string
@@ -57,7 +54,6 @@ const STRINGS: Record<Lang, {
 
 export const Register: React.FC = () => {
     const { signUp } = useAuth();
-    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const [lang, setLang] = useState<Lang>('fil');
     const [username, setUsername] = useState('');
@@ -89,39 +85,8 @@ export const Register: React.FC = () => {
 
     return (
         <div className="relative flex min-h-dvh items-center justify-center bg-orange-50 px-4 py-6 transition-colors duration-300 dark:bg-gray-950">
-            {/* theme toggle, top-left */}
-            <button
-                type="button"
-                onClick={toggleTheme}
-                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-gray-900/10 bg-gray-900/5 text-gray-700 transition-colors duration-300 hover:bg-gray-900/10 dark:border-gray-100/10 dark:bg-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/20"
-            >
-                <span className="transition-transform duration-300 ease-in-out" style={{ transform: theme === 'dark' ? 'rotate(0deg)' : 'rotate(180deg)' }}>
-                    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                </span>
-            </button>
-
-            {/* language toggle, top-right */}
-            <div className="absolute right-4 top-4 flex rounded-full border border-gray-900/10 bg-gray-900/5 p-1 transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-100/10">
-                <button
-                    type="button"
-                    onClick={() => setLang('fil')}
-                    className={`rounded-full px-3 py-1 text-xs font-bold transition-colors duration-300 ${
-                        lang === 'fil' ? 'bg-teal-500 text-white' : 'text-gray-600 dark:text-gray-300'
-                    }`}
-                >
-                    Fil
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setLang('en')}
-                    className={`rounded-full px-3 py-1 text-xs font-bold transition-colors duration-300 ${
-                        lang === 'en' ? 'bg-teal-500 text-white' : 'text-gray-600 dark:text-gray-300'
-                    }`}
-                >
-                    Eng
-                </button>
-            </div>
+            <ThemeToggleButton className="absolute left-4 top-4" />
+            <LangToggle lang={lang} onChange={setLang} className="absolute right-4 top-4" />
 
             <div className="w-full max-w-md overflow-hidden rounded-3xl border border-gray-900/5 bg-white shadow-xl transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900">
                 <AuthHeaderBanner />
