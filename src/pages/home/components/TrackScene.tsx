@@ -70,6 +70,71 @@ const COMP_PALETTE: BookPalette = {
     text: '#9d8ac9',
 }
 
+/** A single equalizer bar, drawn symmetrically around y=0 (from -h/2 to +h/2)
+ * so it grows both up AND down from a shared center line, like a real
+ * waveform trace rather than bars standing up from a bottom baseline.
+ * Static position lives on the OUTER <g>, the animation (which sets its own
+ * CSS `transform`) lives on an INNER <g> with no transform attribute of its
+ * own, so the two don't fight over `transform`. */
+const EqBar: React.FC<{ x: number; w: number; h: number; delay: number; duration: number; fill: string }> = ({
+                                                                                                                 x,
+                                                                                                                 w,
+                                                                                                                 h,
+                                                                                                                 delay,
+                                                                                                                 duration,
+                                                                                                                 fill,
+                                                                                                             }) => (
+    <g transform={`translate(${x} 0)`}>
+        <g className="animate-eq-bar" style={{ ...box, animationDelay: `${delay}s`, animationDuration: `${duration}s` }}>
+            <rect x="0" y={-h / 2} width={w} height={h} rx="1.5" fill={fill} />
+        </g>
+    </g>
+)
+
+// A speech-shaped equalizer row instead of a smooth rolling wave: short
+// "syllable" bursts (a handful of bars rising then falling) separated by
+// brief low-energy gaps (pauses between words/syllables), with irregular
+// jitter inside each burst rather than a clean sine curve — closer to how
+// a voice-message waveform actually looks. Runs the full card width,
+// drawn BEHIND the book so only the ends show past its edges, mirrored
+// around a center "plane" line.
+const EQ_ROW_HEIGHTS = [
+    8, 22, 6, 5, 5, 27, 9, 4, 5, 7, 23, 24, 5, 5, 5, 5, 22, 6, 6, 5,
+    14, 19, 15, 5, 5, 5, 18, 19, 17, 7, 6, 5, 9, 21, 28, 28, 23, 7, 5, 6,
+]
+const EQ_ROW_DELAYS = [
+    0.77, 0.46, 0.66, 0.79, 0.24, 0.68, 0.76, 0.25, 0.35, 0.23, 0.81, 0.89, 0.96, 0.52, 0.33, 0.39, 0.35, 0.53, 1.15, 0.31,
+    0.16, 0.39, 0.19, 0.88, 0.72, 0.32, 0.27, 0.63, 0.72, 1.03, 0.77, 0.47, 0.77, 0.58, 0.02, 0.76, 0.41, 0.22, 0.98, 0.07,
+]
+const EQ_ROW_DURATIONS = [
+    1.29, 1.05, 1.64, 1.26, 1.4, 1.06, 1.03, 1.16, 1.11, 1.33, 1.46, 1.48, 1.35, 1.69, 1.1, 1.48, 1.57, 0.98, 1.38, 0.9,
+    0.97, 1, 0.91, 0.99, 0.91, 0.98, 1.21, 1.19, 1.31, 1.24, 1.63, 1.13, 0.91, 1.57, 0.87, 1.39, 1.42, 1.08, 1.56, 0.82,
+]
+
+/** Small floating "idea" speech bubble — a rounded bubble with two trailing
+ * dots, wrapped so the whole thing bobs up and down. `tailDir` controls
+ * which way the trailing dots point: 1 = down-right, -1 = down-left, 0 =
+ * straight down — always pick whichever direction actually points back at
+ * the book from this bubble's position. `children` draws whatever glyph
+ * sits inside (a "?", a "!", a lightbulb, ...). */
+const IdeaBubble: React.FC<{ x: number; y: number; r: number; delay: string; tailDir?: -1 | 0 | 1; children: React.ReactNode }> = ({
+                                                                                                                                       x,
+                                                                                                                                       y,
+                                                                                                                                       r,
+                                                                                                                                       delay,
+                                                                                                                                       tailDir = 1,
+                                                                                                                                       children,
+                                                                                                                                   }) => (
+    <g transform={`translate(${x} ${y})`}>
+        <g className="animate-float-slow" style={{ ...box, animationDelay: delay }}>
+            <circle r={r} fill="#fff" opacity="0.95" />
+            <circle cx={tailDir * r * 0.9} cy={r * 1.1} r={r * 0.28} fill="#fff" opacity="0.9" />
+            <circle cx={tailDir * r * 1.3} cy={r * 1.55} r={r * 0.16} fill="#fff" opacity="0.85" />
+            {children}
+        </g>
+    </g>
+)
+
 const SCENES: Record<SceneName, () => React.ReactNode> = {
     history: () => (
         <>
@@ -127,59 +192,65 @@ const SCENES: Record<SceneName, () => React.ReactNode> = {
         </>
     ),
 
-    proficiency: () => (
-        <>
-            <defs>
-                <linearGradient id="profSky" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#fff3dd" />
-                    <stop offset="100%" stopColor="#ffd9a8" />
-                </linearGradient>
-            </defs>
-            <rect width="400" height="150" fill="url(#profSky)" />
-            <circle cx="44" cy="26" r="16" fill="#ffc64b" className="animate-glow-pulse" style={box} />
-            <rect y="124" width="400" height="26" fill="#f0c07f" />
+    proficiency: () => {
+        const n = EQ_ROW_HEIGHTS.length
+        const startX = 26
+        const endX = 374
+        const barW = (endX - startX) / n
+        const centerY = 100
 
-            {/* book, centered in the card */}
-            <g transform="translate(132 60) scale(0.4)">
-                <BookGlyph palette={PROF_PALETTE} />
-            </g>
+        return (
+            <>
+                <defs>
+                    <linearGradient id="profSky" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#fff3dd" />
+                        <stop offset="100%" stopColor="#ffd9a8" />
+                    </linearGradient>
+                </defs>
+                <rect width="400" height="150" fill="url(#profSky)" />
+                <circle cx="44" cy="26" r="16" fill="#ffc64b" className="animate-glow-pulse" style={box} />
+                <rect y="124" width="400" height="26" fill="#f0c07f" />
 
-            {/* mic — centered above the book, with real breathing room under it */}
-            <g transform="translate(200 28)">
-                <circle r="18" fill="none" stroke="#ff7a59" strokeWidth="2" opacity="0.5" className="animate-sound-ring" style={box} />
-                <circle r="18" fill="none" stroke="#ff7a59" strokeWidth="2" opacity="0.35" className="animate-sound-ring" style={{ ...box, animationDelay: '0.4s' }} />
-                <circle r="18" fill="none" stroke="#ff7a59" strokeWidth="2" opacity="0.2" className="animate-sound-ring" style={{ ...box, animationDelay: '0.8s' }} />
-                <rect x="-6" y="-18" width="12" height="20" rx="6" fill="#ff7a59" stroke="#e05f3d" strokeWidth="1.6" />
-                <path d="M-10 -1 a10 10 0 0 0 20 0" stroke="#e05f3d" strokeWidth="2" fill="none" strokeLinecap="round" />
-                <line x1="0" y1="9" x2="0" y2="14" stroke="#e05f3d" strokeWidth="2" strokeLinecap="round" />
-            </g>
+                {/* the center "plane" the bars sit on — a faint guideline running
+                    the full width, only visible in the gaps around the book */}
+                <line x1="0" y1={centerY} x2="400" y2={centerY} stroke="#c98f4a" strokeWidth="1.5" opacity="0.35" />
 
-            {/* audio line — book — audio line, with clear space on each side */}
-            <g transform="translate(60 108)" fill="#4ea8a0">
-                <g transform="translate(0 0)" className="animate-eq-bar" style={box}>
-                    <rect x="0" y="-10" width="6" height="10" rx="2" />
+                {/* speech-shaped equalizer strip, mirrored around the center line,
+                    drawn BEHIND the book */}
+                <g transform={`translate(0 ${centerY})`}>
+                    {EQ_ROW_HEIGHTS.map((h, i) => (
+                        <EqBar
+                            key={i}
+                            x={startX + i * barW}
+                            w={barW - 1}
+                            h={h}
+                            delay={EQ_ROW_DELAYS[i]}
+                            duration={EQ_ROW_DURATIONS[i]}
+                            fill="#4ea8a0"
+                        />
+                    ))}
                 </g>
-                <g transform="translate(10 0)" className="animate-eq-bar" style={{ ...box, animationDelay: '0.2s' }}>
-                    <rect x="0" y="-20" width="6" height="20" rx="2" />
-                </g>
-                <g transform="translate(20 0)" className="animate-eq-bar" style={{ ...box, animationDelay: '0.4s' }}>
-                    <rect x="0" y="-6" width="6" height="6" rx="2" />
-                </g>
-            </g>
 
-            <g transform="translate(314 108)" fill="#4ea8a0">
-                <g transform="translate(0 0)" className="animate-eq-bar" style={{ ...box, animationDelay: '0.1s' }}>
-                    <rect x="0" y="-6" width="6" height="6" rx="2" />
+                {/* book — natural width 340 * scale 0.4 = 136, translate x=132 puts its
+                    center at x=132+68=200, dead-center of the 400-wide viewBox, and on
+                    top of the equalizer strip so it hides the middle bars */}
+                <g transform="translate(132 60) scale(0.4)">
+                    <BookGlyph palette={PROF_PALETTE} />
                 </g>
-                <g transform="translate(10 0)" className="animate-eq-bar" style={{ ...box, animationDelay: '0.3s' }}>
-                    <rect x="0" y="-20" width="6" height="20" rx="2" />
+
+                {/* mic — rings recentered on the mic icon's true visual middle
+                    (the mic body itself spans roughly y -18..14, center ~ -2, not 0) */}
+                <g transform="translate(200 28)">
+                    <circle cy="-2" r="18" fill="none" stroke="#ff7a59" strokeWidth="2" opacity="0.5" className="animate-sound-ring" style={box} />
+                    <circle cy="-2" r="18" fill="none" stroke="#ff7a59" strokeWidth="2" opacity="0.35" className="animate-sound-ring" style={{ ...box, animationDelay: '0.4s' }} />
+                    <circle cy="-2" r="18" fill="none" stroke="#ff7a59" strokeWidth="2" opacity="0.2" className="animate-sound-ring" style={{ ...box, animationDelay: '0.8s' }} />
+                    <rect x="-6" y="-18" width="12" height="20" rx="6" fill="#ff7a59" stroke="#e05f3d" strokeWidth="1.6" />
+                    <path d="M-10 -1 a10 10 0 0 0 20 0" stroke="#e05f3d" strokeWidth="2" fill="none" strokeLinecap="round" />
+                    <line x1="0" y1="9" x2="0" y2="14" stroke="#e05f3d" strokeWidth="2" strokeLinecap="round" />
                 </g>
-                <g transform="translate(20 0)" className="animate-eq-bar" style={{ ...box, animationDelay: '0.5s' }}>
-                    <rect x="0" y="-10" width="6" height="10" rx="2" />
-                </g>
-            </g>
-        </>
-    ),
+            </>
+        )
+    },
 
     comprehension: () => (
         <>
@@ -194,10 +265,9 @@ const SCENES: Record<SceneName, () => React.ReactNode> = {
             <g fill="#ffe9a8">
                 {[
                     { x: 30, y: 20, delay: '0s' },
-                    { x: 90, y: 44, delay: '0.4s' },
-                    { x: 150, y: 16, delay: '0.8s' },
-                    { x: 270, y: 24, delay: '1.2s' },
-                    { x: 330, y: 60, delay: '1.6s' },
+                    { x: 150, y: 14, delay: '0.8s' },
+                    { x: 370, y: 40, delay: '1.6s' },
+                    { x: 20, y: 8, delay: '1.1s' },
                 ].map((star, i) => (
                     <g key={i} transform={`translate(${star.x} ${star.y})`}>
                         <path
@@ -211,22 +281,42 @@ const SCENES: Record<SceneName, () => React.ReactNode> = {
 
             <path d="M0 118 Q200 100 400 122 V150 H0 Z" fill="#241d3d" />
 
-            <g transform="translate(100 60) scale(0.45)">
+            {/* book — natural width 340 * scale 0.45 = 153, translate x=124 puts its
+                center at x=124+76.5≈200.5, essentially dead-center of the viewBox */}
+            <g transform="translate(124 60) scale(0.45)">
                 <g className="animate-float-slow" style={box}>
                     <BookGlyph palette={COMP_PALETTE} />
                 </g>
             </g>
 
-            <g transform="translate(244 20)">
-                <g className="animate-float-slow" style={{ ...box, animationDelay: '0.5s' }}>
-                    <circle r="17" fill="#fff" opacity="0.95" />
-                    <circle cx="-17" cy="20" r="5" fill="#fff" opacity="0.9" />
-                    <circle cx="-24" cy="28" r="3" fill="#fff" opacity="0.85" />
-                    <text x="0" y="6" textAnchor="middle" fontSize="17" fontWeight={700} fill="#5b4a8a">
-                        ?
-                    </text>
+            {/* three idea bubbles pulled in tight against the book — two flank its
+                sides, one sits just above the spine — instead of sitting out in the
+                corners where the icon sticker / "Preview" badge overlays cover them */}
+            <IdeaBubble x={98} y={68} r={15} delay="0s" tailDir={1}>
+                {/* left side of book → tail points right, toward the book */}
+                <g stroke="#e0932e" strokeWidth="1.6" strokeLinecap="round" opacity="0.9">
+                    <path d="M0 -13 v3" />
+                    <path d="M-8.5 -9.5 l2 2" />
+                    <path d="M8.5 -9.5 l-2 2" />
                 </g>
-            </g>
+                <circle cy="-3" r="6" fill="#ffcf72" stroke="#e0932e" strokeWidth="1.4" />
+                <path d="M-2.4 1.8 h4.8 v3 a2.4 2.4 0 0 1 -4.8 0 Z" fill="#c9b8ec" stroke="#9d8ac9" strokeWidth="1.2" />
+                <path d="M-2 6.5 h4" stroke="#9d8ac9" strokeWidth="1" />
+            </IdeaBubble>
+
+            <IdeaBubble x={302} y={68} r={15} delay="0.5s" tailDir={-1}>
+                {/* right side of book → tail points left, toward the book */}
+                <text x="0" y="6" textAnchor="middle" fontSize="15" fontWeight={700} fill="#5b4a8a">
+                    ?
+                </text>
+            </IdeaBubble>
+
+            <IdeaBubble x={200} y={40} r={13} delay="1s" tailDir={0}>
+                {/* directly above the spine → tail points straight down at the book */}
+                <text x="0" y="5" textAnchor="middle" fontSize="14" fontWeight={800} fill="#d65f4a">
+                    !
+                </text>
+            </IdeaBubble>
         </>
     ),
 }
