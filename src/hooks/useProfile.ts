@@ -1,4 +1,4 @@
-// File: src/hooks/useProfile.ts
+
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabaseClient'
@@ -11,6 +11,8 @@ export type Profile = {
     avatar_url: string | null
     grade_level: number | null
     section: string | null
+    teacher_id: string | null
+    is_non_reader: boolean
 }
 
 export function useProfile() {
@@ -29,7 +31,7 @@ export function useProfile() {
         setLoading(true)
         supabase
             .from('profiles')
-            .select('id, username, full_name, role, avatar_url, grade_level, section')
+            .select('id, username, full_name, role, avatar_url, grade_level, section, teacher_id, is_non_reader')
             .eq('id', user.id)
             .single()
             .then(({ data, error }) => {

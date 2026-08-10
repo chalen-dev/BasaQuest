@@ -1,3 +1,5 @@
+// File: src/App.tsx
+
 import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom"
 import './App.css'
 import {GuestRoute, ProtectedRoute} from "./components/routes/AuthRoutes.tsx";
@@ -7,7 +9,10 @@ import Register from "./pages/auth/Register.tsx";
 import {Home} from "./pages/home/Home.tsx";
 import DashboardLayout from "./layouts/DashboardLayout.tsx";
 import PersistentBackdropLayout from "./layouts/PersistentBackdropLayout.tsx";
-import MaterialSelection from "./pages/proficiency/MaterialSelection.tsx";
+import AssessmentSessionLayout from "./layouts/AssessmentSessionLayout.tsx";
+import MaterialSelection from "./pages/proficiency/material_selection/MaterialSelection.tsx";
+import PreAssessment from "./pages/proficiency/pre_assessment/PreAssessment.tsx";
+import AssessmentSession from "./pages/proficiency/pre_assessment/AssessmentSession.tsx";
 
 function App() {
 
@@ -36,6 +41,15 @@ function App() {
                             <Route path="/dashboard" element={<Dashboard />}/>
                             <Route path="/home" element={<Home />}/>
                             <Route path="/reading/proficiency" element={<MaterialSelection />}/>
+                            <Route path="/reading/proficiency/assessment" element={<PreAssessment />}/>
+                        </Route>
+                        {/* Focused check-in session — swaps DashboardLayout's full
+                        header for AssessmentSessionLayout's stripped-down one
+                        (no nav, no language toggle) once a language has been
+                        picked, so the session can't be navigated away from or
+                        have its language changed except by an explicit Exit. */}
+                        <Route element = {<AssessmentSessionLayout />}>
+                            <Route path="/reading/proficiency/assessment/session" element={<AssessmentSession />}/>
                         </Route>
                     </Route>
                 </Route>

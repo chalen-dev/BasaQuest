@@ -2,12 +2,12 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ClipboardCheck } from 'lucide-react'
-import { Owl } from '../../components/ui/Owl'
-import { useAuth } from '../../contexts/AuthContext'
-import { useProfile } from '../../hooks/useProfile'
-import { useLang } from '../../contexts/LangContext'
-import type { Lang } from '../../components/buttons/LangToggle'
-import { BookCover } from './components/BookCover'
+import { Owl } from '../../../components/ui/Owl.tsx'
+import { useAuth } from '../../../contexts/AuthContext.tsx'
+import { useProfile } from '../../../hooks/useProfile.ts'
+import { useLang } from '../../../contexts/LangContext.tsx'
+import type { Lang } from '../../../components/buttons/LangToggle.tsx'
+import { BookCover } from './components/BookCover.tsx'
 // Ported from the earlier prototype's `data/mock.js` BOOKS list (reading-track
 // entries only), now paired with the matching Scene name for the cover art.
 type Material = {
