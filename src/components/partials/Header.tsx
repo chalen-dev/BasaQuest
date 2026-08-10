@@ -23,6 +23,12 @@ const NAV_ITEMS: Record<Lang, { to: string; label: string }[]> = {
         { to: '/reading/comprehension', label: 'Comprehension' },
     ],
 }
+
+const TAGLINE: Record<Lang, string> = {
+    fil: 'Plataporma ng Pagkatuto',
+    en: 'Learning Platform',
+}
+
 const LOGOUT_STRINGS: Record<Lang, { title: string; text: string; confirm: string; toast: string }> = {
     fil: {
         title: 'Mag-logout?',
@@ -70,7 +76,7 @@ export default function Header() {
                     <div className="leading-tight">
                         <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">BasaQuest</div>
                         <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Plataporma ng Pagkatuto
+                            {TAGLINE[lang]}
                         </div>
                     </div>
                 </NavLink>
