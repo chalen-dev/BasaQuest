@@ -5,26 +5,24 @@ import { LogOut } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useLang } from '../../contexts/LangContext'
-import { Owl } from '../Owl'
+import { Owl } from '../ui/Owl'
 import { LangToggle, type Lang } from '../buttons/LangToggle'
 import { ThemeToggleButton } from '../buttons/ThemeToggleButton'
 import { showConfirmation, showToast } from '../../helpers/swalHelpers'
-
 const NAV_ITEMS: Record<Lang, { to: string; label: string }[]> = {
     fil: [
-        { to: '/dashboard', label: 'Tahanan' },
+        { to: '/home', label: 'Tahanan' },
         { to: '/history', label: 'Kasaysayan' },
         { to: '/reading/proficiency', label: 'Basa nang Malakas' },
         { to: '/reading/comprehension', label: 'Pag-unawa' },
     ],
     en: [
-        { to: '/dashboard', label: 'Home' },
+        { to: '/home', label: 'Home' },
         { to: '/history', label: 'History' },
         { to: '/reading/proficiency', label: 'Fluent Reading' },
         { to: '/reading/comprehension', label: 'Comprehension' },
     ],
 }
-
 const LOGOUT_STRINGS: Record<Lang, { title: string; text: string; confirm: string; toast: string }> = {
     fil: {
         title: 'Mag-logout?',
@@ -39,14 +37,12 @@ const LOGOUT_STRINGS: Record<Lang, { title: string; text: string; confirm: strin
         toast: "You've been logged out. See you soon!",
     },
 }
-
 export default function Header() {
     const { user, logout } = useAuth()
     const { theme } = useTheme()
     const { lang, setLang } = useLang()
     const [open, setOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
-
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -56,10 +52,8 @@ export default function Header() {
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
-
     const username = (user?.user_metadata?.username as string | undefined) ?? user?.email ?? 'Guest'
     const lt = LOGOUT_STRINGS[lang]
-
     const handleLogout = async () => {
         setOpen(false)
         const confirmed = await showConfirmation(lt.title, lt.text, theme === 'dark', 'warning', lt.confirm)
@@ -68,11 +62,10 @@ export default function Header() {
             showToast(lt.toast, 'success', theme === 'dark')
         }
     }
-
     return (
         <header className="sticky top-0 z-40 border-b border-gray-900/10 bg-orange-50/90 backdrop-blur-sm transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-950/90">
             <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-                <NavLink to="/dashboard" className="flex items-center gap-2">
+                <NavLink to="/home" className="flex items-center gap-2">
                     <Owl mood="greeting" size={40} />
                     <div className="leading-tight">
                         <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">BasaQuest</div>
@@ -81,7 +74,6 @@ export default function Header() {
                         </div>
                     </div>
                 </NavLink>
-
                 <nav className="hidden flex-1 items-center gap-2 pl-4 lg:flex">
                     {NAV_ITEMS[lang].map((item) => (
                         <NavLink
@@ -99,18 +91,14 @@ export default function Header() {
                         </NavLink>
                     ))}
                 </nav>
-
                 <div className="flex-1 lg:hidden" />
-
                 <LangToggle lang={lang} onChange={setLang} />
-
                 <div className="hidden items-center gap-3 sm:flex">
                     <div className="text-right leading-tight">
                         <div className="text-sm font-bold text-gray-900 dark:text-gray-50">{username}</div>
                         <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Estudyante</div>
                     </div>
                 </div>
-
                 <div className="relative" ref={menuRef}>
                     <button
                         onClick={() => setOpen((prev) => !prev)}
@@ -119,7 +107,6 @@ export default function Header() {
                     >
                         {username[0]?.toUpperCase()}
                     </button>
-
                     {open && (
                         <div className="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border border-gray-900/10 bg-white shadow-lg dark:border-gray-100/10 dark:bg-gray-800">
                             <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-900/5 dark:border-gray-100/10 dark:text-gray-400 sm:hidden">
@@ -135,10 +122,8 @@ export default function Header() {
                         </div>
                     )}
                 </div>
-
                 <ThemeToggleButton />
             </div>
-
             <nav className="mx-auto flex max-w-6xl flex-wrap gap-2 px-4 pb-3 lg:hidden">
                 {NAV_ITEMS[lang].map((item) => (
                     <NavLink

@@ -1,7 +1,7 @@
 // File: src/components/OwlLoader.tsx
 
 import React from 'react'
-import { Owl } from './Owl'
+import { Owl } from './Owl.tsx'
 
 interface OwlLoaderProps {
     /** Message shown under the owl. Set to '' to hide it. */

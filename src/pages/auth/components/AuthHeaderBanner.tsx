@@ -1,6 +1,6 @@
 // File: src/pages/auth/components/AuthHeaderBanner.tsx
 import React from 'react'
-import { Owl } from '../../../components/Owl'
+import { Owl } from '../../../components/ui/Owl.tsx'
 
 interface AuthHeaderBannerProps {
     title?: string
