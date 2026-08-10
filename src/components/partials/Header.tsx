@@ -12,23 +12,21 @@ import { showConfirmation, showToast } from '../../helpers/swalHelpers'
 const NAV_ITEMS: Record<Lang, { to: string; label: string }[]> = {
     fil: [
         { to: '/home', label: 'Tahanan' },
-        { to: '/history', label: 'Kasaysayan' },
         { to: '/reading/proficiency', label: 'Basa nang Malakas' },
         { to: '/reading/comprehension', label: 'Pag-unawa' },
+        { to: '/history', label: 'Kasaysayan' },
     ],
     en: [
         { to: '/home', label: 'Home' },
-        { to: '/history', label: 'History' },
         { to: '/reading/proficiency', label: 'Fluent Reading' },
         { to: '/reading/comprehension', label: 'Comprehension' },
+        { to: '/history', label: 'History' },
     ],
 }
-
 const TAGLINE: Record<Lang, string> = {
     fil: 'Plataporma ng Pagkatuto',
     en: 'Learning Platform',
 }
-
 const LOGOUT_STRINGS: Record<Lang, { title: string; text: string; confirm: string; toast: string }> = {
     fil: {
         title: 'Mag-logout?',
@@ -69,7 +67,7 @@ export default function Header() {
         }
     }
     return (
-        <header className="sticky top-0 z-40 border-b border-gray-900/10 bg-orange-50/90 backdrop-blur-sm transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-950/90">
+        <header className="fixed inset-x-0 top-0 z-40 border-b border-gray-900/10 bg-orange-50/30 backdrop-blur-sm transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-950/35">
             <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
                 <NavLink to="/home" className="flex items-center gap-2">
                     <Owl mood="greeting" size={40} />

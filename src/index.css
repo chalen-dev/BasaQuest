@@ -1,6 +1,90 @@
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&display=swap');
+/* File: src/index.css */
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&display=swap');
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* Root background + color-scheme
+   ------------------------------------------------------------------
+   The wrapper <div>s (bg-orange-50 / dark:bg-gray-950) theme the
+   content area, but <html>/<body> itself never got a background-color,
+   so the space `scrollbar-gutter: stable` reserves on the right edge —
+   which sits outside those wrapper divs, at the true document root —
+   was falling back to the browser's default white canvas regardless of
+   theme. Setting it here themes that region too. `color-scheme` on top
+   of that tells Brave/Chromium to paint its own native scrollbar chrome
+   (not just our custom thumb/track colors) using a dark palette when
+   dark mode is active, instead of assuming light. */
+html {
+    background-color: #fff7ed;
+    color-scheme: light;
+}
+html.dark {
+    background-color: #030712;
+    color-scheme: dark;
+}
+
+/* Custom scrollbar
+   ------------------------------------------------------------------
+   `scrollbar-gutter: stable` reserves the scrollbar's space
+   unconditionally so short pages and tall pages render the same width
+   (no more layout "jump" when navigating between them).
+
+   Colors are hardcoded per light/dark rather than read from a CSS
+   custom property — `var()` does not reliably resolve inside
+   `::-webkit-scrollbar-*` pseudo-elements in Chromium/Brave, so
+   `background-color: var(--scrollbar-thumb)` was silently failing.
+   Both `html.dark::-webkit-scrollbar-thumb` (the class sits on <html>
+   itself) and `.dark *::-webkit-scrollbar-thumb` (in case it ever ends
+   up on a wrapper instead) are covered.
+
+   Light mode uses orange-700 (darker/more saturated than the earlier
+   orange-500) since the pale orange-500 was hard to see against the
+   cream orange-50 background. */
+html {
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(194, 65, 12, 0.6) transparent;
+}
+html.dark {
+    scrollbar-color: rgba(96, 165, 250, 0.45) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+}
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+*::-webkit-scrollbar-track-piece {
+    background: transparent;
+}
+*::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+*::-webkit-scrollbar-thumb {
+    background-color: rgba(194, 65, 12, 0.6);
+    border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(194, 65, 12, 0.85);
+}
+html.dark::-webkit-scrollbar-thumb,
+.dark *::-webkit-scrollbar-thumb {
+    background-color: rgba(96, 165, 250, 0.4);
+}
+html.dark::-webkit-scrollbar-thumb:hover,
+.dark *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(96, 165, 250, 0.7);
+}
+*::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+
+
 /* Owl loader animations */
 @keyframes owl-flap-left {
     0%, 100% { transform: rotate(0deg); }

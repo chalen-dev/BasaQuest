@@ -9,7 +9,6 @@ import { AuthHeaderBanner } from './components/AuthHeaderBanner.tsx'
 import { AuthTabs } from './components/AuthTabs.tsx'
 import { AuthHint } from './components/AuthHint.tsx'
 import { LangToggle, type Lang } from '../../components/buttons/LangToggle.tsx'
-import { HillsideBackdrop } from '../../components/backgrounds/HillsideBackdrop.tsx'
 import { useAuthEntryHint, markAuthSwitchNavigation } from '../../hooks/useAuthEntryHint.ts'
 
 const STRINGS: Record<Lang, {
@@ -91,7 +90,6 @@ export default function Login() {
 
     return (
         <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-6">
-            <HillsideBackdrop />
             <ThemeToggleButton className="absolute left-4 top-4 z-10" />
             <LangToggle lang={lang} onChange={setLang} className="absolute right-4 top-4 z-10" />
             {showHint && <AuthHint side="left" text={t.hintTheme} />}

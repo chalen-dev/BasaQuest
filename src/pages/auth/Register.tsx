@@ -9,7 +9,6 @@ import { AuthHeaderBanner } from './components/AuthHeaderBanner';
 import { AuthTabs } from './components/AuthTabs';
 import { AuthHint } from './components/AuthHint';
 import { LangToggle, type Lang } from '../../components/buttons/LangToggle';
-import { HillsideBackdrop } from '../../components/backgrounds/HillsideBackdrop';
 import { useAuthEntryHint, markAuthSwitchNavigation } from '../../hooks/useAuthEntryHint';
 
 const STRINGS: Record<Lang, {
@@ -100,7 +99,6 @@ export const Register: React.FC = () => {
 
     return (
         <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-6">
-            <HillsideBackdrop />
             <ThemeToggleButton className="absolute left-4 top-4 z-10" />
             <LangToggle lang={lang} onChange={setLang} className="absolute right-4 top-4 z-10" />
             {showHint && <AuthHint side="left" text={t.hintTheme} />}

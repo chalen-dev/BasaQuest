@@ -22,10 +22,25 @@ const STARS = [
 // wobble. Different durations per cloud (and negative delays, which make
 // a CSS animation start already partway through its cycle) so they drift
 // at different speeds and are staggered rather than moving in lockstep.
+// 11 clouds now (was 7), `scale` spanning 0.45–1.35 — small clouds get
+// faster durations (read as "closer/lighter"), big ones get slower
+// durations, so the size variety also reads as a bit of depth. A few
+// `y` values are deliberately reused (150, 230, 270) so two clouds ride
+// the same horizontal line — their very different durations/delays mean
+// they're never near each other at the same time, so it reads as "more
+// clouds on that layer" rather than a repeating pair.
 const CLOUDS = [
-    { startX: -300, y: 170, scale: 1, opacity: { light: 0.75, dark: 0.55 }, duration: '52s', delay: '-4s' },
-    { startX: -300, y: 260, scale: 0.75, opacity: { light: 0.6, dark: 0.4 }, duration: '68s', delay: '-34s' },
-    { startX: -300, y: 340, scale: 0.9, opacity: { light: 0.7, dark: 0.5 }, duration: '60s', delay: '-18s' },
+    { startX: -300, y: 110, scale: 0.45, opacity: { light: 0.55, dark: 0.34 }, duration: '36s', delay: '-6s' },
+    { startX: -300, y: 150, scale: 0.9, opacity: { light: 0.72, dark: 0.5 }, duration: '50s', delay: '-2s' },
+    { startX: -300, y: 150, scale: 0.6, opacity: { light: 0.6, dark: 0.4 }, duration: '44s', delay: '-30s' },
+    { startX: -300, y: 190, scale: 1.25, opacity: { light: 0.5, dark: 0.32 }, duration: '80s', delay: '-55s' },
+    { startX: -300, y: 230, scale: 0.7, opacity: { light: 0.6, dark: 0.4 }, duration: '58s', delay: '-14s' },
+    { startX: -300, y: 230, scale: 1.1, opacity: { light: 0.5, dark: 0.34 }, duration: '70s', delay: '-42s' },
+    { startX: -300, y: 270, scale: 0.55, opacity: { light: 0.55, dark: 0.35 }, duration: '38s', delay: '-22s' },
+    { startX: -300, y: 270, scale: 0.85, opacity: { light: 0.65, dark: 0.45 }, duration: '64s', delay: '-8s' },
+    { startX: -300, y: 310, scale: 1.35, opacity: { light: 0.45, dark: 0.3 }, duration: '88s', delay: '-66s' },
+    { startX: -300, y: 350, scale: 0.5, opacity: { light: 0.55, dark: 0.35 }, duration: '34s', delay: '-18s' },
+    { startX: -300, y: 390, scale: 0.95, opacity: { light: 0.7, dark: 0.5 }, duration: '60s', delay: '-36s' },
 ]
 
 // A pine-tree silhouette (two stacked triangles + a trunk).
@@ -101,12 +116,24 @@ const Cloud: React.FC<{
  * ("cover" behavior) since it's ambient — the sun/moon is NOT drawn in
  * here (see `SunMoon` below) because that needs to stay in a fixed
  * on-screen spot regardless of viewport aspect ratio.
+ *
+ * `fixed` + `h-screen w-screen` (not `absolute` + `h-full w-full`) is
+ * deliberate: an absolutely-positioned element is sized to its nearest
+ * positioned ancestor, which here is the page's `main`/wrapper — and that
+ * element grows taller than the viewport on any page with more content
+ * than fits on one screen. Since this SVG uses `preserveAspectRatio="xMidYMid
+ * slice"` to "cover" its box, a taller box means a bigger uniform scale-up,
+ * so the same scene reads as more zoomed-in/cropped on long pages than on
+ * short ones — the "stretched, inconsistent between pages" effect. `fixed`
+ * sizes and positions strictly against the viewport, ignoring how tall the
+ * scrollable page content is, so the backdrop is always the same full-screen
+ * scene regardless of which page (or how long it is) is showing.
  */
 const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
     <svg
         viewBox="0 0 1600 900"
         preserveAspectRatio="xMidYMid slice"
-        className={`pointer-events-none absolute inset-0 h-full w-full ${className}`}
+        className={`pointer-events-none fixed inset-0 h-screen w-screen ${className}`}
         aria-hidden="true"
     >
         <defs>
@@ -239,7 +266,7 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
 const SunMoon: React.FC = () => (
     <svg
         viewBox="0 0 100 100"
-        className="pointer-events-none absolute right-6 top-6 h-16 w-16 sm:right-10 sm:top-10 sm:h-20 sm:w-20 lg:h-24 lg:w-24"
+        className="pointer-events-none fixed right-6 top-6 h-16 w-16 sm:right-10 sm:top-10 sm:h-20 sm:w-20 lg:h-24 lg:w-24"
         aria-hidden="true"
     >
         <defs>
