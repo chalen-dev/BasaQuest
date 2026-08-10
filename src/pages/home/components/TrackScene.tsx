@@ -1,4 +1,4 @@
-// File: src/pages/home/components/TrackScene.tsx
+
 import React from 'react'
 type SceneName = 'history' | 'proficiency' | 'comprehension'
 interface TrackSceneProps {
@@ -279,8 +279,8 @@ const SCENES: Record<SceneName, () => React.ReactNode> = {
                             h={Math.min(h * HEIGHT_BOOST, 56)}
                             delay={EQ_ROW_DELAYS[i]}
                             duration={EQ_ROW_DURATIONS[i]}
-                            fill="#39ffe0"
-                            stroke="#00b8a9"
+                            fill="#ef4444"
+                            stroke="#991b1b"
                         />
                     ))}
                 </g>
@@ -290,21 +290,15 @@ const SCENES: Record<SceneName, () => React.ReactNode> = {
                 <g transform="translate(132 60) scale(0.4)">
                     <BookGlyph palette={PROF_PALETTE} />
                 </g>
-                {/* mic — solid backing disc first for contrast against the shelf,
-                    then rings + body scaled up ~35% from the original for visibility.
-                    Rings recentered on the mic icon's true visual middle (the mic
-                    body itself spans roughly y -18..14, center ~ -2, not 0) */}
-                <g transform="translate(200 28)">
-                    <circle cy="-2" r="26" fill="#fff8ec" opacity="0.92" />
-                    <circle cy="-2" r="26" fill="none" stroke="#e0b877" strokeWidth="1.5" opacity="0.6" />
-                    <g transform="scale(1.35)">
-                        <circle cy="-2" r="18" fill="none" stroke="#ff7a59" strokeWidth="2.4" opacity="0.6" className="animate-sound-ring" style={box} />
-                        <circle cy="-2" r="18" fill="none" stroke="#ff7a59" strokeWidth="2.4" opacity="0.4" className="animate-sound-ring" style={{ ...box, animationDelay: '0.4s' }} />
-                        <circle cy="-2" r="18" fill="none" stroke="#ff7a59" strokeWidth="2.4" opacity="0.25" className="animate-sound-ring" style={{ ...box, animationDelay: '0.8s' }} />
-                        <rect x="-6" y="-18" width="12" height="20" rx="6" fill="#ff7a59" stroke="#e05f3d" strokeWidth="2" />
-                        <path d="M-10 -1 a10 10 0 0 0 20 0" stroke="#e05f3d" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-                        <line x1="0" y1="9" x2="0" y2="14" stroke="#e05f3d" strokeWidth="2.4" strokeLinecap="round" />
-                    </g>
+                {/* mic — deep "recording" red, pushed down toward the bottom
+                    half of the book, matching the equalizer's new red tone */}
+                <g transform="translate(200 118)">
+                    <circle cy="-2" r="16" fill="none" stroke="#991b1b" strokeWidth="2" opacity="0.5" className="animate-sound-ring" style={box} />
+                    <circle cy="-2" r="16" fill="none" stroke="#991b1b" strokeWidth="2" opacity="0.35" className="animate-sound-ring" style={{ ...box, animationDelay: '0.4s' }} />
+                    <circle cy="-2" r="16" fill="none" stroke="#991b1b" strokeWidth="2" opacity="0.2" className="animate-sound-ring" style={{ ...box, animationDelay: '0.8s' }} />
+                    <rect x="-6" y="-16" width="12" height="18" rx="6" fill="#dc2626" stroke="#991b1b" strokeWidth="1.6" />
+                    <path d="M-9 -1 a9 9 0 0 0 18 0" stroke="#991b1b" strokeWidth="2" fill="none" strokeLinecap="round" />
+                    <line x1="0" y1="8" x2="0" y2="12" stroke="#991b1b" strokeWidth="2" strokeLinecap="round" />
                 </g>
             </>
         )

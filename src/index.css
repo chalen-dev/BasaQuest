@@ -1,6 +1,5 @@
-/* File: src/index.css */
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&display=swap');
+@import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 /* Owl loader animations */
 @keyframes owl-flap-left {
