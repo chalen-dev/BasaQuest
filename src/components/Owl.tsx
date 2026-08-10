@@ -1,12 +1,14 @@
 
 import React from 'react'
 
-type OwlMood = 'greeting' | 'happy' | 'proud'
+type OwlMood = 'greeting' | 'happy' | 'proud' | 'loading'
 
 interface OwlProps {
     mood?: OwlMood
     size?: number
     bob?: boolean
+    /** Flaps the wings and blinks the eyes on a loop — handy for loading states. */
+    animated?: boolean
     className?: string
 }
 
@@ -14,9 +16,10 @@ const BEAKS: Record<OwlMood, 'smile' | 'open'> = {
     greeting: 'smile',
     happy: 'smile',
     proud: 'smile',
+    loading: 'smile',
 }
 
-export const Owl: React.FC<OwlProps> = ({ mood = 'greeting', size = 64, bob = false, className = '' }) => {
+export const Owl: React.FC<OwlProps> = ({ mood = 'greeting', size = 64, bob = false, animated = false, className = '' }) => {
     const beak = BEAKS[mood] ?? 'smile'
 
     return (
@@ -40,8 +43,16 @@ export const Owl: React.FC<OwlProps> = ({ mood = 'greeting', size = 64, bob = fa
                 className="stroke-teal-700 dark:stroke-teal-900"
                 strokeWidth="3"
             />
-            <path d="M40 108 Q26 128 44 158 Q52 140 52 118 Z" className="fill-teal-600 dark:fill-teal-700" />
-            <path d="M160 108 Q174 128 156 158 Q148 140 148 118 Z" className="fill-teal-600 dark:fill-teal-700" />
+            <path
+                d="M40 108 Q26 128 44 158 Q52 140 52 118 Z"
+                className={`fill-teal-600 dark:fill-teal-700 ${animated ? 'animate-owl-flap-left' : ''}`}
+                style={animated ? { transformBox: 'fill-box', transformOrigin: '80% 10%' } : undefined}
+            />
+            <path
+                d="M160 108 Q174 128 156 158 Q148 140 148 118 Z"
+                className={`fill-teal-600 dark:fill-teal-700 ${animated ? 'animate-owl-flap-right' : ''}`}
+                style={animated ? { transformBox: 'fill-box', transformOrigin: '20% 10%' } : undefined}
+            />
             <path
                 d="M100 74 Q150 78 148 132 Q140 176 100 178 Q60 176 52 132 Q50 78 100 74 Z"
                 className="fill-amber-200 dark:fill-amber-300"
@@ -54,10 +65,12 @@ export const Owl: React.FC<OwlProps> = ({ mood = 'greeting', size = 64, bob = fa
             <circle cx="124" cy="86" r="30" className="fill-white dark:fill-gray-100" stroke="#e6d6bd" strokeWidth="2" />
             <circle cx="76" cy="88" r="16" fill="#fff" stroke="#2b2438" strokeWidth="2" />
             <circle cx="124" cy="88" r="16" fill="#fff" stroke="#2b2438" strokeWidth="2" />
-            <circle cx="79" cy="90" r="8" fill="#2b2438" />
-            <circle cx="121" cy="90" r="8" fill="#2b2438" />
-            <circle cx="82" cy="87" r="2.6" fill="#fff" />
-            <circle cx="124" cy="87" r="2.6" fill="#fff" />
+            <g className={animated ? 'animate-owl-blink' : ''} style={animated ? { transformBox: 'fill-box', transformOrigin: 'center' } : undefined}>
+                <circle cx="79" cy="90" r="8" fill="#2b2438" />
+                <circle cx="121" cy="90" r="8" fill="#2b2438" />
+                <circle cx="82" cy="87" r="2.6" fill="#fff" />
+                <circle cx="124" cy="87" r="2.6" fill="#fff" />
+            </g>
             <g stroke="#2b2438" strokeWidth="3.5" strokeLinecap="round">
                 <line x1="62" y1="68" x2="90" y2="72" />
                 <line x1="138" y1="68" x2="110" y2="72" />

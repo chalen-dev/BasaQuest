@@ -4,6 +4,8 @@ import {GuestRoute, ProtectedRoute} from "./components/routes/AuthRoutes.tsx";
 import Login from "./pages/auth/Login.tsx";
 import { Dashboard } from "./pages/dashboard/Dashboard.tsx";
 import Register from "./pages/auth/Register.tsx";
+import {Home} from "./pages/home/Home.tsx";
+import DashboardLayout from "./layouts/DashboardLayout.tsx";
 
 function App() {
 
@@ -19,7 +21,10 @@ function App() {
 
             {/*Authenticated Routes*/}
             <Route element = {<ProtectedRoute />}>
-                <Route path="/dashboard" element={<Dashboard />}/>
+                <Route element = {<DashboardLayout />}>
+                    <Route path="/dashboard" element={<Dashboard />}/>
+                    <Route path="/home" element={<Home />}/>
+                </Route>
             </Route>
 
             {/* Catch */}
