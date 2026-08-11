@@ -16,7 +16,7 @@ import PreAssessment from "./pages/proficiency/pre_assessment/PreAssessment.tsx"
 import AssessmentSession from "./pages/proficiency/pre_assessment/AssessmentSession.tsx";
 import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";
-
+import { useDocumentTitle } from "./hooks/useDocumentTitle.ts";
 function App() {
     // Mounted here — above <Routes>, not inside any particular layout —
     // so it's active on every route a logged-in student could be on,
@@ -24,7 +24,10 @@ function App() {
     // AssessmentSessionLayout, a sibling of ProtectedLayout rather than a
     // child of it. It no-ops entirely for non-student accounts.
     useSessionPresence()
-
+    // Same reasoning as above — the tab title needs to reflect whoever's
+    // logged in (or reset to plain "BasaQuest") regardless of which
+    // layout/route group is currently active.
+    useDocumentTitle()
     return (
         <BrowserRouter>
             <Routes>

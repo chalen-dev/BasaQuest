@@ -6,6 +6,7 @@ import { Text } from '../../components/input/Text.tsx'
 import { useAuth } from '../../contexts/AuthContext.tsx'
 import { useTheme } from '../../contexts/ThemeContext.tsx'
 import { useLang } from '../../contexts/LangContext.tsx'
+import { supabase } from '../../lib/supabaseClient.ts'
 import { AuthHeaderBanner } from './components/AuthHeaderBanner.tsx'
 import { AuthTabs } from './components/AuthTabs.tsx'
 import type { Lang } from '../../components/buttons/LangToggle.tsx'
@@ -72,6 +73,34 @@ export default function Login() {
         setSubmitting(true)
         try {
             await login(username, password)
+
+            // If this account has a pending teacher-assigned check-in
+            // (see PreAssessment.tsx's teacher-side student picker), route
+            // straight into that session with the assigned language
+            // instead of the dashboard — and consume the assignment
+            // immediately so it only ever fires once. Wrapped in its own
+            // try/catch so any hiccup here just falls back to the normal
+            // dashboard redirect rather than blocking login entirely.
+            let redirectTo = '/dashboard'
+            try {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    const { data: assignment } = await supabase
+                        .from('assigned_assessments')
+                        .select('id, lang')
+                        .eq('student_id', user.id)
+                        .order('created_at', { ascending: true })
+                        .limit(1)
+                        .maybeSingle()
+                    if (assignment) {
+                        await supabase.from('assigned_assessments').delete().eq('id', assignment.id)
+                        redirectTo = `/reading/proficiency/assessment/session?lang=${assignment.lang}`
+                    }
+                }
+            } catch (assignmentErr) {
+                console.error('Login: failed to check for a pending assessment assignment', assignmentErr)
+            }
+
             // Combined bilingual welcome — shown regardless of the app's
             // language toggle, and closable (×) since a toast that
             // auto-dismisses right as the page navigates away can
@@ -83,7 +112,7 @@ export default function Login() {
                 theme === 'dark',
                 { closable: true, timer: 4000 }
             )
-            navigate('/dashboard')
+            navigate(redirectTo)
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed')
         } finally {
