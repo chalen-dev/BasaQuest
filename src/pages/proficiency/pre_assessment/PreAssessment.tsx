@@ -1,37 +1,33 @@
 // File: src/pages/proficiency/pre_assessment/PreAssessment.tsx
 // Entry point for the oral reading fluency (ORF) check-in.
 //
-// Student flow: pick a language, get navigated straight into the session
-// (unchanged from before).
+// Student flow: a bigger, hero-style language picker (big bobbing owl +
+// gradient card, same visual language as MaterialSelection's hero, then
+// two large clickable language cards below it, styled like the
+// FOUNDATIONALS cards on that page) — picking either navigates straight
+// into the session.
 //
-// Teacher flow: pick a language — a compact row (small owl + kicker/title
-// on the left, two side-by-side buttons with their own short descriptions
-// on the right: English then Filipino). Then use the "Select a Student"
-// panel below it: a left column (search + grade/reader/presence filters)
-// next to a right column (the row list + pagination) on wide screens,
-// stacked on narrower ones.
-//
-// studentPickerSection now has the same two-layer gradient background
-// every other hero/card panel in the app uses (languageSection,
-// MaterialSelection's hero, etc.) — it was missing one entirely before,
-// which is why the animated cloud backdrop was visibly showing straight
-// through the panel (and made the native scrollbar hard to see whenever
-// a cloud passed behind it). The scrollable list region also gets a
-// custom-styled scrollbar (via Tailwind's [&::-webkit-scrollbar] arbitrary
-// variants + a Firefox scrollbar-color fallback) so it stays clearly
-// visible against that background at all times, not just when the OS
-// happens to render a high-contrast default one.
-//
-// On lg+ screens, this page's own height is capped to the viewport space
-// left over below ProtectedLayout's fixed header (see the lg:h-[calc(...)]
-// on the outer wrapper below), so the page itself never scrolls on
-// desktop. Inside the student picker panel, only the row list itself
-// scrolls when it overflows — the kicker/title/description, the
-// search/filter column, and the pagination controls all stay pinned in
-// place. Mobile/tablet keep normal full-page scrolling untouched.
+// Teacher flow: the compact language row, then "Select a Student" below
+// it. Each row now offers two ways to run a check-in:
+//   - "Now" — starts the session immediately in THIS tab, on the
+//     teacher's own account, for one-on-one same-device use. No login as
+//     the student, no second tab/session at all — the student's id/name
+//     just ride along on the URL so AssessmentSession.tsx can pull their
+//     grade level and (eventually, once built) attribute a saved result
+//     to them instead of to the teacher. Asks for confirmation first,
+//     same pattern as "Send" — it's a deliberate action, not an
+//     accidental-tap-safe one.
+//   - "Send" — unchanged: writes a pending assigned_assessments row that
+//     auto-opens on the STUDENT's own account next time they log in.
+//     Still disabled while they're online, since that flow only fires on
+//     their next fresh login.
+// The old "Log in as this student" feature (StudentList.tsx) is being
+// retired in favor of "Now" — it opened a second isolated-session tab
+// that could get clobbered on reload since both tabs shared the same
+// browser. "Now" avoids that entirely by never creating a second session.
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, Languages, Send, WifiOff, Wifi, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Languages, Play, Send, WifiOff, Wifi, X } from 'lucide-react'
 import { Owl } from '../../../components/ui/Owl.tsx'
 import { OwlLoader } from '../../../components/ui/OwlLoader.tsx'
 import { Pagination } from '../../../components/ui/Pagination.tsx'
@@ -62,6 +58,7 @@ const STRINGS: Record<Lang, {
     englishLabel: string
     englishDesc: string
     selectedBadge: string
+    startLabel: string
     studentPickerKicker: string
     studentPickerTitle: string
     studentPickerDesc: string
@@ -83,6 +80,7 @@ const STRINGS: Record<Lang, {
     pendingBadge: string
     cancelLabel: string
     assignLabel: string
+    startNowLabel: string
     noStudents: string
     noResults: string
     gradeLabel: (n: number) => string
@@ -94,20 +92,24 @@ const STRINGS: Record<Lang, {
     cancelConfirmText: string
     cancelConfirmButton: string
     cancelSuccessToast: string
+    startNowConfirmTitle: (name: string) => string
+    startNowConfirmText: string
+    startNowConfirmButton: string
 }> = {
     fil: {
         back: 'Bumalik',
         languageKicker: 'Unang Hakbang',
         languageTitle: 'Aling Wika ang Gagamitin?',
-        languageDesc: 'Ito ang wika ng talatang bubuuin.',
+        languageDesc: 'Ito ang wika ng talatang bubuuin. Piliin ang isa sa ibaba para magsimula.',
         filipinoLabel: 'Filipino',
         filipinoDesc: 'Bubuo ng talata sa Filipino/Tagalog.',
         englishLabel: 'English',
         englishDesc: 'Will generate the passage in English.',
         selectedBadge: 'Napili',
+        startLabel: 'Simulan',
         studentPickerKicker: 'Pangalawang Hakbang',
         studentPickerTitle: 'Pumili ng Estudyante',
-        studentPickerDesc: 'Para sa mga pagkakataong isa-isahan mo ang pagsusuri gamit ang mismong account ng estudyante — awtomatiko itong bubukas sa kanilang panig sa susunod nilang pag-login.',
+        studentPickerDesc: 'Gamitin ang "Ngayon" kung magkasama kayo ng estudyante sa parehong device ngayon. Gamitin ang "Ipadala" kung awtomatiko itong bubukas sa sarili nilang account sa susunod nilang pag-login.',
         pickLanguageFirst: 'Pumili muna ng wika sa itaas.',
         searchLabel: 'Maghanap',
         searchPlaceholder: 'Pangalan o username...',
@@ -126,6 +128,7 @@ const STRINGS: Record<Lang, {
         pendingBadge: 'Naghihintay',
         cancelLabel: 'Kanselahin',
         assignLabel: 'Ipadala',
+        startNowLabel: 'Ngayon',
         noStudents: 'Wala pang estudyanteng naka-enrol.',
         noResults: 'Walang nahanap.',
         gradeLabel: (n) => `Baitang ${n}`,
@@ -137,20 +140,24 @@ const STRINGS: Record<Lang, {
         cancelConfirmText: 'Hindi na ito awtomatikong bubukas sa estudyante.',
         cancelConfirmButton: 'Oo, kanselahin',
         cancelSuccessToast: 'Nakansela na.',
+        startNowConfirmTitle: (name) => `Simulan na ang pagsusuri kay ${name}?`,
+        startNowConfirmText: 'Siguraduhing magkasama na kayo ng estudyanteng ito sa device na ito bago magpatuloy.',
+        startNowConfirmButton: 'Oo, simulan',
     },
     en: {
         back: 'Back',
         languageKicker: 'First Step',
         languageTitle: 'Which Language?',
-        languageDesc: "The language the passage will be written in.",
+        languageDesc: 'This is the language your passage will be written in. Pick one below to get started.',
         filipinoLabel: 'Filipino',
         filipinoDesc: 'Bubuo ng talata sa Filipino/Tagalog.',
         englishLabel: 'English',
         englishDesc: 'Will generate the passage in English.',
         selectedBadge: 'Selected',
+        startLabel: 'Start',
         studentPickerKicker: 'Second Step',
         studentPickerTitle: 'Select a Student',
-        studentPickerDesc: "For one-on-one check-ins using the student's own account — this opens automatically on their end the next time they log in.",
+        studentPickerDesc: 'Use "Now" if you and the student are together on this device right now. Use "Send" if it should open automatically on their own account the next time they log in.',
         pickLanguageFirst: 'Pick a language above first.',
         searchLabel: 'Search',
         searchPlaceholder: 'Name or username...',
@@ -169,6 +176,7 @@ const STRINGS: Record<Lang, {
         pendingBadge: 'Pending',
         cancelLabel: 'Cancel',
         assignLabel: 'Send',
+        startNowLabel: 'Now',
         noStudents: 'No students enrolled yet.',
         noResults: 'No matches found.',
         gradeLabel: (n) => `Grade ${n}`,
@@ -180,6 +188,9 @@ const STRINGS: Record<Lang, {
         cancelConfirmText: "It won't open automatically for the student anymore.",
         cancelConfirmButton: 'Yes, cancel',
         cancelSuccessToast: 'Cancelled.',
+        startNowConfirmTitle: (name) => `Start the check-in for ${name} now?`,
+        startNowConfirmText: 'Make sure this student is actually with you on this device before continuing.',
+        startNowConfirmButton: 'Yes, start it',
     },
 }
 export const PreAssessment: React.FC = () => {
@@ -261,6 +272,28 @@ export const PreAssessment: React.FC = () => {
             console.error('PreAssessment: failed to cancel assignment', err)
         }
     }
+    // Starts the check-in immediately in this same tab, on the teacher's
+    // own account — no login-as, no second session. Asks for confirmation
+    // first (same "question" icon pattern as handleAssign) since it's a
+    // deliberate action, not something a stray tap should trigger. The
+    // student's id/name then ride along on the URL so AssessmentSession.tsx
+    // can look up their grade level (and, once result-saving is built,
+    // attribute the result to them instead of to auth.uid()). Available
+    // regardless of online/offline status, unlike "Send" — it doesn't
+    // touch the student's own account at all, so their presence is
+    // irrelevant here.
+    const handleStartNow = async (studentId: string, studentName: string) => {
+        if (!selectedLang) return
+        const confirmed = await showConfirmation(
+            t.startNowConfirmTitle(studentName),
+            t.startNowConfirmText,
+            theme === 'dark',
+            'question',
+            t.startNowConfirmButton
+        )
+        if (!confirmed) return
+        navigate(`/reading/proficiency/assessment/session?lang=${selectedLang}&studentId=${studentId}&studentName=${encodeURIComponent(studentName)}`)
+    }
     const gradeFilterOptions = [
         { value: '', label: t.gradeFilterAll },
         ...GRADE_OPTIONS.map((n) => ({ value: String(n), label: t.gradeLabel(n) })),
@@ -275,8 +308,8 @@ export const PreAssessment: React.FC = () => {
         { value: '', label: t.onlineFilterAll },
         { value: 'online', label: t.onlineFilterOnline },
     ]
-    // Bigger, side-by-side option with its own short description — used
-    // instead of the earlier stacked no-description pills.
+    // Compact side-by-side option with its own short description — used
+    // only in the teacher's languageSectionTeacher below.
     const languageOption = (label: 'fil' | 'en', title: string, desc: string) => {
         const selected = isTeacher && selectedLang === label
         return (
@@ -300,7 +333,7 @@ export const PreAssessment: React.FC = () => {
             </button>
         )
     }
-    const languageSection = (
+    const languageSectionTeacher = (
         <section className="relative overflow-hidden rounded-3xl border border-gray-900/5 p-4 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-5">
             <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }} />
             <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }} />
@@ -326,6 +359,75 @@ export const PreAssessment: React.FC = () => {
                 </div>
             </div>
         </section>
+    )
+    // Bigger card used only in languageSectionStudent below — same
+    // "book-style" shape as MaterialSelection's FOUNDATIONALS cards (big
+    // icon chip, title, description, full-width pill CTA at the bottom)
+    // rather than the teacher's compact pill, since this is the only
+    // content on the student's page and needs to actually fill it.
+    const studentLanguageCard = (label: 'fil' | 'en', title: string, desc: string) => (
+        <button
+            onClick={() => chooseLanguage(label)}
+            className="group flex flex-1 cursor-pointer flex-col items-start gap-4 rounded-2xl border-2 border-teal-500/20 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-teal-500/40 hover:shadow-xl dark:border-teal-400/20 dark:bg-gray-900 dark:hover:border-teal-400/40"
+        >
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-500 text-white shadow-[0_4px_0_0_#0f766e] transition-transform duration-200 group-hover:scale-110 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]">
+                <Languages size={26} />
+            </span>
+            <div>
+                <h3 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{title}</h3>
+                <p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-400">{desc}</p>
+            </div>
+            <span className="mt-1 flex w-fit items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-transform duration-150 group-hover:translate-x-1 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]">
+                {t.startLabel}
+                <ArrowRight size={16} />
+            </span>
+        </button>
+    )
+    // Student-only variant: a big hero card (same gradient + radial-glow
+    // treatment as MaterialSelection's greeting hero, big bobbing owl)
+    // followed by two large language cards — replaces the old shared
+    // compact picker on the student side, which left the rest of the page
+    // looking empty.
+    const languageSectionStudent = (
+        <>
+            <section className="relative mb-6 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
+                <div
+                    className="absolute inset-0 dark:hidden"
+                    style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }}
+                />
+                <div
+                    className="absolute inset-0 hidden dark:block"
+                    style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0 dark:hidden"
+                    style={{ background: 'radial-gradient(circle at 88% -20%, rgba(255,198,75,0.4), transparent 55%)' }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0 hidden dark:block"
+                    style={{ background: 'radial-gradient(circle at 88% -20%, rgba(45,212,191,0.28), transparent 55%)' }}
+                />
+                <div className="relative flex flex-col items-center gap-5 sm:flex-row">
+                    <Owl mood="greeting" size={88} bob />
+                    <div>
+                        <span className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300 sm:justify-start">
+                            <Languages size={14} />
+                            {t.languageKicker}
+                        </span>
+                        <h1 className="mt-1 text-center text-2xl font-extrabold text-gray-900 dark:text-gray-50 sm:text-left sm:text-3xl">
+                            {t.languageTitle}
+                        </h1>
+                        <p className="mt-2 max-w-xl text-center text-base font-medium text-gray-600 dark:text-gray-400 sm:text-left">
+                            {t.languageDesc}
+                        </p>
+                    </div>
+                </div>
+            </section>
+            <div className="grid gap-5 sm:grid-cols-2">
+                {studentLanguageCard('en', t.englishLabel, t.englishDesc)}
+                {studentLanguageCard('fil', t.filipinoLabel, t.filipinoDesc)}
+            </div>
+        </>
     )
     const studentRow = (student: (typeof students)[number]) => {
         const online = onlineIdsSet.has(student.id)
@@ -375,14 +477,23 @@ export const PreAssessment: React.FC = () => {
                         {t.cancelLabel}
                     </button>
                 ) : (
-                    <button
-                        onClick={() => handleAssign(student.id, name)}
-                        disabled={online || assignMutation.isPending}
-                        className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-4 py-1.5 text-xs font-bold text-white shadow-[0_3px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 dark:bg-teal-600 dark:shadow-[0_3px_0_0_#115e59]"
-                    >
-                        {online ? <WifiOff size={13} /> : <Send size={13} />}
-                        {t.assignLabel}
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <button
+                            onClick={() => handleStartNow(student.id, name)}
+                            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border-2 border-teal-500/30 px-3.5 py-1.5 text-xs font-bold text-teal-700 transition-colors duration-150 hover:bg-teal-500/10 dark:border-teal-400/30 dark:text-teal-300 dark:hover:bg-teal-400/10"
+                        >
+                            <Play size={13} />
+                            {t.startNowLabel}
+                        </button>
+                        <button
+                            onClick={() => handleAssign(student.id, name)}
+                            disabled={online || assignMutation.isPending}
+                            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-4 py-1.5 text-xs font-bold text-white shadow-[0_3px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 dark:bg-teal-600 dark:shadow-[0_3px_0_0_#115e59]"
+                        >
+                            {online ? <WifiOff size={13} /> : <Send size={13} />}
+                            {t.assignLabel}
+                        </button>
+                    </div>
                 )}
             </div>
         )
@@ -478,7 +589,9 @@ export const PreAssessment: React.FC = () => {
     )
     return (
         <div
-            className={`mx-auto flex flex-col px-4 pb-6 pt-2 ${isTeacher ? 'max-w-6xl' : 'max-w-3xl'} lg:h-[calc(100vh-7.5rem)] lg:overflow-hidden`}
+            className={`mx-auto flex flex-col px-4 pb-6 pt-2 ${isTeacher ? 'max-w-6xl' : 'max-w-3xl'} ${
+                isTeacher ? 'lg:h-[calc(100vh-7.5rem)] lg:overflow-hidden' : ''
+            }`}
         >
             <div className="mb-4 flex shrink-0 flex-wrap items-center gap-3">
                 <Link
@@ -491,11 +604,11 @@ export const PreAssessment: React.FC = () => {
             </div>
             {isTeacher ? (
                 <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
-                    <div className="shrink-0">{languageSection}</div>
+                    <div className="shrink-0">{languageSectionTeacher}</div>
                     <div className="lg:min-h-0 lg:flex-1">{studentPickerSection}</div>
                 </div>
             ) : (
-                languageSection
+                languageSectionStudent
             )}
         </div>
     )

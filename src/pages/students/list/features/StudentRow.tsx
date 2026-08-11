@@ -1,16 +1,14 @@
 // File: src/pages/students/list/features/StudentRow.tsx
 import React from 'react'
-import { Ban, LogIn, MonitorOff, Pencil, ShieldCheck, Trash2, UserRound } from 'lucide-react'
+import { Ban, MonitorOff, Pencil, ShieldCheck, Trash2, UserRound } from 'lucide-react'
 import type { StudentRow as StudentRowData } from '../hooks.ts'
 import { Tooltip } from '../../../../components/ui/Tooltip.tsx'
-
 type Strings = {
     gradeLabel: (n: number) => string
     nonReader: string
     noSection: string
     editAria: string
     deleteAria: string
-    loginAsAria: string
     disableAria: string
     enableAria: string
     disabledBadge: string
@@ -18,12 +16,10 @@ type Strings = {
     offlineLabel: string
     forceLogoutAria: string
 }
-
 interface StudentRowProps {
     student: StudentRowData
     isSelected: boolean
     isDeleting: boolean
-    isLoggingIn: boolean
     isTogglingStatus: boolean
     isOnline: boolean
     isForcingLogout: boolean
@@ -31,16 +27,13 @@ interface StudentRowProps {
     onSelect: () => void
     onEdit: () => void
     onDelete: (e: React.MouseEvent) => void
-    onLoginAsStudent: (e: React.MouseEvent) => void
     onToggleStatus: (e: React.MouseEvent) => void
     onForceLogout: (e: React.MouseEvent) => void
 }
-
 export const StudentRow: React.FC<StudentRowProps> = ({
                                                           student,
                                                           isSelected,
                                                           isDeleting,
-                                                          isLoggingIn,
                                                           isTogglingStatus,
                                                           isOnline,
                                                           isForcingLogout,
@@ -48,7 +41,6 @@ export const StudentRow: React.FC<StudentRowProps> = ({
                                                           onSelect,
                                                           onEdit,
                                                           onDelete,
-                                                          onLoginAsStudent,
                                                           onToggleStatus,
                                                           onForceLogout,
                                                       }) => {
@@ -109,17 +101,6 @@ export const StudentRow: React.FC<StudentRowProps> = ({
                 </div>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-                <Tooltip label={t.loginAsAria}>
-                    <button
-                        type="button"
-                        aria-label={t.loginAsAria}
-                        disabled={isLoggingIn || student.is_disabled}
-                        onClick={onLoginAsStudent}
-                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-colors duration-200 hover:bg-sky-500/10 hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-sky-500/15 dark:hover:text-sky-400"
-                    >
-                        <LogIn size={16} />
-                    </button>
-                </Tooltip>
                 <Tooltip label={t.forceLogoutAria}>
                     <button
                         type="button"
@@ -170,5 +151,4 @@ export const StudentRow: React.FC<StudentRowProps> = ({
         </div>
     )
 }
-
 export default StudentRow

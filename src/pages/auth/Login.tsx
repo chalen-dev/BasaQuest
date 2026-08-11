@@ -11,7 +11,6 @@ import { AuthHeaderBanner } from './components/AuthHeaderBanner.tsx'
 import { AuthTabs } from './components/AuthTabs.tsx'
 import type { Lang } from '../../components/buttons/LangToggle.tsx'
 import { showToast } from '../../helpers/swalHelpers.ts'
-
 const STRINGS: Record<Lang, {
     welcome: string
     tagline: string
@@ -55,7 +54,6 @@ const STRINGS: Record<Lang, {
         demoHintStudent: 'Student: ella — password: basaquest',
     },
 }
-
 export default function Login() {
     const { login } = useAuth()
     const { theme } = useTheme()
@@ -66,22 +64,25 @@ export default function Login() {
     const [error, setError] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const t = STRINGS[lang]
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
         setSubmitting(true)
         try {
             await login(username, password)
-
             // If this account has a pending teacher-assigned check-in
             // (see PreAssessment.tsx's teacher-side student picker), route
             // straight into that session with the assigned language
-            // instead of the dashboard — and consume the assignment
-            // immediately so it only ever fires once. Wrapped in its own
-            // try/catch so any hiccup here just falls back to the normal
-            // dashboard redirect rather than blocking login entirely.
-            let redirectTo = '/dashboard'
+            // instead of Home — and consume the assignment immediately so
+            // it only ever fires once. Wrapped in its own try/catch so any
+            // hiccup here just falls back to the normal Home redirect
+            // rather than blocking login entirely.
+            //
+            // Default redirect is '/home' (not '/dashboard') for both
+            // roles — Home.tsx already branches its content by role,
+            // showing a teacher-only dashboard-link section, so it's the
+            // correct shared landing page after login.
+            let redirectTo = '/home'
             try {
                 const { data: { user } } = await supabase.auth.getUser()
                 if (user) {
@@ -100,7 +101,6 @@ export default function Login() {
             } catch (assignmentErr) {
                 console.error('Login: failed to check for a pending assessment assignment', assignmentErr)
             }
-
             // Combined bilingual welcome — shown regardless of the app's
             // language toggle, and closable (×) since a toast that
             // auto-dismisses right as the page navigates away can
@@ -119,11 +119,9 @@ export default function Login() {
             setSubmitting(false)
         }
     }
-
     const goToRegister = () => {
         navigate('/register', { state: { fromAuthSwitch: true } })
     }
-
     return (
         <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-6">
             <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-gray-900/5 bg-white shadow-xl transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900">

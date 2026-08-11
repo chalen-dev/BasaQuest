@@ -5,7 +5,6 @@ import { useLang } from '../../../contexts/LangContext'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { useTeacherPresence } from '../../../hooks/useTeacherPresence'
-import { supabase } from '../../../lib/supabaseClient'
 import { Pagination } from '../../../components/ui/Pagination'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
 import type { Lang } from '../../../components/buttons/LangToggle'
@@ -29,7 +28,6 @@ import {
     type FormState,
     type StudentRow as StudentRowData,
 } from './hooks'
-
 const STRINGS: Record<Lang, {
     title: string
     subtitle: string
@@ -90,8 +88,6 @@ const STRINGS: Record<Lang, {
     deleteConfirmButton: string
     deletedToast: string
     deleteErrorGeneric: string
-    loginAsAria: string
-    loginAsErrorGeneric: string
     disableAria: string
     enableAria: string
     disabledBadge: string
@@ -101,7 +97,6 @@ const STRINGS: Record<Lang, {
     disabledToast: string
     enabledToast: string
     toggleErrorGeneric: string
-    quickLoginAs: string
     quickEnable: string
     quickDisable: string
     quickDelete: string
@@ -176,8 +171,6 @@ const STRINGS: Record<Lang, {
         deleteConfirmButton: 'Oo, burahin',
         deletedToast: 'Nabura ang account ng estudyante.',
         deleteErrorGeneric: 'Hindi nabura ang estudyante. Subukan ulit.',
-        loginAsAria: 'Mag-login bilang estudyanteng ito',
-        loginAsErrorGeneric: 'Hindi ma-buksan ang session ng estudyante. Subukan ulit.',
         disableAria: 'I-disable ang account',
         enableAria: 'I-enable ang account',
         disabledBadge: 'Naka-disable',
@@ -187,7 +180,6 @@ const STRINGS: Record<Lang, {
         disabledToast: 'Na-disable ang account ng estudyante.',
         enabledToast: 'Na-enable muli ang account ng estudyante.',
         toggleErrorGeneric: 'Hindi na-update ang status ng account. Subukan ulit.',
-        quickLoginAs: 'Mag-login bilang estudyante',
         quickEnable: 'I-enable ang account',
         quickDisable: 'I-disable ang account',
         quickDelete: 'Burahin ang account',
@@ -262,8 +254,6 @@ const STRINGS: Record<Lang, {
         deleteConfirmButton: 'Yes, delete',
         deletedToast: "Student's account was deleted.",
         deleteErrorGeneric: "Couldn't delete this student. Please try again.",
-        loginAsAria: 'Log in as this student',
-        loginAsErrorGeneric: "Couldn't open a session for this student. Please try again.",
         disableAria: 'Disable this account',
         enableAria: 'Enable this account',
         disabledBadge: 'Disabled',
@@ -273,7 +263,6 @@ const STRINGS: Record<Lang, {
         disabledToast: "Student's account was disabled.",
         enabledToast: "Student's account was enabled.",
         toggleErrorGeneric: "Couldn't update the account's status. Please try again.",
-        quickLoginAs: 'Log in as student',
         quickEnable: 'Enable account',
         quickDisable: 'Disable account',
         quickDelete: 'Delete account',
@@ -289,7 +278,6 @@ const STRINGS: Record<Lang, {
         forceLogoutErrorGeneric: "Couldn't log the student out. Please try again.",
     },
 }
-
 export const StudentList: React.FC = () => {
     const { lang } = useLang()
     const { theme } = useTheme()
@@ -297,13 +285,10 @@ export const StudentList: React.FC = () => {
     const t = STRINGS[lang]
     const onlineIdsSet = useTeacherPresence(profile?.id)
     const onlineIds = Array.from(onlineIdsSet)
-
     const [editing, setEditing] = useState<StudentRowData | null>(null)
     const [form, setForm] = useState<FormState>(EMPTY_FORM)
     const [formError, setFormError] = useState('')
     const [formOpen, setFormOpen] = useState(false)
-    const [loggingInId, setLoggingInId] = useState<string | null>(null)
-
     const [searchInput, setSearchInput] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
     const [sort, setSort] = useState<SortOption>('name_asc')
@@ -315,7 +300,6 @@ export const StudentList: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('enabled')
     const [onlineFilter, setOnlineFilter] = useState<OnlineFilter>('')
     const [page, setPage] = useState(0)
-
     // Debounce the search box so we're not firing a query on every
     // keystroke. The page-0 reset lives inside the setTimeout callback —
     // an actual deferred async callback, not a synchronous effect body —
@@ -327,14 +311,12 @@ export const StudentList: React.FC = () => {
         }, 300)
         return () => clearTimeout(handle)
     }, [searchInput])
-
     const {
         data,
         isLoading,
         isFetching,
         error,
     } = useStudentsQuery({ teacherId: profile?.id, page, search: debouncedSearch, sort, gradeFilter, readerFilter, statusFilter, onlineFilter, onlineIds })
-
     const students = data?.students ?? []
     const total = data?.total ?? 0
     const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -344,21 +326,18 @@ export const StudentList: React.FC = () => {
         readerFilter.length > 0 ||
         statusFilter !== 'enabled' ||
         onlineFilter.length > 0
-
     const createMutation = useCreateStudentMutation(profile?.id)
     const updateMutation = useUpdateStudentMutation(profile?.id)
     const deleteMutation = useDeleteStudentMutation(profile?.id)
     const toggleStatusMutation = useToggleStudentStatusMutation(profile?.id)
     const forceLogoutMutation = useForceLogoutStudentMutation(profile?.id)
     const submitting = createMutation.isPending || updateMutation.isPending
-
     const openCreateForm = () => {
         setEditing(null)
         setForm(EMPTY_FORM)
         setFormError('')
         setFormOpen(true)
     }
-
     const openEditForm = (student: StudentRowData) => {
         setEditing(student)
         setForm({
@@ -372,11 +351,9 @@ export const StudentList: React.FC = () => {
         setFormError('')
         setFormOpen(true)
     }
-
     const closeForm = () => {
         setFormOpen(false)
     }
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!profile?.id) return
@@ -413,7 +390,6 @@ export const StudentList: React.FC = () => {
             setFormError(err instanceof Error ? err.message : t.errorGeneric)
         }
     }
-
     const handleDelete = async (student: StudentRowData, e: React.MouseEvent) => {
         e.stopPropagation()
         const displayName = student.full_name || student.username || ''
@@ -425,7 +401,6 @@ export const StudentList: React.FC = () => {
             t.deleteConfirmButton
         )
         if (!confirmed) return
-
         try {
             await deleteMutation.mutateAsync(student.id)
             showToast(t.deletedToast, 'success', theme === 'dark')
@@ -444,30 +419,6 @@ export const StudentList: React.FC = () => {
             showToast(err instanceof Error ? err.message : t.deleteErrorGeneric, 'error', theme === 'dark')
         }
     }
-
-    // Opens a fresh tab logged in as this pupil, without touching the
-    // teacher's own session in this tab. See lib/supabaseClient.ts and
-    // pages/auth/StudentSessionBridge.tsx for how the isolated session works.
-    const handleLoginAsStudent = async (student: StudentRowData, e: React.MouseEvent) => {
-        e.stopPropagation()
-        setLoggingInId(student.id)
-        try {
-            const { data, error: invokeError } = await supabase.functions.invoke('impersonate-student', {
-                body: { id: student.id },
-            })
-            if (invokeError || data?.error) {
-                showToast(data?.error ?? invokeError?.message ?? t.loginAsErrorGeneric, 'error', theme === 'dark')
-                return
-            }
-            const url = `/student-session?token=${encodeURIComponent(data.tokenHash)}`
-            window.open(url, '_blank', 'noopener,noreferrer')
-        } catch (err) {
-            showToast(err instanceof Error ? err.message : t.loginAsErrorGeneric, 'error', theme === 'dark')
-        } finally {
-            setLoggingInId(null)
-        }
-    }
-
     // Disabling asks for confirmation first (it blocks a kid from logging
     // in); enabling doesn't since it's just restoring access. If the
     // drawer is open on the same pupil, its snapshot is patched in place
@@ -497,7 +448,6 @@ export const StudentList: React.FC = () => {
             showToast(err instanceof Error ? err.message : t.toggleErrorGeneric, 'error', theme === 'dark')
         }
     }
-
     // Ends the pupil's current session. If they're currently online (per
     // the teacher's own presence subscription), this is a realtime kick —
     // instant, and they can log back in right away. If they're not online,
@@ -514,7 +464,6 @@ export const StudentList: React.FC = () => {
             t.forceLogoutConfirmButton
         )
         if (!confirmed) return
-
         const wasOnline = onlineIdsSet.has(student.id)
         try {
             const result = await forceLogoutMutation.mutateAsync({ id: student.id, online: wasOnline })
@@ -526,14 +475,11 @@ export const StudentList: React.FC = () => {
             showToast(err instanceof Error ? err.message : t.forceLogoutErrorGeneric, 'error', theme === 'dark')
         }
     }
-
     const showEmptyRoster = !isLoading && !error && total === 0 && !hasFilters
     const showNoResults = !isLoading && !error && total === 0 && hasFilters
-
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
             <StudentsSubNav />
-
             {/* Header card — same layered gradient treatment as Home's hero
                 (light cream/amber-glow, dark navy/teal-glow) instead of a
                 flat solid panel, for consistency with Home/Dashboard/
@@ -610,7 +556,6 @@ export const StudentList: React.FC = () => {
                     )}
                 </div>
             </section>
-
             {/* Roster — full width now that the add/edit form lives in a
                 drawer instead of a permanently-docked side column. */}
             <div>
@@ -640,7 +585,6 @@ export const StudentList: React.FC = () => {
                                 student={student}
                                 isSelected={formOpen && editing?.id === student.id}
                                 isDeleting={deleteMutation.isPending && deleteMutation.variables === student.id}
-                                isLoggingIn={loggingInId === student.id}
                                 isTogglingStatus={toggleStatusMutation.isPending && toggleStatusMutation.variables?.id === student.id}
                                 isOnline={onlineIdsSet.has(student.id)}
                                 isForcingLogout={forceLogoutMutation.isPending && forceLogoutMutation.variables?.id === student.id}
@@ -648,17 +592,14 @@ export const StudentList: React.FC = () => {
                                 onSelect={() => openEditForm(student)}
                                 onEdit={() => openEditForm(student)}
                                 onDelete={(e) => handleDelete(student, e)}
-                                onLoginAsStudent={(e) => handleLoginAsStudent(student, e)}
                                 onToggleStatus={(e) => handleToggleStatus(student, e)}
                                 onForceLogout={(e) => handleForceLogout(student, e)}
                             />
                         ))}
                     </div>
                 )}
-
                 <Pagination page={page} pageCount={pageCount} onPageChange={setPage} className="mt-5" />
             </div>
-
             <StudentForm
                 t={t}
                 open={formOpen}
@@ -669,11 +610,9 @@ export const StudentList: React.FC = () => {
                 submitting={submitting}
                 onSubmit={handleSubmit}
                 onClose={closeForm}
-                onLoginAsStudent={(e) => editing && handleLoginAsStudent(editing, e)}
                 onToggleStatus={(e) => editing && handleToggleStatus(editing, e)}
                 onDelete={(e) => editing && handleDelete(editing, e)}
                 onForceLogout={(e) => editing && handleForceLogout(editing, e)}
-                isLoggingIn={editing ? loggingInId === editing.id : false}
                 isTogglingStatus={editing ? toggleStatusMutation.isPending && toggleStatusMutation.variables?.id === editing.id : false}
                 isDeleting={editing ? deleteMutation.isPending && deleteMutation.variables === editing.id : false}
                 isForcingLogout={editing ? forceLogoutMutation.isPending && forceLogoutMutation.variables?.id === editing.id : false}
@@ -682,5 +621,4 @@ export const StudentList: React.FC = () => {
         </div>
     )
 }
-
 export default StudentList

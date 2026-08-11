@@ -13,7 +13,7 @@ import GuestLayout from "./layouts/GuestLayout.tsx";
 import AssessmentSessionLayout from "./layouts/AssessmentSessionLayout.tsx";
 import MaterialSelection from "./pages/proficiency/material_selection/MaterialSelection.tsx";
 import PreAssessment from "./pages/proficiency/pre_assessment/PreAssessment.tsx";
-import AssessmentSession from "./pages/proficiency/pre_assessment/AssessmentSession.tsx";
+import AssessmentSession from "./pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx";
 import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";
 import { useDocumentTitle } from "./hooks/useDocumentTitle.ts";

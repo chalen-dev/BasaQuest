@@ -1,6 +1,5 @@
 // File: src/components/backgrounds/HillsideBackdrop.tsx
 import React from 'react'
-
 const STARS = [
     { x: 120, y: 120, r: 1.2, delay: '0s' },
     { x: 420, y: 260, r: 1, delay: '0.6s' },
@@ -15,7 +14,6 @@ const STARS = [
     { x: 880, y: 90, r: 0.8, delay: '0.7s' },
     { x: 340, y: 90, r: 0.8, delay: '1.2s' },
 ]
-
 // Clouds now spawn off-screen to the left (startX is well beyond the
 // viewBox's left edge) and travel the full width of the scene before
 // looping back to the start — instead of the old small side-to-side
@@ -42,7 +40,6 @@ const CLOUDS = [
     { startX: -300, y: 350, scale: 0.5, opacity: { light: 0.55, dark: 0.35 }, duration: '34s', delay: '-18s' },
     { startX: -300, y: 390, scale: 0.95, opacity: { light: 0.7, dark: 0.5 }, duration: '60s', delay: '-36s' },
 ]
-
 // A pine-tree silhouette (two stacked triangles + a trunk).
 const PineTree: React.FC<{ x: number; y: number; scale?: number }> = ({ x, y, scale = 1 }) => (
     <g transform={`translate(${x} ${y}) scale(${scale})`}>
@@ -51,7 +48,6 @@ const PineTree: React.FC<{ x: number; y: number; scale?: number }> = ({ x, y, sc
         <rect x="-3" y="0" width="6" height="10" />
     </g>
 )
-
 // Ground scenery along the nearest hill: dense forest clusters on the left
 // and right, a couple of stray trees in between, and big open clear-plain
 // gaps with nothing at all — instead of two lone symmetric tree pairs.
@@ -77,7 +73,6 @@ const TREES = [
     { x: 1420, y: 818, scale: 0.6 },
     // clear plain: nothing from x1450 to the edge
 ]
-
 // Flat, four-lobed cloud blob. `startX` places it off-screen to the left;
 // `animate-cloud-drift` carries it all the way across and back off-screen
 // to the right, then the animation loops (jumping invisibly back to the
@@ -105,7 +100,6 @@ const Cloud: React.FC<{
         </g>
     </g>
 )
-
 /**
  * Full-bleed sky + clouds + mountains + rolling hills, used as ambient
  * background behind guest-facing screens (login/register). Layered for
@@ -137,10 +131,13 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
         aria-hidden="true"
     >
         <defs>
+            {/* Light-mode sky, darkened a touch from the original
+                (#fff6e5/#ffe9c2/#ffd48f) — same warm hue, just pulled down
+                a shade so it's less glaring/washed-out at midday. */}
             <linearGradient id="hillsideSkyLight" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#fff6e5" />
-                <stop offset="55%" stopColor="#ffe9c2" />
-                <stop offset="100%" stopColor="#ffd48f" />
+                <stop offset="0%" stopColor="#fdecd0" />
+                <stop offset="55%" stopColor="#ffddA0" />
+                <stop offset="100%" stopColor="#f5bd76" />
             </linearGradient>
             <linearGradient id="hillsideSkyDark" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#0b1330" />
@@ -148,11 +145,9 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
                 <stop offset="100%" stopColor="#1b2456" />
             </linearGradient>
         </defs>
-
         {/* sky */}
         <rect width="1600" height="900" fill="url(#hillsideSkyLight)" className="dark:hidden" />
         <rect width="1600" height="900" fill="url(#hillsideSkyDark)" className="hidden dark:block" />
-
         {/* stars — dark mode only, spread across the whole sky, not just the top */}
         <g fill="#ffe9a8" className="hidden dark:block">
             {STARS.map((star, i) => (
@@ -165,7 +160,6 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
                 </g>
             ))}
         </g>
-
         {/* clouds — spawn off-screen left, drift the full width, loop */}
         {CLOUDS.map((cloud, i) => (
             <Cloud
@@ -193,14 +187,16 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
                 />
             ))}
         </g>
-
         {/* distant mountain range — soft rounded peaks (quadratic curves, not
             sharp zigzags) to stay consistent with the app's flat paper-cut
-            illustration style, hazier/lighter to read as "further away" */}
+            illustration style, hazier/lighter to read as "further away".
+            Light-mode fill deepened from #ffd8a0 (opacity 0.85) to #eea768
+            (opacity 0.92) so it reads distinctly against the now-darker sky
+            instead of nearly blending into it. */}
         <path
             d="M0 560 Q80 470 160 440 Q230 480 300 540 Q365 420 430 400 Q525 470 620 560 Q690 460 760 450 Q830 490 900 560 Q980 430 1060 415 Q1150 480 1240 560 Q1310 470 1380 470 Q1490 510 1600 560 V900 H0 Z"
-            fill="#ffd8a0"
-            opacity="0.85"
+            fill="#eea768"
+            opacity="0.92"
             className="dark:hidden"
         />
         <path
@@ -209,11 +205,11 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
             opacity="0.75"
             className="hidden dark:block"
         />
-
-        {/* nearer mountain range — darker, a bit taller */}
+        {/* nearer mountain range — darker, a bit taller. Light-mode fill
+            deepened from #f3c383 to #d98d43 for the same reason as above. */}
         <path
             d="M0 620 Q100 500 200 490 Q280 540 360 600 Q440 460 520 450 Q610 520 700 610 Q790 480 880 480 Q970 550 1060 610 Q1160 460 1260 460 Q1350 530 1440 610 Q1520 550 1600 540 V900 H0 Z"
-            fill="#f3c383"
+            fill="#d98d43"
             className="dark:hidden"
         />
         <path
@@ -221,17 +217,13 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
             fill="#131a3f"
             className="hidden dark:block"
         />
-
         {/* rolling foreground hills — gentle waves, low amplitude */}
         <path d="M0 700 Q400 670 800 695 T1600 685 V900 H0 Z" fill="#f3cf8e" className="dark:hidden" />
         <path d="M0 700 Q400 670 800 695 T1600 685 V900 H0 Z" fill="#141b3d" className="hidden dark:block" />
-
         <path d="M0 760 Q420 735 840 755 T1600 745 V900 H0 Z" fill="#e8b56a" className="dark:hidden" />
         <path d="M0 760 Q420 735 840 755 T1600 745 V900 H0 Z" fill="#0e1430" className="hidden dark:block" />
-
         <path d="M0 830 Q460 810 880 825 T1600 818 V900 H0 Z" fill="#d69a4c" className="dark:hidden" />
         <path d="M0 830 Q460 810 880 825 T1600 818 V900 H0 Z" fill="#080b20" className="hidden dark:block" />
-
         {/* forest clusters + clear plains dotting the nearest hill */}
         <g fill="#8a5a2c" className="dark:hidden">
             {TREES.map((tree, i) => (
@@ -245,7 +237,6 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
         </g>
     </svg>
 )
-
 /**
  * Sun (light mode) / crescent moon (dark mode), pinned to the top-right
  * corner with plain CSS positioning instead of being drawn inside the
@@ -279,7 +270,6 @@ const SunMoon: React.FC = () => (
                 <feGaussianBlur stdDeviation="5.5" />
             </filter>
         </defs>
-
         {/* sun, bigger disc + radiating rays */}
         <g className="dark:hidden">
             <g
@@ -302,7 +292,6 @@ const SunMoon: React.FC = () => (
             </g>
             <circle cx="50" cy="50" r="34" fill="#ffb84d" />
         </g>
-
         {/* vibrant yellow crescent moon, bigger disc */}
         <g className="hidden dark:block">
             <g
@@ -321,12 +310,10 @@ const SunMoon: React.FC = () => (
         </g>
     </svg>
 )
-
 export const HillsideBackdrop: React.FC<{ className?: string }> = ({ className = '' }) => (
     <>
         <SkyAndHills className={className} />
         <SunMoon />
     </>
 )
-
 export default HillsideBackdrop

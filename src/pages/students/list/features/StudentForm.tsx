@@ -1,11 +1,10 @@
 // File: src/pages/students/list/features/StudentForm.tsx
 import React from 'react'
-import { Ban, LogIn, MonitorOff, ShieldCheck, Trash2, UserPlus } from 'lucide-react'
+import { Ban, MonitorOff, ShieldCheck, Trash2, UserPlus } from 'lucide-react'
 import { Drawer } from '../../../../components/ui/Drawer.tsx'
 import { Text } from '../../../../components/input/Text.tsx'
 import { Password } from '../../../../components/input/Password.tsx'
 import type { StudentRow as StudentRowData, FormState } from '../hooks.ts'
-
 type Strings = {
     formCreateTitle: string
     formEditTitle: string
@@ -23,7 +22,6 @@ type Strings = {
     save: string
     saving: string
     editNote: string
-    quickLoginAs: string
     quickEnable: string
     quickDisable: string
     quickDelete: string
@@ -31,7 +29,6 @@ type Strings = {
     onlineLabel: string
     offlineLabel: string
 }
-
 interface StudentFormProps {
     t: Strings
     open: boolean
@@ -44,20 +41,17 @@ interface StudentFormProps {
     onClose: () => void
     // Quick actions — duplicates of the roster row's icon buttons so a
     // teacher already in the edit drawer doesn't have to close it and go
-    // back to the row to log in as this pupil, disable/enable them,
-    // force-logout them, or delete the account. Only relevant once
-    // editing is non-null (an account has to already exist to act on).
-    onLoginAsStudent: (e: React.MouseEvent) => void
+    // back to the row to disable/enable them, force-logout them, or
+    // delete the account. Only relevant once editing is non-null (an
+    // account has to already exist to act on).
     onToggleStatus: (e: React.MouseEvent) => void
     onDelete: (e: React.MouseEvent) => void
     onForceLogout: (e: React.MouseEvent) => void
-    isLoggingIn: boolean
     isTogglingStatus: boolean
     isDeleting: boolean
     isForcingLogout: boolean
     isOnline: boolean
 }
-
 // The add/edit panel used to sit permanently docked in a right-hand
 // column next to the roster, eating a fixed chunk of screen width even
 // when nobody was editing anything. It's now a slide-in Drawer instead —
@@ -86,11 +80,9 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                                                             submitting,
                                                             onSubmit,
                                                             onClose,
-                                                            onLoginAsStudent,
                                                             onToggleStatus,
                                                             onDelete,
                                                             onForceLogout,
-                                                            isLoggingIn,
                                                             isTogglingStatus,
                                                             isDeleting,
                                                             isForcingLogout,
@@ -124,15 +116,6 @@ export const StudentForm: React.FC<StudentFormProps> = ({
                         {isOnline ? t.onlineLabel : t.offlineLabel}
                     </span>
                     <div className="flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            disabled={isLoggingIn || editing.is_disabled}
-                            onClick={onLoginAsStudent}
-                            className="flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500/15 px-3.5 py-2 text-xs font-bold text-sky-700 transition-colors duration-200 hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sky-300 dark:hover:bg-sky-500/25"
-                        >
-                            <LogIn size={14} />
-                            {t.quickLoginAs}
-                        </button>
                         <button
                             type="button"
                             disabled={isForcingLogout || editing.is_disabled}
@@ -251,5 +234,4 @@ export const StudentForm: React.FC<StudentFormProps> = ({
         </Drawer>
     )
 }
-
 export default StudentForm

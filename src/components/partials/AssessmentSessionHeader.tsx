@@ -1,12 +1,18 @@
-
 // Stripped-down header shown only during an active reading check-in session
 // (once a language has been picked in PreAssessment.tsx). Deliberately has
 // no nav links, no LangToggle, and no account menu — the point is to keep
 // the teacher/pupil from navigating away or changing the assessment
 // language mid-session. Only the brand mark, dark-mode toggle, and an Exit
 // button (with a confirmation, since this ends the check-in) remain.
-import { useNavigate } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+//
+// When a "Now" (one-device, teacher-run) session is active — see
+// PreAssessment.tsx's handleStartNow — this also shows a small "Acting
+// as: {name}" badge next to the brand mark, and Exit routes back to the
+// student picker (/reading/proficiency/assessment) instead of the
+// material list, so the teacher lands right back where they can pick the
+// next student.
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { LogOut, UserRound } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useLang } from '../../contexts/LangContext'
 import { Owl } from '../ui/Owl'
@@ -17,6 +23,11 @@ import type { Lang } from '../buttons/LangToggle'
 const TAGLINE: Record<Lang, string> = {
     fil: 'Plataporma ng Pagkatuto',
     en: 'Learning Platform',
+}
+
+const ASSISTED_LABEL: Record<Lang, string> = {
+    fil: 'Para kay',
+    en: 'For',
 }
 
 const EXIT_STRINGS: Record<Lang, { label: string; title: string; text: string; confirm: string }> = {
@@ -38,12 +49,15 @@ export default function AssessmentSessionHeader() {
     const navigate = useNavigate()
     const { theme } = useTheme()
     const { lang } = useLang()
+    const [searchParams] = useSearchParams()
     const et = EXIT_STRINGS[lang]
+    const studentName = searchParams.get('studentName')
+    const isAssisted = !!searchParams.get('studentId')
 
     const handleExit = async () => {
         const confirmed = await showConfirmation(et.title, et.text, theme === 'dark', 'warning', et.confirm)
         if (confirmed) {
-            navigate('/reading/proficiency')
+            navigate(isAssisted ? '/reading/proficiency/assessment' : '/reading/proficiency')
         }
     }
 
@@ -59,6 +73,12 @@ export default function AssessmentSessionHeader() {
                         </div>
                     </div>
                 </div>
+                {isAssisted && studentName && (
+                    <span className="hidden items-center gap-1.5 rounded-full bg-teal-500/15 px-3 py-1 text-xs font-bold text-teal-700 dark:bg-teal-400/15 dark:text-teal-300 sm:flex">
+                        <UserRound size={13} />
+                        {ASSISTED_LABEL[lang]} {studentName}
+                    </span>
+                )}
                 <div className="flex-1" />
                 <button
                     onClick={handleExit}
