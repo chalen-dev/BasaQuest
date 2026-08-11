@@ -1,42 +1,41 @@
 // File: src/hooks/useAuthEntryHint.ts
 import { useEffect, useState } from 'react'
 
-const SWITCH_FLAG_KEY = 'bq_auth_switch_nav'
 const HINT_VISIBLE_MS = 12000
 
 /**
  * Decides whether the "here's what these buttons do" onboarding hints
- * should show on an auth page (Login/Register). Shows on any "fresh"
- * arrival — direct visit, refresh, or landing here right after logout —
- * but NOT when the user got here by clicking the "switch to login/register"
- * link on the other auth page, since that's still the same auth session,
- * not a fresh visit.
+ * should show on an auth page (Login/Register), and exposes a way to
+ * dismiss them early via a close button.
  *
- * How it works: `markAuthSwitchNavigation()` stamps a one-shot
- * sessionStorage flag right before navigating between Login <-> Register.
- * Whichever auth page mounts next checks for that flag — if present, it
- * consumes (removes) it and stays quiet; if absent, it shows the hints
- * (auto-hiding again after HINT_VISIBLE_MS).
+ * Shows on any "fresh" arrival — direct visit, refresh, or landing here
+ * right after logout — but NOT when the user got here by clicking the
+ * "switch to login/register" link on the other auth page, since that's
+ * still the same auth session, not a fresh visit.
+ *
+ * `cameFromSwitch` is passed in by the page, derived from React Router's
+ * `location.state` (set by the page's own "switch to login/register"
+ * handler via `navigate(..., { state: { fromAuthSwitch: true } })`).
+ *
+ * This replaces an earlier sessionStorage-flag version that had a real
+ * bug: React's Strict Mode double-invokes effects in development, so an
+ * effect that both read AND deleted a one-shot sessionStorage flag would
+ * have the flag already consumed by the throwaway first invocation,
+ * making the hint reappear on the "real" second invocation even right
+ * after a switch-navigation. location.state has no such issue since
+ * it's plain data read during render, not a destructive side effect
+ * tied to effect timing.
  */
-export function useAuthEntryHint(): boolean {
-    const [showHint, setShowHint] = useState(false)
+export function useAuthEntryHint(cameFromSwitch: boolean) {
+    const [showHint, setShowHint] = useState(!cameFromSwitch)
 
     useEffect(() => {
-        const cameFromSwitch = sessionStorage.getItem(SWITCH_FLAG_KEY)
-        if (cameFromSwitch) {
-            sessionStorage.removeItem(SWITCH_FLAG_KEY)
-            return
-        }
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setShowHint(true)
+        if (cameFromSwitch) return
         const timer = setTimeout(() => setShowHint(false), HINT_VISIBLE_MS)
         return () => clearTimeout(timer)
-    }, [])
+    }, [cameFromSwitch])
 
-    return showHint
-}
+    const dismissHint = () => setShowHint(false)
 
-/** Call this right before navigating from Login -> Register or Register -> Login. */
-export function markAuthSwitchNavigation() {
-    sessionStorage.setItem(SWITCH_FLAG_KEY, '1')
+    return { showHint, dismissHint }
 }

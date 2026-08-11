@@ -1,8 +1,9 @@
 // File: src/pages/proficiency/MaterialSelection.tsx
 import React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ClipboardCheck } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ClipboardCheck } from 'lucide-react'
 import { Owl } from '../../../components/ui/Owl.tsx'
+import { HomeButton } from '../../../components/buttons/HomeButton.tsx'
 import { useAuth } from '../../../contexts/AuthContext.tsx'
 import { useProfile } from '../../../hooks/useProfile.ts'
 import { useLang } from '../../../contexts/LangContext.tsx'
@@ -42,7 +43,6 @@ const FOUNDATIONALS: Foundational[] = [
     { id: 'letters-en', title: 'Letters & Sounds', subtitle: 'English · Level 1', lang: 'English', scene: 'letters-en', coverColor: '#e8974a' },
 ]
 const STRINGS: Record<Lang, {
-    back: string
     greetingTitle: (name: string) => string
     greetingDesc: string
     preAssessmentKicker: string
@@ -57,7 +57,6 @@ const STRINGS: Record<Lang, {
     minutes: (n: number) => string
 }> = {
     fil: {
-        back: 'Tahanan',
         greetingTitle: (name) => `Magsanay tayo, ${name}!`,
         greetingDesc: 'Piliin ang talatang nais mong pagsanayan. Walang marka dito — tulong lang.',
         preAssessmentKicker: 'Unang Hakbang',
@@ -72,7 +71,6 @@ const STRINGS: Record<Lang, {
         minutes: (n) => `~${n} minuto`,
     },
     en: {
-        back: 'Home',
         greetingTitle: (name) => `Let's practice, ${name}!`,
         greetingDesc: "Pick a passage you'd like to practice. Nothing here is graded — it's just for support.",
         preAssessmentKicker: 'First Step',
@@ -100,13 +98,7 @@ export const MaterialSelection: React.FC = () => {
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
             <div className="mb-4 flex flex-wrap items-center gap-3">
-                <Link
-                    to="/home"
-                    className="flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
-                >
-                    <ArrowLeft size={16} />
-                    {t.back}
-                </Link>
+                <HomeButton />
             </div>
             <section className="relative mb-8 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
                 <div
@@ -116,6 +108,14 @@ export const MaterialSelection: React.FC = () => {
                 <div
                     className="absolute inset-0 hidden dark:block"
                     style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0 dark:hidden"
+                    style={{ background: 'radial-gradient(circle at 88% -20%, rgba(255,198,75,0.4), transparent 55%)' }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0 hidden dark:block"
+                    style={{ background: 'radial-gradient(circle at 88% -20%, rgba(45,212,191,0.28), transparent 55%)' }}
                 />
                 <div className="relative flex flex-col items-center gap-5 sm:flex-row">
                     <Owl mood="greeting" size={72} bob />
@@ -138,7 +138,7 @@ export const MaterialSelection: React.FC = () => {
                 from the material cards below since it isn't a passage pick */}
             <button
                 onClick={() => navigate('/reading/proficiency/assessment')}
-                className="group mb-8 flex w-full cursor-pointer flex-col items-start gap-4 rounded-2xl border-2 border-teal-500/20 bg-teal-500/5 p-6 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-500/40 hover:shadow-md dark:border-teal-400/20 dark:bg-teal-400/5 dark:hover:border-teal-400/40 sm:flex-row sm:items-center sm:justify-between"
+                className="group mb-8 flex w-full cursor-pointer flex-col items-start gap-4 rounded-2xl border-2 border-teal-500/20 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-500/40 hover:shadow-md dark:border-teal-400/20 dark:bg-gray-900 dark:hover:border-teal-400/40 sm:flex-row sm:items-center sm:justify-between"
             >
                 <div className="flex items-center gap-4">
                     <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-500 text-white shadow-[0_4px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]">

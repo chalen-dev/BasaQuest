@@ -1,6 +1,5 @@
 // File: src/pages/students/dashboard/Dashboard.tsx
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Users, Clock, Percent, Gauge, Mic, BookOpen } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import type { Lang } from '../../../components/buttons/LangToggle'
@@ -23,7 +22,6 @@ const DUMMY_ACTIVITY = [
 ]
 
 const STRINGS: Record<Lang, {
-    back: string
     title: string
     subtitle: string
     statTotal: string
@@ -39,7 +37,6 @@ const STRINGS: Record<Lang, {
     gradeLabel: (n: number) => string
 }> = {
     fil: {
-        back: '← Tahanan',
         title: 'Dashboard ng mga Estudyante',
         subtitle: 'Bantayan ang progreso ng iyong mga mag-aaral.',
         statTotal: 'Kabuuang Estudyante',
@@ -55,7 +52,6 @@ const STRINGS: Record<Lang, {
         gradeLabel: (n) => `Baitang ${n}`,
     },
     en: {
-        back: '← Home',
         title: 'Student Dashboard',
         subtitle: "Track your students' progress.",
         statTotal: 'Total Students',
@@ -73,7 +69,6 @@ const STRINGS: Record<Lang, {
 }
 
 export const Dashboard: React.FC = () => {
-    const navigate = useNavigate()
     const { lang } = useLang()
     const t = STRINGS[lang]
 
@@ -86,19 +81,35 @@ export const Dashboard: React.FC = () => {
 
     return (
         <div className="mx-auto max-w-4xl px-4 pb-12 pt-2">
-            <button
-                onClick={() => navigate('/home')}
-                className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-dashed border-gray-900/20 px-4 py-1.5 text-sm font-bold text-gray-600 transition-colors duration-300 hover:bg-gray-900/5 dark:border-gray-100/20 dark:text-gray-300 dark:hover:bg-gray-100/10"
-            >
-                {t.back}
-            </button>
-
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{t.title}</h1>
-            <p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-400">{t.subtitle}</p>
-
-            <div className="mt-4">
+            <div className="mb-4">
                 <StudentsSubNav />
             </div>
+
+            {/* Hero card — same gradient treatment as Home/MaterialSelection,
+                so the title/subtitle sit on a proper panel instead of
+                floating bare over the night-sky backdrop. */}
+            <section className="relative mb-8 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
+                <div
+                    className="absolute inset-0 dark:hidden"
+                    style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }}
+                />
+                <div
+                    className="absolute inset-0 hidden dark:block"
+                    style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0 dark:hidden"
+                    style={{ background: 'radial-gradient(circle at 88% -20%, rgba(255,198,75,0.4), transparent 55%)' }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0 hidden dark:block"
+                    style={{ background: 'radial-gradient(circle at 88% -20%, rgba(45,212,191,0.28), transparent 55%)' }}
+                />
+                <div className="relative">
+                    <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{t.title}</h1>
+                    <p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-400">{t.subtitle}</p>
+                </div>
+            </section>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {stats.map((stat) => {

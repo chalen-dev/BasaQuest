@@ -1,7 +1,6 @@
 // File: src/components/partials/Header.tsx
-// File: src/components/partials/Header.tsx
 import { useState, useRef, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -11,7 +10,10 @@ import { Owl } from '../ui/Owl'
 import { LangToggle, type Lang } from '../buttons/LangToggle'
 import { ThemeToggleButton } from '../buttons/ThemeToggleButton'
 import { showConfirmation, showToast } from '../../helpers/swalHelpers'
-const NAV_ITEMS: Record<Lang, { to: string; label: string }[]> = {
+
+type NavItem = { to: string; label: string; matchPrefixes?: string[] }
+
+const NAV_ITEMS: Record<Lang, NavItem[]> = {
     fil: [
         { to: '/home', label: 'Tahanan' },
         { to: '/reading/proficiency', label: 'Basa nang Malakas' },
@@ -29,6 +31,10 @@ const STUDENT_DASHBOARD_LABEL: Record<Lang, string> = {
     fil: 'Estudyante',
     en: 'Students',
 }
+// The "Students" pill covers two real routes (the dashboard and the roster/
+// CRUD list) — it should stay highlighted on either, not just /dashboard.
+const STUDENTS_MATCH_PREFIXES = ['/dashboard', '/students']
+
 const TAGLINE: Record<Lang, string> = {
     fil: 'Plataporma ng Pagkatuto',
     en: 'Learning Platform',
@@ -47,11 +53,26 @@ const LOGOUT_STRINGS: Record<Lang, { title: string; text: string; confirm: strin
         toast: "You've been logged out. See you soon!",
     },
 }
+
+function isNavItemActive(item: NavItem, pathname: string) {
+    const prefixes = item.matchPrefixes ?? [item.to]
+    return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
+
+function navLinkClass(active: boolean) {
+    return `rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-300 ${
+        active
+            ? 'bg-gray-900 text-white dark:bg-gray-50 dark:text-gray-900'
+            : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
+    }`
+}
+
 export default function Header() {
     const { user, logout } = useAuth()
     const { theme } = useTheme()
     const { lang, setLang } = useLang()
     const { profile } = useProfile()
+    const location = useLocation()
     const [open, setOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
     useEffect(() => {
@@ -66,8 +87,8 @@ export default function Header() {
     const username = (user?.user_metadata?.username as string | undefined) ?? user?.email ?? 'Guest'
     const lt = LOGOUT_STRINGS[lang]
     const isTeacher = profile?.role === 'teacher'
-    const navItems = isTeacher
-        ? [...NAV_ITEMS[lang], { to: '/dashboard', label: STUDENT_DASHBOARD_LABEL[lang] }]
+    const navItems: NavItem[] = isTeacher
+        ? [...NAV_ITEMS[lang], { to: '/dashboard', label: STUDENT_DASHBOARD_LABEL[lang], matchPrefixes: STUDENTS_MATCH_PREFIXES }]
         : NAV_ITEMS[lang]
     const handleLogout = async () => {
         setOpen(false)
@@ -94,13 +115,7 @@ export default function Header() {
                         <NavLink
                             key={item.to}
                             to={item.to}
-                            className={({ isActive }) =>
-                                `rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-300 ${
-                                    isActive
-                                        ? 'bg-gray-900 text-white dark:bg-gray-50 dark:text-gray-900'
-                                        : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
-                                }`
-                            }
+                            className={navLinkClass(isNavItemActive(item, location.pathname))}
                         >
                             {item.label}
                         </NavLink>
@@ -144,13 +159,7 @@ export default function Header() {
                     <NavLink
                         key={item.to}
                         to={item.to}
-                        className={({ isActive }) =>
-                            `rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-300 ${
-                                isActive
-                                    ? 'bg-gray-900 text-white dark:bg-gray-50 dark:text-gray-900'
-                                    : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
-                            }`
-                        }
+                        className={navLinkClass(isNavItemActive(item, location.pathname))}
                     >
                         {item.label}
                     </NavLink>

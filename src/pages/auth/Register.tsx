@@ -1,6 +1,6 @@
 // File: src/pages/auth/Register.tsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Text } from '../../components/input/Text';
 import { Password } from '../../components/input/Password';
@@ -9,7 +9,7 @@ import { AuthHeaderBanner } from './components/AuthHeaderBanner';
 import { AuthTabs } from './components/AuthTabs';
 import { AuthHint } from './components/AuthHint';
 import { LangToggle, type Lang } from '../../components/buttons/LangToggle';
-import { useAuthEntryHint, markAuthSwitchNavigation } from '../../hooks/useAuthEntryHint';
+import { useAuthEntryHint } from '../../hooks/useAuthEntryHint';
 
 const STRINGS: Record<Lang, {
     welcome: string
@@ -64,6 +64,7 @@ const STRINGS: Record<Lang, {
 export const Register: React.FC = () => {
     const { signUp } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [lang, setLang] = useState<Lang>('fil');
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
@@ -72,7 +73,8 @@ export const Register: React.FC = () => {
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const t = STRINGS[lang];
-    const showHint = useAuthEntryHint();
+    const cameFromSwitch = Boolean((location.state as { fromAuthSwitch?: boolean } | null)?.fromAuthSwitch)
+    const { showHint, dismissHint } = useAuthEntryHint(cameFromSwitch);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -93,16 +95,15 @@ export const Register: React.FC = () => {
     };
 
     const goToLogin = () => {
-        markAuthSwitchNavigation();
-        navigate('/login');
+        navigate('/login', { state: { fromAuthSwitch: true } });
     };
 
     return (
         <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-6">
             <ThemeToggleButton className="absolute left-4 top-4 z-10" />
             <LangToggle lang={lang} onChange={setLang} className="absolute right-4 top-4 z-10" />
-            {showHint && <AuthHint side="left" text={t.hintTheme} />}
-            {showHint && <AuthHint side="right" text={t.hintLang} />}
+            {showHint && <AuthHint side="left" text={t.hintTheme} onClose={dismissHint} />}
+            {showHint && <AuthHint side="right" text={t.hintLang} onClose={dismissHint} />}
             <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-gray-900/5 bg-white shadow-xl transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900">
                 <AuthHeaderBanner />
                 <div className="px-6 pb-6 pt-5">
