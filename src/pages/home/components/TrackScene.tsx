@@ -1,6 +1,6 @@
-
+// File: src/pages/home/components/TrackScene.tsx
 import React from 'react'
-type SceneName = 'history' | 'proficiency' | 'comprehension'
+type SceneName = 'history' | 'proficiency' | 'comprehension' | 'students'
 interface TrackSceneProps {
     name: SceneName
     className?: string
@@ -119,6 +119,21 @@ const IdeaBubble: React.FC<{ x: number; y: number; r: number; delay: string; tai
             <circle cx={tailDir * r * 0.9} cy={r * 1.1} r={r * 0.28} fill="#fff" opacity="0.9" />
             <circle cx={tailDir * r * 1.3} cy={r * 1.55} r={r * 0.16} fill="#fff" opacity="0.85" />
             {children}
+        </g>
+    </g>
+)
+/** A single simple student figure — round head, trapezoid body, tiny dot
+ * eyes and a small smile — used in threes for the teacher-facing "students"
+ * scene. Wrapped in its own float so each one bobs slightly out of sync
+ * with its neighbors, like a small class standing together. */
+const StudentFigure: React.FC<{ x: number; color: string; delay: string; scale?: number }> = ({ x, color, delay, scale = 1 }) => (
+    <g transform={`translate(${x} 92) scale(${scale})`}>
+        <g className="animate-float-slow" style={{ ...box, animationDelay: delay }}>
+            <path d="M-13 40 Q-13 18 0 18 Q13 18 13 40 Z" fill={color} />
+            <circle cy="4" r="11" fill={color} />
+            <circle cx="-3.5" cy="2" r="1.6" fill="#1a1030" opacity="0.8" />
+            <circle cx="3.5" cy="2" r="1.6" fill="#1a1030" opacity="0.8" />
+            <path d="M-3 8 Q0 10.5 3 8" stroke="#1a1030" strokeWidth="1.3" fill="none" strokeLinecap="round" opacity="0.8" />
         </g>
     </g>
 )
@@ -347,5 +362,57 @@ const SCENES: Record<SceneName, () => React.ReactNode> = {
             </IdeaBubble>
         </>
     ),
+    students: () => {
+        const FIGURE_COLORS = ['#fb923c', '#2dd4bf', '#38bdf8']
+        const FIGURE_X = [160, 200, 240]
+        const FIGURE_DELAYS = ['0s', '0.3s', '0.6s']
+        const FIGURE_SCALES = [0.85, 1, 0.85]
+        return (
+            <>
+                <defs>
+                    <linearGradient id="studentsWall" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#334155" />
+                        <stop offset="100%" stopColor="#0f172a" />
+                    </linearGradient>
+                </defs>
+                <rect width="400" height="150" fill="url(#studentsWall)" />
+                {/* faint graph-paper grid, hinting at the dashboard underneath
+                    without turning the whole scene into a literal chart */}
+                <g stroke="#fff" opacity="0.05">
+                    <path d="M0 38 H400 M0 74 H400 M0 110 H400" strokeWidth="1" />
+                    <path d="M80 0 V150 M160 0 V150 M240 0 V150 M320 0 V150" strokeWidth="1" />
+                </g>
+                {/* glow accent, top-right — same corner treatment as the sun/moon on
+                    the other three scenes, keeping the card family visually consistent */}
+                <g transform="translate(348 26)">
+                    <circle r="20" fill="#2dd4bf" opacity="0.25" className="animate-glow-pulse" style={box} />
+                    <circle r="11" fill="#5eead4" opacity="0.85" />
+                </g>
+                {/* faint rising trend line behind the group — ties the scene back
+                    to "progress over time" without drawing a literal bar chart */}
+                <polyline
+                    points="30,120 110,104 190,112 270,86 370,64"
+                    fill="none"
+                    stroke="#5eead4"
+                    strokeWidth="2"
+                    strokeDasharray="5 5"
+                    opacity="0.35"
+                    strokeLinecap="round"
+                />
+                <line x1="20" y1="132" x2="380" y2="132" stroke="#fff" strokeWidth="1.5" opacity="0.15" />
+                {/* three simple student figures — the "class" this dashboard
+                    tracks, colored to echo the three track cards above (orange,
+                    teal, sky), each bobbing slightly out of sync */}
+                {FIGURE_X.map((x, i) => (
+                    <StudentFigure key={i} x={x} color={FIGURE_COLORS[i]} delay={FIGURE_DELAYS[i]} scale={FIGURE_SCALES[i]} />
+                ))}
+                {/* small floating checklist bubble above the group — same bubble
+                    language as the comprehension scene's idea bubbles */}
+                <IdeaBubble x={296} y={46} r={14} delay="0.4s" tailDir={-1}>
+                    <path d="M-4.5 0 l3 3.5 6.5 -7.5" stroke="#0f766e" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </IdeaBubble>
+            </>
+        )
+    },
 }
 export default TrackScene

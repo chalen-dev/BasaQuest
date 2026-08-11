@@ -1,25 +1,23 @@
 // File: src/App.tsx
-
+// File: src/App.tsx
 import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom"
 import './App.css'
 import {GuestRoute, ProtectedRoute} from "./components/routes/AuthRoutes.tsx";
 import Login from "./pages/auth/Login.tsx";
-import { Dashboard } from "./pages/dashboard/Dashboard.tsx";
+import { Dashboard } from "./pages/students/dashboard/Dashboard.tsx";
+import { StudentList } from "./pages/students/list/StudentList.tsx";
 import Register from "./pages/auth/Register.tsx";
 import {Home} from "./pages/home/Home.tsx";
-import DashboardLayout from "./layouts/DashboardLayout.tsx";
+import ProtectedLayout from "./layouts/ProtectedLayout.tsx";
 import PersistentBackdropLayout from "./layouts/PersistentBackdropLayout.tsx";
 import AssessmentSessionLayout from "./layouts/AssessmentSessionLayout.tsx";
 import MaterialSelection from "./pages/proficiency/material_selection/MaterialSelection.tsx";
 import PreAssessment from "./pages/proficiency/pre_assessment/PreAssessment.tsx";
 import AssessmentSession from "./pages/proficiency/pre_assessment/AssessmentSession.tsx";
-
 function App() {
-
     return (
         <BrowserRouter>
             <Routes>
-
                 {/*Guest Routes — PersistentBackdropLayout stays mounted across
                 /login <-> /register navigation, so its HillsideBackdrop
                 (and its CSS animations) never unmounts/remounts between
@@ -30,15 +28,15 @@ function App() {
                         <Route path="/register" element={<Register />}/>
                     </Route>
                 </Route>
-
                 {/*Authenticated Routes — PersistentBackdropLayout stays mounted
                 across /dashboard, /home, /reading/proficiency, etc., same as
                 the guest routes above, so its HillsideBackdrop persists
                 across navigation within this group too */}
                 <Route element = {<ProtectedRoute />}>
                     <Route element = {<PersistentBackdropLayout />}>
-                        <Route element = {<DashboardLayout />}>
+                        <Route element = {<ProtectedLayout />}>
                             <Route path="/dashboard" element={<Dashboard />}/>
+                            <Route path="/students" element={<StudentList />}/>
                             <Route path="/home" element={<Home />}/>
                             <Route path="/reading/proficiency" element={<MaterialSelection />}/>
                             <Route path="/reading/proficiency/assessment" element={<PreAssessment />}/>
@@ -53,7 +51,6 @@ function App() {
                         </Route>
                     </Route>
                 </Route>
-
                 {/* Catch */}
                 <Route path="*"
                        element={<Navigate to="/login" replace/> }
@@ -62,5 +59,4 @@ function App() {
         </BrowserRouter>
     )
 }
-
 export default App

@@ -1,4 +1,3 @@
-// File: src/pages/auth/Login.tsx
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Password } from '../../components/input/Password.tsx'
@@ -10,7 +9,6 @@ import { AuthTabs } from './components/AuthTabs.tsx'
 import { AuthHint } from './components/AuthHint.tsx'
 import { LangToggle, type Lang } from '../../components/buttons/LangToggle.tsx'
 import { useAuthEntryHint, markAuthSwitchNavigation } from '../../hooks/useAuthEntryHint.ts'
-
 const STRINGS: Record<Lang, {
     welcome: string
     tagline: string
@@ -22,7 +20,8 @@ const STRINGS: Record<Lang, {
     submit: string
     submitting: string
     noAccount: string
-    demoHint: string
+    demoHintTeacher: string
+    demoHintStudent: string
     hintTheme: string
     hintLang: string
 }> = {
@@ -37,7 +36,8 @@ const STRINGS: Record<Lang, {
         submit: 'Mag-login',
         submitting: 'Nagla-login...',
         noAccount: 'Walang account? Gumawa ng bago',
-        demoHint: 'Demo: username: guro  — password: basaquest',
+        demoHintTeacher: 'Guro: guro — password: basaquest',
+        demoHintStudent: 'Estudyante: ella — password: basaquest',
         hintTheme: 'Pindutin dito para sa araw o gabi! ✨',
         hintLang: 'Piliin ang wika mo dito! 🌐',
     },
@@ -52,12 +52,12 @@ const STRINGS: Record<Lang, {
         submit: 'Log in',
         submitting: 'Logging in...',
         noAccount: "Don't have an account? Create one",
-        demoHint: 'Demo: username: guro  — password: basaquest',
+        demoHintTeacher: 'Teacher: guro — password: basaquest',
+        demoHintStudent: 'Student: ella — password: basaquest',
         hintTheme: 'Tap here for day or night! ✨',
         hintLang: 'Pick your language here! 🌐',
     },
 }
-
 export default function Login() {
     const { login } = useAuth()
     const navigate = useNavigate()
@@ -68,7 +68,6 @@ export default function Login() {
     const [submitting, setSubmitting] = useState(false)
     const t = STRINGS[lang]
     const showHint = useAuthEntryHint()
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
@@ -82,12 +81,10 @@ export default function Login() {
             setSubmitting(false)
         }
     }
-
     const goToRegister = () => {
         markAuthSwitchNavigation()
         navigate('/register')
     }
-
     return (
         <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-6">
             <ThemeToggleButton className="absolute left-4 top-4 z-10" />
@@ -136,8 +133,9 @@ export default function Login() {
                     >
                         {t.noAccount}
                     </button>
-                    <div className="mt-4 rounded-2xl border-2 border-dashed border-gray-300 px-3 py-2.5 text-center text-xs font-semibold text-gray-500 transition-colors duration-300 dark:border-gray-700 dark:text-gray-400">
-                        {t.demoHint}
+                    <div className="mt-4 space-y-1 rounded-2xl border-2 border-dashed border-gray-300 px-3 py-2.5 text-center text-xs font-semibold text-gray-500 transition-colors duration-300 dark:border-gray-700 dark:text-gray-400">
+                        <div>{t.demoHintTeacher}</div>
+                        <div>{t.demoHintStudent}</div>
                     </div>
                 </div>
             </div>

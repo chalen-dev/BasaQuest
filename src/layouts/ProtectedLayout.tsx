@@ -15,7 +15,7 @@
 // content doesn't start out hidden underneath it.
 import { Outlet } from 'react-router-dom'
 import Header from "../components/partials/Header.tsx";
-export default function DashboardLayout() {
+export default function ProtectedLayout() {
     return (
         <div className="flex min-h-screen flex-col bg-orange-50 transition-colors duration-300 dark:bg-gray-950">
             <Header />

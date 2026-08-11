@@ -1,10 +1,12 @@
 // File: src/components/partials/Header.tsx
+// File: src/components/partials/Header.tsx
 import { useState, useRef, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useLang } from '../../contexts/LangContext'
+import { useProfile } from '../../hooks/useProfile'
 import { Owl } from '../ui/Owl'
 import { LangToggle, type Lang } from '../buttons/LangToggle'
 import { ThemeToggleButton } from '../buttons/ThemeToggleButton'
@@ -22,6 +24,10 @@ const NAV_ITEMS: Record<Lang, { to: string; label: string }[]> = {
         { to: '/reading/comprehension', label: 'Comprehension' },
         { to: '/history', label: 'History' },
     ],
+}
+const STUDENT_DASHBOARD_LABEL: Record<Lang, string> = {
+    fil: 'Estudyante',
+    en: 'Students',
 }
 const TAGLINE: Record<Lang, string> = {
     fil: 'Plataporma ng Pagkatuto',
@@ -45,6 +51,7 @@ export default function Header() {
     const { user, logout } = useAuth()
     const { theme } = useTheme()
     const { lang, setLang } = useLang()
+    const { profile } = useProfile()
     const [open, setOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
     useEffect(() => {
@@ -58,6 +65,10 @@ export default function Header() {
     }, [])
     const username = (user?.user_metadata?.username as string | undefined) ?? user?.email ?? 'Guest'
     const lt = LOGOUT_STRINGS[lang]
+    const isTeacher = profile?.role === 'teacher'
+    const navItems = isTeacher
+        ? [...NAV_ITEMS[lang], { to: '/dashboard', label: STUDENT_DASHBOARD_LABEL[lang] }]
+        : NAV_ITEMS[lang]
     const handleLogout = async () => {
         setOpen(false)
         const confirmed = await showConfirmation(lt.title, lt.text, theme === 'dark', 'warning', lt.confirm)
@@ -79,7 +90,7 @@ export default function Header() {
                     </div>
                 </NavLink>
                 <nav className="hidden flex-1 items-center gap-2 pl-4 lg:flex">
-                    {NAV_ITEMS[lang].map((item) => (
+                    {navItems.map((item) => (
                         <NavLink
                             key={item.to}
                             to={item.to}
@@ -129,7 +140,7 @@ export default function Header() {
                 <ThemeToggleButton />
             </div>
             <nav className="mx-auto flex max-w-6xl flex-wrap gap-2 px-4 pb-3 lg:hidden">
-                {NAV_ITEMS[lang].map((item) => (
+                {navItems.map((item) => (
                     <NavLink
                         key={item.to}
                         to={item.to}

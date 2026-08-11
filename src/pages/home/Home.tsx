@@ -1,8 +1,10 @@
+
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Shield, Mic, BookOpen, BarChart3, ArrowRight } from 'lucide-react'
 import { Owl } from '../../components/ui/Owl.tsx'
 import { useLang } from '../../contexts/LangContext'
+import { useProfile } from '../../hooks/useProfile.ts'
 import type { Lang } from '../../components/buttons/LangToggle'
 import { TrackScene } from './components/TrackScene'
 const TRACK_META = [
@@ -17,7 +19,8 @@ const STRINGS: Record<Lang, {
     pickTrack: string
     enter: string
     tracks: Record<'history' | 'proficiency' | 'comprehension', { kicker: string; title: string; desc: string; tag: string; badge: string }>
-    teacherSection: { kicker: string; title: string; desc: string; cta: string }
+    teacherHeading: string
+    teacherSection: { kicker: string; title: string; desc: string; tag: string; badge: string; cta: string }
 }> = {
     fil: {
         schoolTag: 'Sto. Niño Elementary School · Carmen, Davao del Norte',
@@ -48,11 +51,14 @@ const STRINGS: Record<Lang, {
                 badge: 'Preview',
             },
         },
+        teacherHeading: 'Para sa mga guro',
         teacherSection: {
             kicker: 'Para sa mga guro',
-            title: 'Analytics Dashboard',
+            title: 'Dashboard ng mga Estudyante',
             desc: 'Tingnan ang progreso ng klase, mga iskor, at insight sa bawat mag-aaral — hindi ito isang learning track.',
-            cta: 'Buksan ang dashboard',
+            tag: 'Guro lamang',
+            badge: 'Dashboard',
+            cta: 'Buksan',
         },
     },
     en: {
@@ -84,11 +90,14 @@ const STRINGS: Record<Lang, {
                 badge: 'Preview',
             },
         },
+        teacherHeading: 'For teachers',
         teacherSection: {
             kicker: 'For teachers',
-            title: 'Student Analytics Dashboard',
+            title: 'Student Dashboard',
             desc: "See class progress, scores, and insights across your students — this isn't a learning track.",
-            cta: 'Open dashboard',
+            tag: 'Teachers only',
+            badge: 'Dashboard',
+            cta: 'Open',
         },
     },
 }
@@ -108,11 +117,18 @@ const COLOR_CLASSES: Record<string, { badge: string; icon: string; button: strin
         icon: 'text-sky-600',
         button: 'bg-sky-500 shadow-[0_4px_0_0_#0369a1] active:shadow-[0_1px_0_0_#0369a1] dark:bg-sky-600 dark:shadow-[0_4px_0_0_#075985]',
     },
+    slate: {
+        badge: 'bg-white/90 text-gray-700',
+        icon: 'text-slate-200',
+        button: 'bg-slate-700 shadow-[0_4px_0_0_#334155] active:shadow-[0_1px_0_0_#334155] dark:bg-slate-600 dark:shadow-[0_4px_0_0_#1e293b]',
+    },
 }
 export const Home: React.FC = () => {
     const navigate = useNavigate()
     const { lang } = useLang()
+    const { profile } = useProfile()
     const t = STRINGS[lang]
+    const isTeacher = profile?.role === 'teacher'
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
             <section className="relative mb-8 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
@@ -185,27 +201,44 @@ export const Home: React.FC = () => {
                     )
                 })}
             </div>
-            <button
-                onClick={() => navigate('/dashboard')}
-                className="group mt-8 flex w-full cursor-pointer flex-col items-start gap-4 rounded-2xl border-2 border-dashed border-gray-900/15 bg-gray-900/[0.03] p-6 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-900/25 hover:bg-gray-900/5 dark:border-gray-100/15 dark:bg-gray-100/[0.03] dark:hover:border-gray-100/25 dark:hover:bg-gray-100/5 sm:flex-row sm:items-center sm:justify-between"
-            >
-                <div className="flex items-center gap-4">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-900/10 text-gray-700 dark:bg-gray-100/10 dark:text-gray-200">
-                        <BarChart3 size={22} />
-                    </span>
-                    <div>
-                        <span className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            {t.teacherSection.kicker}
-                        </span>
-                        <h3 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.teacherSection.title}</h3>
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{t.teacherSection.desc}</p>
+            {/* Teacher-only row — same book-card shape as the tracks above,
+                its own row below since it isn't a reading track. Only
+                rendered for role === 'teacher'; students never see this. */}
+            {isTeacher && (
+                <>
+                    <h2 className="mb-4 mt-10 text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.teacherHeading}</h2>
+                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <button
+                            onClick={() => navigate('/dashboard')}
+                            className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border-2 border-gray-900/5 bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-gray-900/10 hover:shadow-xl active:translate-y-0 active:shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-gray-100/20"
+                        >
+                            <div className="relative h-32 overflow-hidden">
+                                <TrackScene name="students" className="absolute inset-0 h-full w-full" />
+                                <span className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 shadow-sm transition-transform duration-200 group-hover:scale-110">
+                                    <BarChart3 size={22} className="text-slate-700" />
+                                </span>
+                                <span className={`absolute right-3 top-3 rounded-full px-3 py-1 text-xs font-bold ${COLOR_CLASSES.slate.badge}`}>
+                                    {t.teacherSection.badge}
+                                </span>
+                            </div>
+                            <div className="flex flex-1 flex-col gap-2 p-5">
+                                <span className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    {t.teacherSection.kicker}
+                                </span>
+                                <h3 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.teacherSection.title}</h3>
+                                <p className="flex-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{t.teacherSection.desc}</p>
+                                <span className="mb-2 inline-block w-fit rounded-full bg-gray-900/5 px-3 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                    {t.teacherSection.tag}
+                                </span>
+                                <span className={`flex w-fit items-center gap-1.5 rounded-full px-5 py-2 text-sm font-bold text-white transition-[transform,box-shadow] duration-150 group-hover:translate-x-1 ${COLOR_CLASSES.slate.button}`}>
+                                    {t.teacherSection.cta}
+                                    <ArrowRight size={16} />
+                                </span>
+                            </div>
+                        </button>
                     </div>
-                </div>
-                <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-900/15 px-4 py-2 text-sm font-bold text-gray-700 transition-transform duration-150 group-hover:translate-x-1 dark:border-gray-100/15 dark:text-gray-200">
-                    {t.teacherSection.cta}
-                    <ArrowRight size={16} />
-                </span>
-            </button>
+                </>
+            )}
         </div>
     )
 }

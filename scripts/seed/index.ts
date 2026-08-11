@@ -1,8 +1,10 @@
 import { seedUsers } from './users.seeder.ts'
+import {seedStudents} from "./students.seeder.js";
 
 async function run() {
-    // order matters — same rule as Laravel: seed parents before children
+
     await seedUsers()
+    await seedStudents()
 
     console.log('✅ All seeders complete.')
     process.exit(0)
