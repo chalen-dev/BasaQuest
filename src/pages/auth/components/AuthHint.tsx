@@ -12,16 +12,21 @@ interface AuthHintProps {
  * Playful speech-bubble callout pointing up at a corner button (the theme
  * toggle or language toggle), used to onboard first-time/returning
  * visitors on the auth pages. Rendered inside GuestHeader, nested in a
- * small `relative` wrapper right next to its button — `top-full mt-2`
- * anchors it directly beneath that wrapper regardless of where the
- * header itself sits on the page, rather than assuming a fixed page-wide
- * offset. `side="left"` = theme toggle, `side="right"` = language toggle.
+ * small `relative` wrapper right next to its button.
+ *
+ * IMPORTANT: this bubble is `absolute` with only one side offset set, so
+ * without an explicit width the browser's shrink-to-fit algorithm bases
+ * its width on the nearest positioned ancestor (the tiny per-button
+ * wrapper in GuestHeader, ~56px wide) instead of on its own text content —
+ * that's what caused the severe word-per-line wrapping. `w-max` forces it
+ * to size off its own content instead, with `max-w-[220px]` still capping
+ * it so long strings wrap sanely rather than forming a single long line.
  */
 export const AuthHint: React.FC<AuthHintProps> = ({ side, text, onClose }) => {
     const sideClass = side === 'left' ? 'left-0' : 'right-0'
     const tailSideClass = side === 'left' ? 'left-3' : 'right-5'
     return (
-        <div className={`absolute top-full z-20 mt-2 max-w-[220px] animate-hint-pop ${sideClass}`}>
+        <div className={`absolute top-full z-20 mt-2 w-max max-w-[220px] animate-hint-pop ${sideClass}`}>
             <div className="relative animate-hint-wiggle rounded-2xl border-2 border-orange-200 bg-white py-3 pl-4 pr-8 font-kid text-[15px] font-semibold leading-snug text-orange-700 shadow-lg transition-colors duration-300 dark:border-amber-400 dark:bg-slate-800 dark:text-amber-200">
                 {text}
                 {onClose && (

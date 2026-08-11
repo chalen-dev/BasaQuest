@@ -19,15 +19,22 @@ interface GuestHeaderProps {
 // what put the theme button in a weird spot before). Rendered once by
 // GuestLayout, above <Outlet/>, so it's shared across /login and
 // /register rather than duplicated in each page component.
+//
+// Each toggle sits inside a small frosted "chip" (translucent background +
+// blur + ring + shadow) rather than directly on the hillside backdrop —
+// the art behind the header varies a lot in brightness/color, so a bare
+// button could lose contrast depending on what's behind it. The chip gives
+// both toggles a consistent, always-readable backing regardless of the
+// scenery.
 export const GuestHeader: React.FC<GuestHeaderProps> = ({ showHint, onDismissHint, hintThemeText, hintLangText }) => {
     const { lang, setLang } = useLang()
     return (
         <div className="relative z-20 flex items-center justify-between p-4">
-            <div className="relative">
+            <div className="relative rounded-full bg-white/80 p-1 shadow-md ring-1 ring-black/5 backdrop-blur-sm transition-colors duration-300 dark:bg-slate-800/80 dark:ring-white/10">
                 <ThemeToggleButton />
                 {showHint && hintThemeText && <AuthHint side="left" text={hintThemeText} onClose={onDismissHint} />}
             </div>
-            <div className="relative">
+            <div className="relative rounded-full bg-white/80 p-1 shadow-md ring-1 ring-black/5 backdrop-blur-sm transition-colors duration-300 dark:bg-slate-800/80 dark:ring-white/10">
                 <LangToggle lang={lang} onChange={setLang} />
                 {showHint && hintLangText && <AuthHint side="right" text={hintLangText} onClose={onDismissHint} />}
             </div>
