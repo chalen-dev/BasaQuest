@@ -1,15 +1,13 @@
 // File: src/pages/auth/Register.tsx
 import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLang } from '../../contexts/LangContext';
 import { Text } from '../../components/input/Text';
 import { Password } from '../../components/input/Password';
-import { ThemeToggleButton } from '../../components/buttons/ThemeToggleButton';
 import { AuthHeaderBanner } from './components/AuthHeaderBanner';
 import { AuthTabs } from './components/AuthTabs';
-import { AuthHint } from './components/AuthHint';
-import { LangToggle, type Lang } from '../../components/buttons/LangToggle';
-import { useAuthEntryHint } from '../../hooks/useAuthEntryHint';
+import type { Lang } from '../../components/buttons/LangToggle';
 
 const STRINGS: Record<Lang, {
     welcome: string
@@ -24,8 +22,6 @@ const STRINGS: Record<Lang, {
     submitting: string
     haveAccount: string
     mismatch: string
-    hintTheme: string
-    hintLang: string
 }> = {
     fil: {
         welcome: 'Gumawa ng account',
@@ -40,8 +36,6 @@ const STRINGS: Record<Lang, {
         submitting: 'Ginagawa ang account...',
         haveAccount: 'May account na? Mag-login',
         mismatch: 'Hindi magkatugma ang password',
-        hintTheme: 'Pindutin dito para sa araw o gabi! ✨',
-        hintLang: 'Piliin ang wika mo dito! 🌐',
     },
     en: {
         welcome: 'Create your account',
@@ -56,16 +50,13 @@ const STRINGS: Record<Lang, {
         submitting: 'Creating account...',
         haveAccount: 'Already have an account? Log in',
         mismatch: 'Passwords do not match',
-        hintTheme: 'Tap here for day or night! ✨',
-        hintLang: 'Pick your language here! 🌐',
     },
 }
 
 export const Register: React.FC = () => {
     const { signUp } = useAuth();
+    const { lang } = useLang();
     const navigate = useNavigate();
-    const location = useLocation();
-    const [lang, setLang] = useState<Lang>('fil');
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -73,8 +64,6 @@ export const Register: React.FC = () => {
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const t = STRINGS[lang];
-    const cameFromSwitch = Boolean((location.state as { fromAuthSwitch?: boolean } | null)?.fromAuthSwitch)
-    const { showHint, dismissHint } = useAuthEntryHint(cameFromSwitch);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -99,11 +88,7 @@ export const Register: React.FC = () => {
     };
 
     return (
-        <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-6">
-            <ThemeToggleButton className="absolute left-4 top-4 z-10" />
-            <LangToggle lang={lang} onChange={setLang} className="absolute right-4 top-4 z-10" />
-            {showHint && <AuthHint side="left" text={t.hintTheme} onClose={dismissHint} />}
-            {showHint && <AuthHint side="right" text={t.hintLang} onClose={dismissHint} />}
+        <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-6">
             <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-gray-900/5 bg-white shadow-xl transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900">
                 <AuthHeaderBanner />
                 <div className="px-6 pb-6 pt-5">

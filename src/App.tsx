@@ -1,5 +1,4 @@
 // File: src/App.tsx
-// File: src/App.tsx
 import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom"
 import './App.css'
 import {GuestRoute, ProtectedRoute} from "./components/routes/AuthRoutes.tsx";
@@ -10,28 +9,40 @@ import Register from "./pages/auth/Register.tsx";
 import {Home} from "./pages/home/Home.tsx";
 import ProtectedLayout from "./layouts/ProtectedLayout.tsx";
 import PersistentBackdropLayout from "./layouts/PersistentBackdropLayout.tsx";
+import GuestLayout from "./layouts/GuestLayout.tsx";
 import AssessmentSessionLayout from "./layouts/AssessmentSessionLayout.tsx";
 import MaterialSelection from "./pages/proficiency/material_selection/MaterialSelection.tsx";
 import PreAssessment from "./pages/proficiency/pre_assessment/PreAssessment.tsx";
 import AssessmentSession from "./pages/proficiency/pre_assessment/AssessmentSession.tsx";
+import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
+import { useSessionPresence } from "./hooks/useSessionPresence.ts";
+
 function App() {
+    // Mounted here — above <Routes>, not inside any particular layout —
+    // so it's active on every route a logged-in student could be on,
+    // including /reading/proficiency/assessment/session which uses
+    // AssessmentSessionLayout, a sibling of ProtectedLayout rather than a
+    // child of it. It no-ops entirely for non-student accounts.
+    useSessionPresence()
+
     return (
         <BrowserRouter>
             <Routes>
-                {/*Guest Routes — PersistentBackdropLayout stays mounted across
-                /login <-> /register navigation, so its HillsideBackdrop
-                (and its CSS animations) never unmounts/remounts between
-                the two auth screens */}
+                {/*Guest Routes — GuestLayout owns the backdrop, the bare
+                theme/language toggle header, and the onboarding hints, and
+                stays mounted across /login <-> /register navigation so its
+                HillsideBackdrop (and its CSS animations) never
+                unmounts/remounts between the two auth screens */}
                 <Route element = {<GuestRoute />}>
-                    <Route element = {<PersistentBackdropLayout />}>
+                    <Route element = {<GuestLayout />}>
                         <Route path="/login" element={<Login />}/>
                         <Route path="/register" element={<Register />}/>
                     </Route>
                 </Route>
                 {/*Authenticated Routes — PersistentBackdropLayout stays mounted
-                across /dashboard, /home, /reading/proficiency, etc., same as
-                the guest routes above, so its HillsideBackdrop persists
-                across navigation within this group too */}
+                across /dashboard, /home, /reading/proficiency, etc., so its
+                HillsideBackdrop persists across navigation within this
+                group too */}
                 <Route element = {<ProtectedRoute />}>
                     <Route element = {<PersistentBackdropLayout />}>
                         <Route element = {<ProtectedLayout />}>
@@ -51,6 +62,10 @@ function App() {
                         </Route>
                     </Route>
                 </Route>
+                {/* Bridge tab for "log in as this student" — deliberately
+                outside both GuestRoute and ProtectedRoute, since this tab
+                starts unauthenticated until the token is redeemed. */}
+                <Route path="/student-session" element={<StudentSessionBridge />}/>
                 {/* Catch */}
                 <Route path="*"
                        element={<Navigate to="/login" replace/> }

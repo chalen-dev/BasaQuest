@@ -9,11 +9,29 @@ if (!supabaseUrl || !supabaseAnonKey) {
     )
 }
 
+// "Log in as this pupil" (StudentList) opens a brand-new tab that lands on
+// /student-session before anything else in the app runs. Because this file
+// is a module-level singleton, a new tab means it gets re-evaluated from
+// scratch in its own JS context — so we can decide, once, right here,
+// whether THIS tab's client persists its session to the normal shared
+// localStorage (every regular tab, unchanged) or to sessionStorage under a
+// separate key (only a tab opened specifically to view a pupil's account
+// as them). sessionStorage is scoped to a single tab by the browser, so a
+// pupil session opened this way can never leak into or overwrite the
+// teacher's own session in whatever tab they started from.
+const isStudentSessionTab = window.location.pathname.startsWith('/student-session')
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true,
+        // The student-session tab redeems its token manually via
+        // verifyOtp rather than Supabase's automatic URL-fragment
+        // detection, so that behavior is switched off for it.
+        detectSessionInUrl: !isStudentSessionTab,
+        ...(isStudentSessionTab
+            ? { storage: window.sessionStorage, storageKey: 'basaquest-student-session-auth' }
+            : {}),
     },
 })
 

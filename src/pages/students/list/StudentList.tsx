@@ -1,45 +1,34 @@
+// File: src/pages/students/list/StudentList.tsx
 import React, { useEffect, useState } from 'react'
-import { Plus, UserRound, UserPlus, Pencil, Trash2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { useProfile } from '../../../hooks/useProfile'
-import { Text } from '../../../components/input/Text'
-import { Password } from '../../../components/input/Password'
-import { SearchInput } from '../../../components/input/SearchInput'
-import { Select } from '../../../components/input/Select'
+import { useTeacherPresence } from '../../../hooks/useTeacherPresence'
+import { supabase } from '../../../lib/supabaseClient'
 import { Pagination } from '../../../components/ui/Pagination'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { StudentsSubNav } from '../components/StudentsSubNav'
+import { StudentFilters } from './features/StudentFilters.tsx'
+import { StudentForm } from './features/StudentForm.tsx'
+import { StudentRow } from './features/StudentRow.tsx'
 import {
     PAGE_SIZE,
+    EMPTY_FORM,
     useCreateStudentMutation,
     useDeleteStudentMutation,
+    useForceLogoutStudentMutation,
     useStudentsQuery,
+    useToggleStudentStatusMutation,
     useUpdateStudentMutation,
+    type OnlineFilter,
+    type ReaderFilter,
     type SortOption,
-    type StudentRow,
+    type StatusFilter,
+    type FormState,
+    type StudentRow as StudentRowData,
 } from './hooks'
-
-type FormState = {
-    username: string
-    fullName: string
-    password: string
-    gradeLevel: string
-    section: string
-    isNonReader: boolean
-}
-
-const EMPTY_FORM: FormState = {
-    username: '',
-    fullName: '',
-    password: '',
-    gradeLevel: '',
-    section: '',
-    isNonReader: false,
-}
-
-const GRADE_OPTIONS = [1, 2, 3, 4, 5, 6]
 
 const STRINGS: Record<Lang, {
     title: string
@@ -59,6 +48,18 @@ const STRINGS: Record<Lang, {
     sortGradeDesc: string
     gradeFilterLabel: string
     gradeFilterAll: string
+    readerFilterLabel: string
+    readerFilterAll: string
+    readerFilterReaders: string
+    readerFilterNonReaders: string
+    statusFilterLabel: string
+    statusFilterEnabled: string
+    statusFilterDisabled: string
+    statusFilterAll: string
+    onlineFilterLabel: string
+    onlineFilterAll: string
+    onlineFilterOnline: string
+    onlineFilterOffline: string
     resultsCount: (n: number) => string
     gradeLabel: (n: number) => string
     nonReader: string
@@ -89,6 +90,31 @@ const STRINGS: Record<Lang, {
     deleteConfirmButton: string
     deletedToast: string
     deleteErrorGeneric: string
+    loginAsAria: string
+    loginAsErrorGeneric: string
+    disableAria: string
+    enableAria: string
+    disabledBadge: string
+    disableConfirmTitle: string
+    disableConfirmText: (name: string) => string
+    disableConfirmButton: string
+    disabledToast: string
+    enabledToast: string
+    toggleErrorGeneric: string
+    quickLoginAs: string
+    quickEnable: string
+    quickDisable: string
+    quickDelete: string
+    quickForceLogout: string
+    onlineLabel: string
+    offlineLabel: string
+    forceLogoutAria: string
+    forceLogoutConfirmTitle: string
+    forceLogoutConfirmText: (name: string) => string
+    forceLogoutConfirmButton: string
+    forceLogoutOnlineToast: string
+    forceLogoutOfflineToast: string
+    forceLogoutErrorGeneric: string
 }> = {
     fil: {
         title: 'Listahan ng mga Estudyante',
@@ -108,6 +134,18 @@ const STRINGS: Record<Lang, {
         sortGradeDesc: 'Baitang (Mataas–Mababa)',
         gradeFilterLabel: 'Baitang',
         gradeFilterAll: 'Lahat ng baitang',
+        readerFilterLabel: 'Uri ng mambabasa',
+        readerFilterAll: 'Lahat',
+        readerFilterReaders: 'Mambabasa',
+        readerFilterNonReaders: 'Non-reader',
+        statusFilterLabel: 'Katayuan',
+        statusFilterEnabled: 'Enabled',
+        statusFilterDisabled: 'Disabled',
+        statusFilterAll: 'Lahat',
+        onlineFilterLabel: 'Presensya',
+        onlineFilterAll: 'Lahat',
+        onlineFilterOnline: 'Online',
+        onlineFilterOffline: 'Offline',
         resultsCount: (n) => `${n} estudyante`,
         gradeLabel: (n) => `Baitang ${n}`,
         nonReader: 'Non-reader',
@@ -138,6 +176,31 @@ const STRINGS: Record<Lang, {
         deleteConfirmButton: 'Oo, burahin',
         deletedToast: 'Nabura ang account ng estudyante.',
         deleteErrorGeneric: 'Hindi nabura ang estudyante. Subukan ulit.',
+        loginAsAria: 'Mag-login bilang estudyanteng ito',
+        loginAsErrorGeneric: 'Hindi ma-buksan ang session ng estudyante. Subukan ulit.',
+        disableAria: 'I-disable ang account',
+        enableAria: 'I-enable ang account',
+        disabledBadge: 'Naka-disable',
+        disableConfirmTitle: 'I-disable ang account na ito?',
+        disableConfirmText: (name) => `Hindi na makaka-login si ${name} hangga't hindi mo ito ine-enable ulit.`,
+        disableConfirmButton: 'Oo, i-disable',
+        disabledToast: 'Na-disable ang account ng estudyante.',
+        enabledToast: 'Na-enable muli ang account ng estudyante.',
+        toggleErrorGeneric: 'Hindi na-update ang status ng account. Subukan ulit.',
+        quickLoginAs: 'Mag-login bilang estudyante',
+        quickEnable: 'I-enable ang account',
+        quickDisable: 'I-disable ang account',
+        quickDelete: 'Burahin ang account',
+        quickForceLogout: 'I-logout ang session',
+        onlineLabel: 'Online',
+        offlineLabel: 'Offline',
+        forceLogoutAria: 'Puwersahang i-logout ang session',
+        forceLogoutConfirmTitle: 'I-logout ang session ng estudyanteng ito?',
+        forceLogoutConfirmText: (name) => `Ito ay magtatanggal sa kasalukuyang session ni ${name}. Kung hindi siya kasalukuyang online, i-di-disable muna ang account niya hanggang i-enable mo ulit.`,
+        forceLogoutConfirmButton: 'Oo, i-logout',
+        forceLogoutOnlineToast: 'Na-logout na ang estudyante sa kasalukuyang session niya.',
+        forceLogoutOfflineToast: 'Hindi online ang estudyante — na-disable ang account bilang katiyakan. I-enable ulit kapag handa na.',
+        forceLogoutErrorGeneric: 'Hindi na-logout ang estudyante. Subukan ulit.',
     },
     en: {
         title: 'Student List',
@@ -157,6 +220,18 @@ const STRINGS: Record<Lang, {
         sortGradeDesc: 'Grade (High–Low)',
         gradeFilterLabel: 'Grade',
         gradeFilterAll: 'All grades',
+        readerFilterLabel: 'Reader type',
+        readerFilterAll: 'All',
+        readerFilterReaders: 'Readers',
+        readerFilterNonReaders: 'Non-readers',
+        statusFilterLabel: 'Status',
+        statusFilterEnabled: 'Enabled',
+        statusFilterDisabled: 'Disabled',
+        statusFilterAll: 'All',
+        onlineFilterLabel: 'Presence',
+        onlineFilterAll: 'All',
+        onlineFilterOnline: 'Online',
+        onlineFilterOffline: 'Offline',
         resultsCount: (n) => `${n} student${n === 1 ? '' : 's'}`,
         gradeLabel: (n) => `Grade ${n}`,
         nonReader: 'Non-reader',
@@ -187,6 +262,31 @@ const STRINGS: Record<Lang, {
         deleteConfirmButton: 'Yes, delete',
         deletedToast: "Student's account was deleted.",
         deleteErrorGeneric: "Couldn't delete this student. Please try again.",
+        loginAsAria: 'Log in as this student',
+        loginAsErrorGeneric: "Couldn't open a session for this student. Please try again.",
+        disableAria: 'Disable this account',
+        enableAria: 'Enable this account',
+        disabledBadge: 'Disabled',
+        disableConfirmTitle: 'Disable this account?',
+        disableConfirmText: (name) => `${name} won't be able to log in until you enable the account again.`,
+        disableConfirmButton: 'Yes, disable',
+        disabledToast: "Student's account was disabled.",
+        enabledToast: "Student's account was enabled.",
+        toggleErrorGeneric: "Couldn't update the account's status. Please try again.",
+        quickLoginAs: 'Log in as student',
+        quickEnable: 'Enable account',
+        quickDisable: 'Disable account',
+        quickDelete: 'Delete account',
+        quickForceLogout: 'Force logout',
+        onlineLabel: 'Online',
+        offlineLabel: 'Offline',
+        forceLogoutAria: 'Force-logout this session',
+        forceLogoutConfirmTitle: 'Force-logout this student?',
+        forceLogoutConfirmText: (name) => `This will end ${name}'s current session. If they're not currently online, their account will be disabled instead until you enable it again.`,
+        forceLogoutConfirmButton: 'Yes, log them out',
+        forceLogoutOnlineToast: "The student's active session was ended.",
+        forceLogoutOfflineToast: "The student wasn't online — their account was disabled as a safeguard. Enable it again when ready.",
+        forceLogoutErrorGeneric: "Couldn't log the student out. Please try again.",
     },
 }
 
@@ -195,73 +295,71 @@ export const StudentList: React.FC = () => {
     const { theme } = useTheme()
     const { profile } = useProfile()
     const t = STRINGS[lang]
+    const onlineIdsSet = useTeacherPresence(profile?.id)
+    const onlineIds = Array.from(onlineIdsSet)
 
-    const [editing, setEditing] = useState<StudentRow | null>(null)
+    const [editing, setEditing] = useState<StudentRowData | null>(null)
     const [form, setForm] = useState<FormState>(EMPTY_FORM)
     const [formError, setFormError] = useState('')
+    const [formOpen, setFormOpen] = useState(false)
+    const [loggingInId, setLoggingInId] = useState<string | null>(null)
 
     const [searchInput, setSearchInput] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
     const [sort, setSort] = useState<SortOption>('name_asc')
     const [gradeFilter, setGradeFilter] = useState('')
+    // Defaults per how a teacher actually wants to see the roster day to
+    // day: every reader type, but only accounts that can currently log
+    // in — disabled pupils are hidden unless explicitly asked for.
+    const [readerFilter, setReaderFilter] = useState<ReaderFilter>('')
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('enabled')
+    const [onlineFilter, setOnlineFilter] = useState<OnlineFilter>('')
     const [page, setPage] = useState(0)
 
-    const sortOptions = [
-        { value: 'name_asc', label: t.sortNameAsc },
-        { value: 'name_desc', label: t.sortNameDesc },
-        { value: 'grade_asc', label: t.sortGradeAsc },
-        { value: 'grade_desc', label: t.sortGradeDesc },
-    ]
-    const gradeFilterOptions = [
-        { value: '', label: t.gradeFilterAll },
-        ...GRADE_OPTIONS.map((n) => ({ value: String(n), label: t.gradeLabel(n) })),
-    ]
-
-    // Debounce the search box so we're not firing a query on every keystroke.
+    // Debounce the search box so we're not firing a query on every
+    // keystroke. The page-0 reset lives inside the setTimeout callback —
+    // an actual deferred async callback, not a synchronous effect body —
+    // so it doesn't trip the react-hooks/set-state-in-effect lint rule.
     useEffect(() => {
-        const handle = setTimeout(() => setDebouncedSearch(searchInput.trim()), 300)
+        const handle = setTimeout(() => {
+            setDebouncedSearch(searchInput.trim())
+            setPage(0)
+        }, 300)
         return () => clearTimeout(handle)
     }, [searchInput])
-
-    // Any time the (debounced) search term or a filter/sort changes, jump
-    // back to page 1 so we're not stranded on an out-of-range page.
-    useEffect(() => {
-        setPage(0)
-    }, [debouncedSearch, sort, gradeFilter])
 
     const {
         data,
         isLoading,
         isFetching,
         error,
-    } = useStudentsQuery({ teacherId: profile?.id, page, search: debouncedSearch, sort, gradeFilter })
+    } = useStudentsQuery({ teacherId: profile?.id, page, search: debouncedSearch, sort, gradeFilter, readerFilter, statusFilter, onlineFilter, onlineIds })
 
     const students = data?.students ?? []
     const total = data?.total ?? 0
     const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
-    const hasFilters = debouncedSearch.length > 0 || gradeFilter.length > 0
-
-    // If a delete (or a search/filter) empties out the current page, step
-    // back a page instead of showing a dangling blank page.
-    useEffect(() => {
-        if (!isFetching && students.length === 0 && page > 0) {
-            setPage((p) => p - 1)
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [students.length, isFetching, page])
+    const hasFilters =
+        debouncedSearch.length > 0 ||
+        gradeFilter.length > 0 ||
+        readerFilter.length > 0 ||
+        statusFilter !== 'enabled' ||
+        onlineFilter.length > 0
 
     const createMutation = useCreateStudentMutation(profile?.id)
     const updateMutation = useUpdateStudentMutation(profile?.id)
     const deleteMutation = useDeleteStudentMutation(profile?.id)
+    const toggleStatusMutation = useToggleStudentStatusMutation(profile?.id)
+    const forceLogoutMutation = useForceLogoutStudentMutation(profile?.id)
     const submitting = createMutation.isPending || updateMutation.isPending
 
-    const resetToCreate = () => {
+    const openCreateForm = () => {
         setEditing(null)
         setForm(EMPTY_FORM)
         setFormError('')
+        setFormOpen(true)
     }
 
-    const selectForEdit = (student: StudentRow) => {
+    const openEditForm = (student: StudentRowData) => {
         setEditing(student)
         setForm({
             username: student.username ?? '',
@@ -272,6 +370,11 @@ export const StudentList: React.FC = () => {
             isNonReader: student.is_non_reader,
         })
         setFormError('')
+        setFormOpen(true)
+    }
+
+    const closeForm = () => {
+        setFormOpen(false)
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -305,13 +408,13 @@ export const StudentList: React.FC = () => {
                 setGradeFilter('')
                 setPage(0)
             }
-            resetToCreate()
+            setFormOpen(false)
         } catch (err) {
             setFormError(err instanceof Error ? err.message : t.errorGeneric)
         }
     }
 
-    const handleDelete = async (student: StudentRow, e: React.MouseEvent) => {
+    const handleDelete = async (student: StudentRowData, e: React.MouseEvent) => {
         e.stopPropagation()
         const displayName = student.full_name || student.username || ''
         const confirmed = await showConfirmation(
@@ -326,9 +429,101 @@ export const StudentList: React.FC = () => {
         try {
             await deleteMutation.mutateAsync(student.id)
             showToast(t.deletedToast, 'success', theme === 'dark')
-            if (editing?.id === student.id) resetToCreate()
+            if (editing?.id === student.id) {
+                setFormOpen(false)
+                setEditing(null)
+            }
+            // If that was the last row on this page, step back a page
+            // instead of leaving the roster showing a blank page. Handled
+            // here in the event handler (not a useEffect watching query
+            // state) since we already know exactly when it matters.
+            if (students.length === 1 && page > 0) {
+                setPage((p) => p - 1)
+            }
         } catch (err) {
             showToast(err instanceof Error ? err.message : t.deleteErrorGeneric, 'error', theme === 'dark')
+        }
+    }
+
+    // Opens a fresh tab logged in as this pupil, without touching the
+    // teacher's own session in this tab. See lib/supabaseClient.ts and
+    // pages/auth/StudentSessionBridge.tsx for how the isolated session works.
+    const handleLoginAsStudent = async (student: StudentRowData, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setLoggingInId(student.id)
+        try {
+            const { data, error: invokeError } = await supabase.functions.invoke('impersonate-student', {
+                body: { id: student.id },
+            })
+            if (invokeError || data?.error) {
+                showToast(data?.error ?? invokeError?.message ?? t.loginAsErrorGeneric, 'error', theme === 'dark')
+                return
+            }
+            const url = `/student-session?token=${encodeURIComponent(data.tokenHash)}`
+            window.open(url, '_blank', 'noopener,noreferrer')
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : t.loginAsErrorGeneric, 'error', theme === 'dark')
+        } finally {
+            setLoggingInId(null)
+        }
+    }
+
+    // Disabling asks for confirmation first (it blocks a kid from logging
+    // in); enabling doesn't since it's just restoring access. If the
+    // drawer is open on the same pupil, its snapshot is patched in place
+    // so the quick-action button flips immediately instead of waiting on
+    // the next roster refetch.
+    const handleToggleStatus = async (student: StudentRowData, e: React.MouseEvent) => {
+        e.stopPropagation()
+        const nextDisabled = !student.is_disabled
+        if (nextDisabled) {
+            const displayName = student.full_name || student.username || ''
+            const confirmed = await showConfirmation(
+                t.disableConfirmTitle,
+                t.disableConfirmText(displayName),
+                theme === 'dark',
+                'warning',
+                t.disableConfirmButton
+            )
+            if (!confirmed) return
+        }
+        try {
+            await toggleStatusMutation.mutateAsync({ id: student.id, disabled: nextDisabled })
+            showToast(nextDisabled ? t.disabledToast : t.enabledToast, 'success', theme === 'dark')
+            if (editing?.id === student.id) {
+                setEditing((prev) => (prev ? { ...prev, is_disabled: nextDisabled } : prev))
+            }
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : t.toggleErrorGeneric, 'error', theme === 'dark')
+        }
+    }
+
+    // Ends the pupil's current session. If they're currently online (per
+    // the teacher's own presence subscription), this is a realtime kick —
+    // instant, and they can log back in right away. If they're not online,
+    // it falls back to disabling the account outright as a guarantee,
+    // since there's no live tab to actually reach.
+    const handleForceLogout = async (student: StudentRowData, e: React.MouseEvent) => {
+        e.stopPropagation()
+        const displayName = student.full_name || student.username || ''
+        const confirmed = await showConfirmation(
+            t.forceLogoutConfirmTitle,
+            t.forceLogoutConfirmText(displayName),
+            theme === 'dark',
+            'warning',
+            t.forceLogoutConfirmButton
+        )
+        if (!confirmed) return
+
+        const wasOnline = onlineIdsSet.has(student.id)
+        try {
+            const result = await forceLogoutMutation.mutateAsync({ id: student.id, online: wasOnline })
+            showToast(result.banned ? t.forceLogoutOfflineToast : t.forceLogoutOnlineToast, 'success', theme === 'dark')
+            if (result.banned && editing?.id === student.id) {
+                setEditing((prev) => (prev ? { ...prev, is_disabled: true } : prev))
+            }
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : t.forceLogoutErrorGeneric, 'error', theme === 'dark')
         }
     }
 
@@ -337,273 +532,153 @@ export const StudentList: React.FC = () => {
 
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
-
             <StudentsSubNav />
 
-            {/* Header card — title/subtitle + search/sort/filter now live on a
-                solid panel instead of floating directly over the night-sky
-                backdrop, where the muted gray text was hard to read. */}
-            <div className="mb-6 rounded-3xl border border-gray-900/5 bg-white p-5 shadow-sm dark:border-gray-100/10 dark:bg-gray-900">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{t.title}</h1>
-                        <p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-300">{t.subtitle}</p>
+            {/* Header card — same layered gradient treatment as Home's hero
+                (light cream/amber-glow, dark navy/teal-glow) instead of a
+                flat solid panel, for consistency with Home/Dashboard/
+                MaterialSelection. Title/subtitle + search/sort/filter sit
+                on the relative-positioned content layer above the
+                gradient/glow layers. */}
+            <section className="relative mb-6 overflow-hidden rounded-3xl border border-gray-900/5 p-5 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-6">
+                <div
+                    className="absolute inset-0 dark:hidden"
+                    style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }}
+                />
+                <div
+                    className="absolute inset-0 hidden dark:block"
+                    style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0 dark:hidden"
+                    style={{ background: 'radial-gradient(circle at 88% -20%, rgba(255,198,75,0.4), transparent 55%)' }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0 hidden dark:block"
+                    style={{ background: 'radial-gradient(circle at 88% -20%, rgba(45,212,191,0.28), transparent 55%)' }}
+                />
+                <div className="relative">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{t.title}</h1>
+                            <p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-300">{t.subtitle}</p>
+                        </div>
+                        <button
+                            onClick={openCreateForm}
+                            className="flex w-fit cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 active:translate-y-1 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                        >
+                            <Plus size={16} />
+                            {t.addButton}
+                        </button>
                     </div>
-                    <button
-                        onClick={resetToCreate}
-                        className="flex w-fit items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 active:translate-y-1 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
-                    >
-                        <Plus size={16} />
-                        {t.addButton}
-                    </button>
-                </div>
-
-                <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
-                    <SearchInput
-                        value={searchInput}
-                        onChange={setSearchInput}
-                        label={t.searchLabel}
-                        placeholder={t.searchPlaceholder}
-                    />
-                    <Select
-                        name="sort"
-                        label={t.sortLabel}
-                        options={sortOptions}
-                        value={sort}
-                        onChange={(e) => setSort(e.target.value as SortOption)}
-                        selectClassName="px-3.5 py-3 pr-9"
-                        className="min-w-[190px]"
-                    />
-                    <Select
-                        name="gradeFilter"
-                        label={t.gradeFilterLabel}
-                        options={gradeFilterOptions}
-                        value={gradeFilter}
-                        onChange={(e) => setGradeFilter(e.target.value)}
-                        selectClassName="px-3.5 py-3 pr-9"
-                        className="min-w-[150px]"
-                    />
-                </div>
-
-                {!isLoading && !error && total > 0 && (
-                    <div className="mt-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        {t.resultsCount(total)}
+                    <div className="mt-5">
+                        <StudentFilters
+                            t={t}
+                            searchInput={searchInput}
+                            onSearchChange={setSearchInput}
+                            sort={sort}
+                            onSortChange={(value) => {
+                                setSort(value)
+                                setPage(0)
+                            }}
+                            gradeFilter={gradeFilter}
+                            onGradeFilterChange={(value) => {
+                                setGradeFilter(value)
+                                setPage(0)
+                            }}
+                            readerFilter={readerFilter}
+                            onReaderFilterChange={(value) => {
+                                setReaderFilter(value)
+                                setPage(0)
+                            }}
+                            statusFilter={statusFilter}
+                            onStatusFilterChange={(value) => {
+                                setStatusFilter(value)
+                                setPage(0)
+                            }}
+                            onlineFilter={onlineFilter}
+                            onOnlineFilterChange={(value) => {
+                                setOnlineFilter(value)
+                                setPage(0)
+                            }}
+                        />
                     </div>
-                )}
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">
-                {/* Left — the roster */}
-                <div>
-                    {isLoading ? (
-                        <div className="rounded-2xl border-2 border-gray-900/5 bg-white p-10 text-center text-sm font-bold text-gray-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-400">
-                            {t.loading}
-                        </div>
-                    ) : error ? (
-                        <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-6 text-sm font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-                            {error instanceof Error ? error.message : t.errorGeneric}
-                        </div>
-                    ) : showEmptyRoster ? (
-                        <div className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-10 text-center dark:border-gray-100/10 dark:bg-gray-900">
-                            <p className="text-base font-extrabold text-gray-900 dark:text-gray-50">{t.emptyTitle}</p>
-                            <p className="mt-1 text-sm font-medium text-gray-500 dark:text-gray-300">{t.emptyDesc}</p>
-                        </div>
-                    ) : showNoResults ? (
-                        <div className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-10 text-center dark:border-gray-100/10 dark:bg-gray-900">
-                            <p className="text-base font-extrabold text-gray-900 dark:text-gray-50">{t.noResultsTitle}</p>
-                            <p className="mt-1 text-sm font-medium text-gray-500 dark:text-gray-300">{t.noResultsDesc}</p>
-                        </div>
-                    ) : (
-                        <div className={`flex flex-col gap-3 transition-opacity duration-150 ${isFetching ? 'opacity-60' : ''}`}>
-                            {students.map((student) => {
-                                const accent = student.is_non_reader ? '#f97316' : '#14b8a6'
-                                const isSelected = editing?.id === student.id
-                                const isDeleting = deleteMutation.isPending && deleteMutation.variables === student.id
-                                return (
-                                    <div
-                                        key={student.id}
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => selectForEdit(student)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' || e.key === ' ') selectForEdit(student)
-                                        }}
-                                        style={{ borderLeftColor: accent, borderLeftWidth: 6 }}
-                                        className={`group flex w-full cursor-pointer items-center gap-4 rounded-2xl border-2 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-gray-900 ${
-                                            isSelected
-                                                ? 'border-gray-900/20 ring-2 ring-teal-400/60 dark:border-gray-100/25'
-                                                : 'border-gray-900/5 dark:border-gray-100/10'
-                                        } ${isDeleting ? 'opacity-50' : ''}`}
-                                    >
-                                        <span
-                                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-base font-extrabold"
-                                            style={{ background: `${accent}22`, color: accent }}
-                                        >
-                                            {student.full_name?.[0]?.toUpperCase() ?? student.username?.[0]?.toUpperCase() ?? <UserRound size={18} />}
-                                        </span>
-
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="text-base font-extrabold text-gray-900 dark:text-gray-50">
-                                                    {student.full_name || student.username}
-                                                </span>
-                                                {student.grade_level != null && (
-                                                    <span className="rounded-full bg-gray-900/5 px-2.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                                                        {t.gradeLabel(student.grade_level)}
-                                                    </span>
-                                                )}
-                                                {student.is_non_reader && (
-                                                    <span className="rounded-full bg-orange-500/15 px-2.5 py-0.5 text-xs font-semibold text-orange-600 dark:text-orange-400">
-                                                        {t.nonReader}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="mt-0.5 text-sm font-medium text-gray-500 dark:text-gray-300">
-                                                @{student.username} · {student.section || t.noSection}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex shrink-0 items-center gap-1.5">
-                                            <button
-                                                type="button"
-                                                aria-label={t.editAria}
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    selectForEdit(student)
-                                                }}
-                                                className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition-colors duration-200 hover:bg-gray-900/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-100/10 dark:hover:text-gray-50"
-                                            >
-                                                <Pencil size={16} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                aria-label={t.deleteAria}
-                                                disabled={isDeleting}
-                                                onClick={(e) => handleDelete(student, e)}
-                                                className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition-colors duration-200 hover:bg-red-500/10 hover:text-red-600 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-red-500/15 dark:hover:text-red-400"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                )
-                            })}
+                    {!isLoading && !error && total > 0 && (
+                        <div className="mt-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400">
+                            {t.resultsCount(total)}
                         </div>
                     )}
-
-                    <Pagination page={page} pageCount={pageCount} onPageChange={setPage} className="mt-5" />
                 </div>
+            </section>
 
-                {/* Right — the persistent add/edit panel */}
-                <aside className="sticky top-24 self-start rounded-3xl border border-gray-900/5 bg-white shadow-sm dark:border-gray-100/10 dark:bg-gray-900">
-                    <div className="flex items-center gap-3 border-b border-gray-900/5 px-5 py-4 dark:border-gray-100/10">
-                        <span
-                            className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                                editing ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400' : 'bg-teal-500/15 text-teal-600 dark:text-teal-400'
-                            }`}
-                        >
-                            <UserPlus size={18} />
-                        </span>
-                        <div>
-                            <h2 className="text-base font-extrabold text-gray-900 dark:text-gray-50">
-                                {editing ? t.formEditTitle : t.formCreateTitle}
-                            </h2>
-                            <p className="text-xs font-medium text-gray-500 dark:text-gray-300">
-                                {editing ? t.formEditSubtitle : t.formCreateSubtitle}
-                            </p>
-                        </div>
+            {/* Roster — full width now that the add/edit form lives in a
+                drawer instead of a permanently-docked side column. */}
+            <div>
+                {isLoading ? (
+                    <div className="rounded-2xl border-2 border-gray-900/5 bg-white p-10 text-center text-sm font-bold text-gray-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-400">
+                        {t.loading}
                     </div>
+                ) : error ? (
+                    <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-6 text-sm font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+                        {error instanceof Error ? error.message : t.errorGeneric}
+                    </div>
+                ) : showEmptyRoster ? (
+                    <div className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-10 text-center dark:border-gray-100/10 dark:bg-gray-900">
+                        <p className="text-base font-extrabold text-gray-900 dark:text-gray-50">{t.emptyTitle}</p>
+                        <p className="mt-1 text-sm font-medium text-gray-500 dark:text-gray-300">{t.emptyDesc}</p>
+                    </div>
+                ) : showNoResults ? (
+                    <div className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-10 text-center dark:border-gray-100/10 dark:bg-gray-900">
+                        <p className="text-base font-extrabold text-gray-900 dark:text-gray-50">{t.noResultsTitle}</p>
+                        <p className="mt-1 text-sm font-medium text-gray-500 dark:text-gray-300">{t.noResultsDesc}</p>
+                    </div>
+                ) : (
+                    <div className={`flex flex-col gap-3 transition-opacity duration-150 ${isFetching ? 'opacity-60' : ''}`}>
+                        {students.map((student) => (
+                            <StudentRow
+                                key={student.id}
+                                student={student}
+                                isSelected={formOpen && editing?.id === student.id}
+                                isDeleting={deleteMutation.isPending && deleteMutation.variables === student.id}
+                                isLoggingIn={loggingInId === student.id}
+                                isTogglingStatus={toggleStatusMutation.isPending && toggleStatusMutation.variables?.id === student.id}
+                                isOnline={onlineIdsSet.has(student.id)}
+                                isForcingLogout={forceLogoutMutation.isPending && forceLogoutMutation.variables?.id === student.id}
+                                t={t}
+                                onSelect={() => openEditForm(student)}
+                                onEdit={() => openEditForm(student)}
+                                onDelete={(e) => handleDelete(student, e)}
+                                onLoginAsStudent={(e) => handleLoginAsStudent(student, e)}
+                                onToggleStatus={(e) => handleToggleStatus(student, e)}
+                                onForceLogout={(e) => handleForceLogout(student, e)}
+                            />
+                        ))}
+                    </div>
+                )}
 
-                    <form onSubmit={handleSubmit} className="px-5 py-5">
-                        {!editing && (
-                            <Text
-                                name="username"
-                                label={t.fieldUsername}
-                                value={form.username}
-                                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                                required
-                                className="mb-4"
-                                inputClassName="px-4 py-3 rounded-xl transition-colors duration-300"
-                            />
-                        )}
-                        <Text
-                            name="fullName"
-                            label={t.fieldFullName}
-                            value={form.fullName}
-                            onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
-                            required
-                            className="mb-4"
-                            inputClassName="px-4 py-3 rounded-xl transition-colors duration-300"
-                        />
-                        {!editing && (
-                            <Password
-                                name="password"
-                                label={t.fieldPassword}
-                                value={form.password}
-                                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                                required
-                                className="mb-4"
-                                inputClassName="px-4 py-3 pr-11 rounded-xl transition-colors duration-300"
-                            />
-                        )}
-                        <div className="mb-4 grid grid-cols-2 gap-3">
-                            <Text
-                                name="gradeLevel"
-                                type="number"
-                                label={t.fieldGrade}
-                                value={form.gradeLevel}
-                                onChange={(e) => setForm((f) => ({ ...f, gradeLevel: e.target.value }))}
-                                inputClassName="px-4 py-3 rounded-xl transition-colors duration-300"
-                            />
-                            <Text
-                                name="section"
-                                label={t.fieldSection}
-                                value={form.section}
-                                onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}
-                                inputClassName="px-4 py-3 rounded-xl transition-colors duration-300"
-                            />
-                        </div>
-                        <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                            <input
-                                type="checkbox"
-                                checked={form.isNonReader}
-                                onChange={(e) => setForm((f) => ({ ...f, isNonReader: e.target.checked }))}
-                                className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-400"
-                            />
-                            {t.fieldNonReader}
-                        </label>
-
-                        {editing && (
-                            <p className="mb-2 text-xs font-medium text-gray-400 dark:text-gray-400">{t.editNote}</p>
-                        )}
-
-                        {formError && (
-                            <p className="mb-2 text-sm font-semibold text-red-600 dark:text-red-400">{formError}</p>
-                        )}
-
-                        <div className="mt-4 flex items-center justify-between gap-2">
-                            {editing ? (
-                                <button
-                                    type="button"
-                                    onClick={resetToCreate}
-                                    className="text-sm font-bold text-gray-500 transition-colors duration-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                                >
-                                    {t.cancel}
-                                </button>
-                            ) : (
-                                <span />
-                            )}
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                className="rounded-full bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#c2410c] transition-[background-color,box-shadow,transform] duration-300 active:translate-y-1 active:shadow-[0_1px_0_0_#c2410c] disabled:opacity-60 dark:bg-orange-600 dark:shadow-[0_4px_0_0_#9a3412]"
-                            >
-                                {editing ? (submitting ? t.saving : t.save) : (submitting ? t.creating : t.create)}
-                            </button>
-                        </div>
-                    </form>
-                </aside>
+                <Pagination page={page} pageCount={pageCount} onPageChange={setPage} className="mt-5" />
             </div>
+
+            <StudentForm
+                t={t}
+                open={formOpen}
+                editing={editing}
+                form={form}
+                setForm={setForm}
+                formError={formError}
+                submitting={submitting}
+                onSubmit={handleSubmit}
+                onClose={closeForm}
+                onLoginAsStudent={(e) => editing && handleLoginAsStudent(editing, e)}
+                onToggleStatus={(e) => editing && handleToggleStatus(editing, e)}
+                onDelete={(e) => editing && handleDelete(editing, e)}
+                onForceLogout={(e) => editing && handleForceLogout(editing, e)}
+                isLoggingIn={editing ? loggingInId === editing.id : false}
+                isTogglingStatus={editing ? toggleStatusMutation.isPending && toggleStatusMutation.variables?.id === editing.id : false}
+                isDeleting={editing ? deleteMutation.isPending && deleteMutation.variables === editing.id : false}
+                isForcingLogout={editing ? forceLogoutMutation.isPending && forceLogoutMutation.variables?.id === editing.id : false}
+                isOnline={editing ? onlineIdsSet.has(editing.id) : false}
+            />
         </div>
     )
 }

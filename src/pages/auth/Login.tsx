@@ -1,14 +1,16 @@
+// File: src/pages/auth/Login.tsx
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Password } from '../../components/input/Password.tsx'
 import { Text } from '../../components/input/Text.tsx'
 import { useAuth } from '../../contexts/AuthContext.tsx'
-import { ThemeToggleButton } from '../../components/buttons/ThemeToggleButton.tsx'
+import { useTheme } from '../../contexts/ThemeContext.tsx'
+import { useLang } from '../../contexts/LangContext.tsx'
 import { AuthHeaderBanner } from './components/AuthHeaderBanner.tsx'
 import { AuthTabs } from './components/AuthTabs.tsx'
-import { AuthHint } from './components/AuthHint.tsx'
-import { LangToggle, type Lang } from '../../components/buttons/LangToggle.tsx'
-import { useAuthEntryHint } from '../../hooks/useAuthEntryHint.ts'
+import type { Lang } from '../../components/buttons/LangToggle.tsx'
+import { showToast } from '../../helpers/swalHelpers.ts'
+
 const STRINGS: Record<Lang, {
     welcome: string
     tagline: string
@@ -22,8 +24,6 @@ const STRINGS: Record<Lang, {
     noAccount: string
     demoHintTeacher: string
     demoHintStudent: string
-    hintTheme: string
-    hintLang: string
 }> = {
     fil: {
         welcome: 'Maligayang pagdating!',
@@ -38,8 +38,6 @@ const STRINGS: Record<Lang, {
         noAccount: 'Walang account? Gumawa ng bago',
         demoHintTeacher: 'Guro: guro — password: basaquest',
         demoHintStudent: 'Estudyante: ella — password: basaquest',
-        hintTheme: 'Pindutin dito para sa araw o gabi! ✨',
-        hintLang: 'Piliin ang wika mo dito! 🌐',
     },
     en: {
         welcome: 'Welcome back!',
@@ -54,28 +52,37 @@ const STRINGS: Record<Lang, {
         noAccount: "Don't have an account? Create one",
         demoHintTeacher: 'Teacher: guro — password: basaquest',
         demoHintStudent: 'Student: ella — password: basaquest',
-        hintTheme: 'Tap here for day or night! ✨',
-        hintLang: 'Pick your language here! 🌐',
     },
 }
+
 export default function Login() {
     const { login } = useAuth()
+    const { theme } = useTheme()
+    const { lang } = useLang()
     const navigate = useNavigate()
-    const location = useLocation()
-    const [lang, setLang] = useState<Lang>('fil')
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const t = STRINGS[lang]
-    const cameFromSwitch = Boolean((location.state as { fromAuthSwitch?: boolean } | null)?.fromAuthSwitch)
-    const { showHint, dismissHint } = useAuthEntryHint(cameFromSwitch)
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
         setSubmitting(true)
         try {
             await login(username, password)
+            // Combined bilingual welcome — shown regardless of the app's
+            // language toggle, and closable (×) since a toast that
+            // auto-dismisses right as the page navigates away can
+            // otherwise vanish before it's been read.
+            const displayName = username.trim() || (lang === 'fil' ? 'kaibigan' : 'friend')
+            showToast(
+                `Maligayang pagbabalik, ${displayName}!<br/>Welcome back, ${displayName}!`,
+                'success',
+                theme === 'dark',
+                { closable: true, timer: 4000 }
+            )
             navigate('/dashboard')
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed')
@@ -83,15 +90,13 @@ export default function Login() {
             setSubmitting(false)
         }
     }
+
     const goToRegister = () => {
         navigate('/register', { state: { fromAuthSwitch: true } })
     }
+
     return (
-        <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-6">
-            <ThemeToggleButton className="absolute left-4 top-4 z-10" />
-            <LangToggle lang={lang} onChange={setLang} className="absolute right-4 top-4 z-10" />
-            {showHint && <AuthHint side="left" text={t.hintTheme} onClose={dismissHint} />}
-            {showHint && <AuthHint side="right" text={t.hintLang} onClose={dismissHint} />}
+        <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-6">
             <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-gray-900/5 bg-white shadow-xl transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900">
                 <AuthHeaderBanner />
                 <div className="px-6 pb-6 pt-5">

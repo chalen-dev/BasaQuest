@@ -14,11 +14,11 @@
 // header wraps to two rows, pt-20 on lg+ where it's a single row) so page
 // content doesn't start out hidden underneath it.
 import { Outlet } from 'react-router-dom'
-import Header from "../components/partials/Header.tsx";
+import ProtectedHeader from "../components/partials/ProtectedHeader.tsx";
 export default function ProtectedLayout() {
     return (
         <div className="flex min-h-screen flex-col bg-orange-50 transition-colors duration-300 dark:bg-gray-950">
-            <Header />
+            <ProtectedHeader />
             <main className="relative flex-1 overflow-hidden p-4 pt-28 lg:pt-20">
                 <div className="relative z-10">
                     <Outlet />
