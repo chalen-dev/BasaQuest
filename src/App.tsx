@@ -12,7 +12,7 @@ import PersistentBackdropLayout from "./layouts/PersistentBackdropLayout.tsx";
 import GuestLayout from "./layouts/GuestLayout.tsx";
 import AssessmentSessionLayout from "./layouts/AssessmentSessionLayout.tsx";
 import MaterialSelection from "./pages/proficiency/material_selection/MaterialSelection.tsx";
-import BeforeAssessment from "./pages/proficiency/pre_assessment/BeforeAssessment.tsx";
+import BeforeAssessment from "./pages/proficiency/pre_assessment/before_assessment/BeforeAssessment.tsx";
 import AssessmentSession from "./pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx";
 import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";

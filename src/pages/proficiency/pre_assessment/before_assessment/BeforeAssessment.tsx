@@ -28,16 +28,16 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Languages, Play, Send, WifiOff, Wifi, X } from 'lucide-react'
-import { Owl } from '../../../components/ui/Owl.tsx'
-import { OwlLoader } from '../../../components/ui/OwlLoader.tsx'
-import { Pagination } from '../../../components/ui/Pagination.tsx'
-import { SearchInput } from '../../../components/input/SearchInput.tsx'
-import { Select } from '../../../components/input/Select.tsx'
-import { useLang } from '../../../contexts/LangContext.tsx'
-import { useProfile } from '../../../hooks/useProfile.ts'
-import { useTheme } from '../../../contexts/ThemeContext.tsx'
-import { useTeacherPresence } from '../../../hooks/useTeacherPresence.ts'
-import { showConfirmation, showToast } from '../../../helpers/swalHelpers.ts'
+import { Owl } from '../../../../components/ui/Owl.tsx'
+import { OwlLoader } from '../../../../components/ui/OwlLoader.tsx'
+import { Pagination } from '../../../../components/ui/Pagination.tsx'
+import { SearchInput } from '../../../../components/input/SearchInput.tsx'
+import { Select } from '../../../../components/input/Select.tsx'
+import { useLang } from '../../../../contexts/LangContext.tsx'
+import { useProfile } from '../../../../hooks/useProfile.ts'
+import { useTheme } from '../../../../contexts/ThemeContext.tsx'
+import { useTeacherPresence } from '../../../../hooks/useTeacherPresence.ts'
+import { showConfirmation, showToast } from '../../../../helpers/swalHelpers.ts'
 import {
     ASSIGNABLE_PAGE_SIZE,
     useAssignableStudentsQuery,
@@ -45,8 +45,8 @@ import {
     useCancelAssignedAssessmentMutation,
     type AssignableOnlineFilter,
     type AssignableReaderFilter,
-} from './hooks.ts'
-import type { Lang } from '../../../components/buttons/LangToggle.tsx'
+} from '../hooks.ts'
+import type { Lang } from '../../../../components/buttons/LangToggle.tsx'
 const GRADE_OPTIONS = [1, 2, 3, 4, 5, 6]
 const STRINGS: Record<Lang, {
     back: string
