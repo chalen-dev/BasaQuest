@@ -22,7 +22,10 @@
 // at all. Recomputes on every new passage and via a ResizeObserver on the
 // container (so it stays correct if the card's size ever changes);
 // passage-change resets to page 1, a resize just clamps the current page
-// into whatever the new page count allows.
+// into whatever the new page count allows. Previous/Next are sized up
+// (px-6 py-3 text-base, was px-4 py-2 text-sm) for bigger, easier-to-hit
+// tap targets — this screen is meant for young pupils on possibly a
+// shared/tablet-ish device, so the original size read as fiddly.
 //
 // Interactive word gimmick: every word in the passage is its own clickable
 // span. Click toggles a random pastel background on/off for that word
@@ -41,31 +44,39 @@
 // completely absent until at least one word (on any page) has a color,
 // sitting in the badge row up top. Clears every highlighted word across
 // the whole passage, not just the current page.
+//
+// Three one-time onboarding <Hint>s (see components/ui/Hint.tsx): one on
+// "Clear Highlights" the first time it ever appears, one on the Next
+// button the first time a passage actually has more than one page, and
+// one on the Previous button — gated to `!isFirstPage`, so it only shows
+// once Previous has actually become clickable (i.e. after the pupil has
+// already flipped forward at least once), not while it's sitting disabled
+// on page 1. All three are `persist`-ed (the Hint default), so a pupil
+// only ever sees each once, across sessions. `autoHideMs={6000}` — these
+// close twice as fast as the auth-page hints (which use Hint's 12s
+// default) since there's more going on on this screen competing for
+// attention.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Lang } from '../../../../../components/buttons/LangToggle.tsx'
 import { useTheme } from '../../../../../contexts/ThemeContext.tsx'
+import { Hint } from '../../../../../components/ui/Hint.tsx'
 import type { AssessmentStrings, Passage } from '../assessmentSessionStrings.ts'
-
 type PassagePanelProps = {
     t: AssessmentStrings
     gradeLevel: number
     assessmentLang: Lang
     passage: Passage
 }
-
 type PageRange = { start: number; end: number }
-
 const MIN_WORDS = 40
 const MAX_WORDS = 240
 const MAX_REM = 1.75
 const MIN_REM = 1.35
-
 function passageFontRem(wordCount: number): number {
     const clamped = Math.min(MAX_WORDS, Math.max(MIN_WORDS, wordCount))
     const progress = (clamped - MIN_WORDS) / (MAX_WORDS - MIN_WORDS)
     return MAX_REM - progress * (MAX_REM - MIN_REM)
 }
-
 // Deliberately not a "dark" hue at any random draw — lightness/saturation
 // are pinned per theme so every random color stays light enough for the
 // forced near-black text to read clearly on top of it.
@@ -73,23 +84,18 @@ function randomWordColor(isDark: boolean): string {
     const hue = Math.floor(Math.random() * 360)
     return isDark ? `hsl(${hue}, 65%, 60%)` : `hsl(${hue}, 82%, 83%)`
 }
-
 export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: PassagePanelProps) {
     const { theme } = useTheme()
     const isDark = theme === 'dark'
-
     const tokens = useMemo(() => passage.passage.split(/(\s+)/), [passage.passage])
     const wordCount = useMemo(() => passage.passage.trim().split(/\s+/).filter(Boolean).length, [passage.passage])
     const fontRem = useMemo(() => passageFontRem(wordCount), [wordCount])
-
     const [wordColors, setWordColors] = useState<Record<number, string>>({})
     const hasHighlights = Object.keys(wordColors).length > 0
-
     const containerRef = useRef<HTMLDivElement>(null)
     const measureRef = useRef<HTMLParagraphElement>(null)
     const [pageRanges, setPageRanges] = useState<PageRange[]>([{ start: 0, end: tokens.length }])
     const [pageIndex, setPageIndex] = useState(0)
-
     // Walks the tokens and only cuts a page when the NEXT token would
     // actually overflow the container's real measured height. The
     // measurer builds the SAME word-span-with-padding structure as the
@@ -102,10 +108,8 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
         if (!container || !measure) return null
         const maxHeight = container.clientHeight
         if (maxHeight <= 0) return null
-
         measure.style.fontSize = `${fontRem}rem`
         measure.innerHTML = ''
-
         const appendToken = (token: string) => {
             if (token === '') return
             if (/^\s+$/.test(token)) {
@@ -117,7 +121,6 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
                 measure.appendChild(span)
             }
         }
-
         const ranges: PageRange[] = []
         let start = 0
         let i = 0
@@ -137,7 +140,6 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
         ranges.push({ start, end: tokens.length })
         return ranges
     }, [tokens, fontRem])
-
     // New passage: recompute pages and jump back to page 1.
     useLayoutEffect(() => {
         const ranges = computeRanges()
@@ -148,7 +150,6 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [passage.passage])
-
     // Card resized: recompute pages, just clamp the current page instead
     // of jumping back to page 1 (don't yank the reader around).
     useEffect(() => {
@@ -164,14 +165,12 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
         observer.observe(container)
         return () => observer.disconnect()
     }, [computeRanges])
-
     // Fresh passage = fresh colors, so a "regenerate" doesn't carry over
     // highlights from the previous text.
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setWordColors({})
     }, [passage.passage])
-
     const toggleWord = (index: number) => {
         setWordColors((prev) => {
             if (prev[index]) {
@@ -182,15 +181,12 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
             return { ...prev, [index]: randomWordColor(isDark) }
         })
     }
-
     const clearHighlights = () => setWordColors({})
-
     const currentRange = pageRanges[pageIndex] ?? { start: 0, end: tokens.length }
     const pageTokens = tokens.slice(currentRange.start, currentRange.end)
     const isFirstPage = pageIndex === 0
     const isLastPage = pageIndex === pageRanges.length - 1
     const showPagination = pageRanges.length > 1
-
     return (
         <section className="flex h-full flex-col overflow-hidden rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10">
             <div className="flex flex-wrap items-center gap-2">
@@ -202,12 +198,15 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
                 </span>
                 <div className="flex-1" />
                 {hasHighlights && (
-                    <button
-                        onClick={clearHighlights}
-                        className="cursor-pointer rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-[0_2px_0_0_#b45309] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_0px_0_0_#b45309] dark:bg-amber-500 dark:shadow-[0_2px_0_0_#92400e]"
-                    >
-                        Clear Highlights
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={clearHighlights}
+                            className="cursor-pointer rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-[0_2px_0_0_#b45309] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_0px_0_0_#b45309] dark:bg-amber-500 dark:shadow-[0_2px_0_0_#92400e]"
+                        >
+                            Clear Highlights
+                        </button>
+                        <Hint id="assessment-clear-highlights" text={t.clearHighlightsHint} placement="bottom" align="center" autoHideMs={6000} />
+                    </div>
                 )}
                 {showPagination && (
                     <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
@@ -253,13 +252,16 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
             {showPagination && (
                 <div className="mt-4 shrink-0">
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-                            disabled={isFirstPage}
-                            className="cursor-pointer rounded-full border-2 border-gray-900/10 px-4 py-2 text-sm font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
-                        >
-                            {t.prevPage}
-                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+                                disabled={isFirstPage}
+                                className="cursor-pointer rounded-full border-2 border-gray-900/10 px-6 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
+                            >
+                                {t.prevPage}
+                            </button>
+                            <Hint id="assessment-prev-page" text={t.prevPageHint} show={!isFirstPage} placement="top" align="start" autoHideMs={6000} />
+                        </div>
                         <div className="flex flex-1 items-center justify-center gap-2">
                             {pageRanges.map((_, i) => (
                                 <button
@@ -272,13 +274,16 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
                                 />
                             ))}
                         </div>
-                        <button
-                            onClick={() => setPageIndex((p) => Math.min(pageRanges.length - 1, p + 1))}
-                            disabled={isLastPage}
-                            className="cursor-pointer rounded-full bg-teal-500 px-4 py-2 text-sm font-bold text-white transition-colors duration-150 hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-teal-600 dark:hover:bg-teal-500"
-                        >
-                            {t.nextPage}
-                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setPageIndex((p) => Math.min(pageRanges.length - 1, p + 1))}
+                                disabled={isLastPage}
+                                className="cursor-pointer rounded-full bg-teal-500 px-6 py-3 text-base font-bold text-white transition-colors duration-150 hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-teal-600 dark:hover:bg-teal-500"
+                            >
+                                {t.nextPage}
+                            </button>
+                            <Hint id="assessment-page-nav" text={t.pageNavHint} placement="top" align="end" autoHideMs={6000} />
+                        </div>
                     </div>
                     <p className="mt-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">
                         {t.readAllHint}

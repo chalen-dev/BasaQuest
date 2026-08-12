@@ -12,7 +12,7 @@ import PersistentBackdropLayout from "./layouts/PersistentBackdropLayout.tsx";
 import GuestLayout from "./layouts/GuestLayout.tsx";
 import AssessmentSessionLayout from "./layouts/AssessmentSessionLayout.tsx";
 import MaterialSelection from "./pages/proficiency/material_selection/MaterialSelection.tsx";
-import PreAssessment from "./pages/proficiency/pre_assessment/PreAssessment.tsx";
+import BeforeAssessment from "./pages/proficiency/pre_assessment/BeforeAssessment.tsx";
 import AssessmentSession from "./pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx";
 import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";
@@ -53,7 +53,7 @@ function App() {
                             <Route path="/students" element={<StudentList />}/>
                             <Route path="/home" element={<Home />}/>
                             <Route path="/reading/proficiency" element={<MaterialSelection />}/>
-                            <Route path="/reading/proficiency/assessment" element={<PreAssessment />}/>
+                            <Route path="/reading/proficiency/assessment" element={<BeforeAssessment />}/>
                         </Route>
                         {/* Focused check-in session — swaps DashboardLayout's full
                         header for AssessmentSessionLayout's stripped-down one

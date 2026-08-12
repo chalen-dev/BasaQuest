@@ -3,24 +3,23 @@
 // session screen (AssessmentSession.tsx) — split out so that file only
 // has to hold layout/behavior, not ~250 lines of bilingual strings.
 import type { Lang } from '../../../../components/buttons/LangToggle.tsx'
-
 export type Passage = {
     title: string
     passage: string
 }
-
 export type Step = 'intro' | 'loading' | 'passage' | 'error'
-
-// Set to false once you're ready to spend Gemini API credits again.
-export const USE_PLACEHOLDER_PASSAGE = false
-
+// Set to true to skip the generate-passage Supabase Edge Function call
+// entirely (no Gemini API credits spent) and use PLACEHOLDER_PASSAGES
+// below instead, after a short fake delay so the loading screen still
+// shows briefly for testing. Flip back to false to get real
+// grade/language-tailored passages from Gemini again.
+export const USE_PLACEHOLDER_PASSAGE = true
 // Hard cap on a single take, in seconds, so a forgotten-running mic can't
 // produce an unbounded recording. NOT derived from any real Azure/Deepgram
 // pricing or limit — there's no scoring integration wired up yet (see
 // generate-passage/index.ts's header comment) — just a reasonable
 // placeholder. Revisit once real pricing/limits are known.
 export const MAX_RECORDING_SECONDS = 180
-
 export const PLACEHOLDER_PASSAGES: Record<Lang, Passage> = {
     fil: {
         title: '[Placeholder] Ang Munting Ibon',
@@ -31,13 +30,11 @@ export const PLACEHOLDER_PASSAGES: Record<Lang, Passage> = {
         passage: 'This is a placeholder English passage, not from Gemini. It exists so the page layout can be tested — spacing, line length, the title, the badges above it — without spending any AI credits. Feel free to read it aloud just like a real generated passage to see how it looks in place.',
     },
 }
-
 export function formatSeconds(total: number): string {
     const m = Math.floor(total / 60)
     const s = total % 60
     return `${m}:${String(s).padStart(2, '0')}`
 }
-
 export type AssessmentStrings = {
     filipinoLabel: string
     englishLabel: string
@@ -75,8 +72,14 @@ export type AssessmentStrings = {
     prevPage: string
     nextPage: string
     readAllHint: string
+    noisyEnvironmentWarning: string
+    micHint: string
+    clearHighlightsHint: string
+    pageNavHint: string
+    prevPageHint: string
+    redoHint: string
+    submitHint: string
 }
-
 export const STRINGS: Record<Lang, AssessmentStrings> = {
     fil: {
         filipinoLabel: 'Filipino',
@@ -115,6 +118,13 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         prevPage: '← Nakaraan',
         nextPage: 'Susunod →',
         readAllHint: 'Basahin ang bawat pahina — patuloy lang ang pag-record.',
+        noisyEnvironmentWarning: 'Medyo maingay sa paligid — subukang maghanap ng mas tahimik na lugar.',
+        micHint: 'Pindutin ang mikropono para magsimulang magbasa nang malakas! 🎙️',
+        clearHighlightsHint: 'Puwede mong tapikin ang mga salita para markahan ito — pindutin dito para tanggalin lahat! 🖍️',
+        pageNavHint: 'Marami pang pahina! Gamitin ang mga buton na ito para lumipat — patuloy lang ang pag-record. 📖',
+        prevPageHint: 'Puwede ka ring bumalik sa naunang pahina para muling basahin! ⬅️',
+        redoHint: 'Hindi kontento sa recording? Pindutin dito para ulitin! 🔁',
+        submitHint: 'Tapos ka na? Pindutin dito para ipasa sa iyong guro! ✅',
     },
     en: {
         filipinoLabel: 'Filipino',
@@ -153,5 +163,12 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         prevPage: '← Previous',
         nextPage: 'Next →',
         readAllHint: 'Read each page — recording keeps going.',
+        noisyEnvironmentWarning: "It's a bit noisy right now — try to find a quieter spot.",
+        micHint: 'Press the microphone to start reading aloud! 🎙️',
+        clearHighlightsHint: 'You can tap words to mark them — press here to clear them all! 🖍️',
+        pageNavHint: 'There are more pages! Use these buttons to flip through — recording keeps going. 📖',
+        prevPageHint: 'You can go back to reread earlier pages too! ⬅️',
+        redoHint: 'Not happy with your take? Tap here to record again! 🔁',
+        submitHint: 'All done? Tap here to send it to your teacher! ✅',
     },
 }

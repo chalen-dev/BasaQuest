@@ -8,30 +8,44 @@
 // here, per explicit product decision (a pupil shouldn't be able to
 // resubmit after their teacher has been notified).
 //
+// While actively recording, a small non-blocking amber pill can appear
+// above the waveform when useRecorder's ambient-noise heuristic
+// (rec.isNoisy) trips — see useRecorder.ts's header comment for how that's
+// estimated. It's a nudge only; it never pauses or blocks recording.
+//
+// Three one-time onboarding <Hint>s (see components/ui/Hint.tsx): the mic
+// button (gated to `!isRecording`, so it only shows in the idle "ready to
+// record" state), and — once a take exists (isRecorded) — Redo and
+// Submit, so a pupil sees exactly one relevant hint per phase instead of
+// several at once. All three are `persist`-ed (the Hint default) and mark
+// themselves seen the moment they're actually shown, so each is a true
+// "first time reaching this state" coach mark rather than a per-session
+// nag. `autoHideMs={6000}` — half the auth-page hints' 12s default, since
+// this screen already has more competing for attention (timer, waveform,
+// mic button) than a bare login form.
+//
 // h-full here fills the grid's fixed height (set in AssessmentSession.tsx)
 // instead of the old min-height + sticky approach — this panel's content
 // is a fixed set of elements (timer, waveform, one button, some copy), not
 // variable-length like the passage, so it just centers within whatever
 // height the grid gives it.
-import { Hourglass, Mic, RotateCcw, Send } from 'lucide-react'
+import { Hourglass, Mic, RotateCcw, Send, TriangleAlert } from 'lucide-react'
 import { Owl } from '../../../../../components/ui/Owl.tsx'
+import { Hint } from '../../../../../components/ui/Hint.tsx'
 import type { AssessmentStrings } from '../assessmentSessionStrings.ts'
 import { formatSeconds, MAX_RECORDING_SECONDS } from '../assessmentSessionStrings.ts'
 import type { useRecorder } from './useRecorder.ts'
 import { Waveform } from './Waveform.tsx'
-
 type RecorderPanelProps = {
     t: AssessmentStrings
     submitted: boolean
     rec: ReturnType<typeof useRecorder>
     onSubmit: () => void
 }
-
 export function RecorderPanel({ t, submitted, rec, onSubmit }: RecorderPanelProps) {
     const isRecording = rec.status === 'recording'
     const isRecorded = rec.status === 'recorded'
     const nearLimit = isRecording && rec.seconds >= MAX_RECORDING_SECONDS - 10
-
     return (
         <section className="flex h-full flex-col items-center justify-center gap-6 rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10">
             {submitted ? (
@@ -72,9 +86,13 @@ export function RecorderPanel({ t, submitted, rec, onSubmit }: RecorderPanelProp
                             </p>
                         )}
                     </div>
-
+                    {isRecording && rec.isNoisy && (
+                        <div className="flex items-center gap-2 rounded-full bg-amber-500/15 px-4 py-1.5 text-xs font-bold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
+                            <TriangleAlert size={14} />
+                            {t.noisyEnvironmentWarning}
+                        </div>
+                    )}
                     <Waveform active={isRecording} levels={rec.levels} />
-
                     {isRecorded && rec.audioUrl && (
                         <audio controls src={rec.audioUrl} className="w-full" />
                     )}
@@ -83,29 +101,29 @@ export function RecorderPanel({ t, submitted, rec, onSubmit }: RecorderPanelProp
                             {t.simulatedTake}
                         </div>
                     )}
-
                     {!isRecorded && (
-                        <button
-                            onClick={isRecording ? rec.stop : () => rec.start(MAX_RECORDING_SECONDS)}
-                            aria-label={isRecording ? t.hintRecording : t.hintIdle}
-                            className={`flex h-36 w-36 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-100 active:translate-y-1 ${
-                                isRecording
-                                    ? 'bg-rose-600 shadow-[0_10px_0_0_#9f1239] active:shadow-[0_3px_0_0_#9f1239]'
-                                    : 'bg-teal-500 shadow-[0_10px_0_0_#0f766e] active:shadow-[0_3px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_10px_0_0_#115e59]'
-                            }`}
-                        >
-                            {isRecording ? (
-                                <span className="h-10 w-10 rounded-xl bg-white" />
-                            ) : (
-                                <Mic size={52} />
-                            )}
-                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={isRecording ? rec.stop : () => rec.start(MAX_RECORDING_SECONDS)}
+                                aria-label={isRecording ? t.hintRecording : t.hintIdle}
+                                className={`flex h-36 w-36 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-100 active:translate-y-1 ${
+                                    isRecording
+                                        ? 'bg-rose-600 shadow-[0_10px_0_0_#9f1239] active:shadow-[0_3px_0_0_#9f1239]'
+                                        : 'bg-teal-500 shadow-[0_10px_0_0_#0f766e] active:shadow-[0_3px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_10px_0_0_#115e59]'
+                                }`}
+                            >
+                                {isRecording ? (
+                                    <span className="h-10 w-10 rounded-xl bg-white" />
+                                ) : (
+                                    <Mic size={52} />
+                                )}
+                            </button>
+                            <Hint id="assessment-mic-button" text={t.micHint} show={!isRecording} placement="top" align="center" autoHideMs={6000} />
+                        </div>
                     )}
-
                     <p className="min-h-[24px] text-center text-base font-semibold text-gray-600 dark:text-gray-400">
                         {isRecording ? t.hintRecording : isRecorded ? t.hintRecorded : t.hintIdle}
                     </p>
-
                     {rec.error && !isRecorded && (
                         <div className="w-full rounded-2xl bg-gray-900/5 p-4 text-center text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                             {t.micUnavailable}
@@ -117,23 +135,28 @@ export function RecorderPanel({ t, submitted, rec, onSubmit }: RecorderPanelProp
                             </button>
                         </div>
                     )}
-
                     {isRecorded ? (
                         <div className="flex w-full gap-3">
-                            <button
-                                onClick={rec.reset}
-                                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
-                            >
-                                <RotateCcw size={17} />
-                                {t.redoLabel}
-                            </button>
-                            <button
-                                onClick={onSubmit}
-                                className="flex flex-[2] cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-5 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
-                            >
-                                <Send size={17} />
-                                {t.submitLabel}
-                            </button>
+                            <div className="relative flex-1">
+                                <button
+                                    onClick={rec.reset}
+                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
+                                >
+                                    <RotateCcw size={17} />
+                                    {t.redoLabel}
+                                </button>
+                                <Hint id="assessment-redo-button" text={t.redoHint} placement="top" align="start" autoHideMs={6000} />
+                            </div>
+                            <div className="relative flex-[2]">
+                                <button
+                                    onClick={onSubmit}
+                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-5 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                                >
+                                    <Send size={17} />
+                                    {t.submitLabel}
+                                </button>
+                                <Hint id="assessment-submit-button" text={t.submitHint} placement="top" align="end" autoHideMs={6000} />
+                            </div>
                         </div>
                     ) : (
                         <button disabled className="w-full cursor-not-allowed rounded-full bg-teal-500 px-5 py-3 text-base font-bold text-white opacity-40 dark:bg-teal-600">
@@ -143,7 +166,6 @@ export function RecorderPanel({ t, submitted, rec, onSubmit }: RecorderPanelProp
                             </span>
                         </button>
                     )}
-
                     <div className="flex w-full items-center gap-3 border-t-2 border-dashed border-gray-900/10 pt-4 dark:border-gray-100/10">
                         <Owl size={44} />
                         <p className="text-sm font-semibold leading-snug text-gray-600 dark:text-gray-400">

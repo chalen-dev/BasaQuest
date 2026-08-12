@@ -14,19 +14,23 @@ const STARS = [
     { x: 880, y: 90, r: 0.8, delay: '0.7s' },
     { x: 340, y: 90, r: 0.8, delay: '1.2s' },
 ]
-// Clouds now spawn off-screen to the left (startX is well beyond the
+// Clouds spawn off-screen to the left (startX is well beyond the
 // viewBox's left edge) and travel the full width of the scene before
-// looping back to the start — instead of the old small side-to-side
-// wobble. Different durations per cloud (and negative delays, which make
-// a CSS animation start already partway through its cycle) so they drift
-// at different speeds and are staggered rather than moving in lockstep.
-// 11 clouds now (was 7), `scale` spanning 0.45–1.35 — small clouds get
-// faster durations (read as "closer/lighter"), big ones get slower
-// durations, so the size variety also reads as a bit of depth. A few
-// `y` values are deliberately reused (150, 230, 270) so two clouds ride
-// the same horizontal line — their very different durations/delays mean
-// they're never near each other at the same time, so it reads as "more
-// clouds on that layer" rather than a repeating pair.
+// looping back to the start. Different durations per cloud (and negative
+// delays, which make a CSS animation start already partway through its
+// cycle) so they drift at different speeds and are staggered rather than
+// moving in lockstep. `scale` spans 0.45-1.35 — small clouds get faster
+// durations (read as "closer/lighter"), big ones get slower durations, so
+// the size variety also reads as a bit of depth. A few `y` values are
+// deliberately reused (150, 230, 270) so two clouds ride the same
+// horizontal line — their very different durations/delays mean they're
+// never near each other at the same time, so it reads as "more clouds on
+// that layer" rather than a repeating pair.
+//
+// NOTE: clouds are rendered in their own top-layer SVG (see `Clouds`
+// below), separate from the sky/mountains/hills SVG (`SkyAndHills`), so
+// they can be painted AFTER `SunMoon` in the DOM and visually pass in
+// front of the sun/moon instead of behind it.
 const CLOUDS = [
     { startX: -300, y: 110, scale: 0.45, opacity: { light: 0.55, dark: 0.34 }, duration: '36s', delay: '-6s' },
     { startX: -300, y: 150, scale: 0.9, opacity: { light: 0.72, dark: 0.5 }, duration: '50s', delay: '-2s' },
@@ -101,15 +105,19 @@ const Cloud: React.FC<{
     </g>
 )
 /**
- * Full-bleed sky + clouds + mountains + rolling hills, used as ambient
- * background behind guest-facing screens (login/register). Layered for
- * depth: clouds drifting all the way across the scene, a hazy distant
- * mountain range, a nearer/darker mountain range, then three rolling
- * foreground hill bands with forest clusters and clear plains along the
- * nearest one. This part is allowed to scale up and crop at the edges
- * ("cover" behavior) since it's ambient — the sun/moon is NOT drawn in
- * here (see `SunMoon` below) because that needs to stay in a fixed
- * on-screen spot regardless of viewport aspect ratio.
+ * Full-bleed sky + mountains + rolling hills, used as ambient background
+ * behind guest-facing screens (login/register). Layered for depth: a hazy
+ * distant mountain range, a nearer/darker mountain range, then three
+ * rolling foreground hill bands with forest clusters and clear plains
+ * along the nearest one. This part is allowed to scale up and crop at the
+ * edges ("cover" behavior) since it's ambient.
+ *
+ * Clouds used to live in this same SVG, but were pulled out into their
+ * own top-layer component (`Clouds`, below) so they can be painted AFTER
+ * `SunMoon` in the DOM — otherwise the sun/moon (rendered as a separate
+ * fixed-position layer so it stays pinned to a screen corner, see
+ * `SunMoon`'s own comment) always sat visually on top of clouds passing
+ * behind it, instead of clouds ever passing in front.
  *
  * `fixed` + `h-screen w-screen` (not `absolute` + `h-full w-full`) is
  * deliberate: an absolutely-positioned element is sized to its nearest
@@ -158,33 +166,6 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
                         style={{ transformBox: 'fill-box', transformOrigin: 'center', animationDelay: star.delay }}
                     />
                 </g>
-            ))}
-        </g>
-        {/* clouds — spawn off-screen left, drift the full width, loop */}
-        {CLOUDS.map((cloud, i) => (
-            <Cloud
-                key={`cloud-light-${i}`}
-                startX={cloud.startX}
-                y={cloud.y}
-                scale={cloud.scale}
-                opacity={cloud.opacity.light}
-                duration={cloud.duration}
-                delay={cloud.delay}
-                fill="#ffffff"
-            />
-        ))}
-        <g className="hidden dark:block">
-            {CLOUDS.map((cloud, i) => (
-                <Cloud
-                    key={`cloud-dark-${i}`}
-                    startX={cloud.startX}
-                    y={cloud.y}
-                    scale={cloud.scale}
-                    opacity={cloud.opacity.dark}
-                    duration={cloud.duration}
-                    delay={cloud.delay}
-                    fill="#2a355c"
-                />
             ))}
         </g>
         {/* distant mountain range — soft rounded peaks (quadratic curves, not
@@ -253,6 +234,11 @@ const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
  * than the visually-offset crescent sliver. Blurring a copy of the crescent
  * itself means the light has no hard edge and hugs the actual visible
  * shape, so it reads as a soft glow that's naturally centered on the moon.
+ *
+ * Rendered between `SkyAndHills` and `Clouds` in `HillsideBackdrop` (DOM
+ * order = paint order for same-stacking-context `fixed` elements), so
+ * clouds correctly drift in front of it instead of it always sitting on
+ * top of every cloud.
  */
 const SunMoon: React.FC = () => (
     <svg
@@ -310,10 +296,56 @@ const SunMoon: React.FC = () => (
         </g>
     </svg>
 )
+/**
+ * Clouds-only top layer, using the exact same viewBox/slice-scaling setup
+ * as `SkyAndHills` so the clouds line up with where they used to sit
+ * inside that SVG. Split out purely for stacking order: painted after
+ * `SunMoon` in `HillsideBackdrop`, so clouds visually pass in FRONT of the
+ * sun/moon instead of always being stuck behind it. No sky/mountains/hills
+ * live here — this layer is transparent everywhere except the cloud
+ * shapes themselves, so it can sit on top of `SunMoon` without hiding it
+ * the rest of the time.
+ */
+const Clouds: React.FC = () => (
+    <svg
+        viewBox="0 0 1600 900"
+        preserveAspectRatio="xMidYMid slice"
+        className="pointer-events-none fixed inset-0 h-screen w-screen"
+        aria-hidden="true"
+    >
+        {CLOUDS.map((cloud, i) => (
+            <Cloud
+                key={`cloud-light-${i}`}
+                startX={cloud.startX}
+                y={cloud.y}
+                scale={cloud.scale}
+                opacity={cloud.opacity.light}
+                duration={cloud.duration}
+                delay={cloud.delay}
+                fill="#ffffff"
+            />
+        ))}
+        <g className="hidden dark:block">
+            {CLOUDS.map((cloud, i) => (
+                <Cloud
+                    key={`cloud-dark-${i}`}
+                    startX={cloud.startX}
+                    y={cloud.y}
+                    scale={cloud.scale}
+                    opacity={cloud.opacity.dark}
+                    duration={cloud.duration}
+                    delay={cloud.delay}
+                    fill="#2a355c"
+                />
+            ))}
+        </g>
+    </svg>
+)
 export const HillsideBackdrop: React.FC<{ className?: string }> = ({ className = '' }) => (
     <>
         <SkyAndHills className={className} />
         <SunMoon />
+        <Clouds />
     </>
 )
 export default HillsideBackdrop
