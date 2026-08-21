@@ -1,7 +1,7 @@
 // File: src/App.tsx
 import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom"
 import './App.css'
-import {GuestRoute, ProtectedRoute} from "./components/routes/AuthRoutes.tsx";
+import {AdminRoute, GuestRoute, ProtectedRoute} from "./components/routes/AuthRoutes.tsx";
 import Login from "./pages/auth/Login.tsx";
 import { Dashboard } from "./pages/students/dashboard/Dashboard.tsx";
 import { StudentList } from "./pages/students/list/StudentList.tsx";
@@ -15,6 +15,7 @@ import MaterialSelection from "./pages/proficiency/material_selection/MaterialSe
 import BeforeAssessment from "./pages/proficiency/pre_assessment/before_assessment/BeforeAssessment.tsx";
 import AssessmentSession from "./pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx";
 import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
+import RecordStudents from "./pages/admin/recording/RecordStudents.tsx";
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";
 import { useDocumentTitle } from "./hooks/useDocumentTitle.ts";
 function App() {
@@ -54,6 +55,13 @@ function App() {
                             <Route path="/home" element={<Home />}/>
                             <Route path="/reading/proficiency" element={<MaterialSelection />}/>
                             <Route path="/reading/proficiency/assessment" element={<BeforeAssessment />}/>
+                            {/* Admin-only: the child-recording capture page.
+                            Nested inside ProtectedRoute (must be logged in)
+                            and ProtectedLayout (shares the normal header/
+                            shell) — AdminRoute only adds the role check. */}
+                            <Route element = {<AdminRoute />}>
+                                <Route path="/admin/recording" element={<RecordStudents />}/>
+                            </Route>
                         </Route>
                         {/* Focused check-in session — swaps DashboardLayout's full
                         header for AssessmentSessionLayout's stripped-down one

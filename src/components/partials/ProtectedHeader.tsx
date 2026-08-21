@@ -97,9 +97,12 @@ export default function ProtectedHeader() {
     const username = (user?.user_metadata?.username as string | undefined) ?? user?.email ?? 'Guest'
     const t = HEADER_STRINGS[lang]
     const isTeacher = profile?.role === 'teacher'
+    const isAdmin = profile?.role === 'admin'
     const navItems: NavItem[] = isTeacher
         ? [...NAV_ITEMS[lang], { to: '/dashboard', label: STUDENT_DASHBOARD_LABEL[lang], matchPrefixes: STUDENTS_MATCH_PREFIXES }]
-        : NAV_ITEMS[lang]
+        : isAdmin
+            ? [...NAV_ITEMS[lang], { to: '/admin/recording', label: 'Record' }]
+            : NAV_ITEMS[lang]
 
     const handleLogout = async () => {
         const confirmed = await showConfirmation(t.logoutTitle, t.logoutText, theme === 'dark', 'warning', t.logoutConfirm)

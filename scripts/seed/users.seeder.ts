@@ -2,10 +2,15 @@
 import { supabase } from '../client.ts'
 
 const DEMO_USERS = [
-    { username: 'guro', name: 'Teacher Guro' },
-    { username: 'maria', name: 'Maria Santos' },
-    { username: 'ramon', name: 'Ramon Cruz' },
-    { username: 'liza', name: 'Liza Reyes' },
+    { username: 'guro', name: 'Teacher Guro', role: 'teacher' as const },
+    { username: 'maria', name: 'Maria Santos', role: 'teacher' as const },
+    { username: 'ramon', name: 'Ramon Cruz', role: 'teacher' as const },
+    { username: 'liza', name: 'Liza Reyes', role: 'teacher' as const },
+    // Dev-only admin account for the child-recording page. Same
+    // basaquest.local / 'basaquest' password convention as everyone else —
+    // fine for local dev seeding, but re-check this before ever running
+    // this seeder against a real/shared environment (see note below).
+    { username: 'admin', name: 'Admin Account', role: 'admin' as const },
 ]
 
 export async function seedUsers() {
@@ -29,9 +34,9 @@ export async function seedUsers() {
             .from('profiles')
             .update({
                 full_name: u.name,
-                role: 'teacher',
+                role: u.role,
             })
             .eq('id', data.user!.id)
-        console.log(profileError ? `  ✗ profile for ${u.username}: ${profileError.message}` : `  ✓ ${u.username}`)
+        console.log(profileError ? `  ✗ profile for ${u.username}: ${profileError.message}` : `  ✓ ${u.username} (${u.role})`)
     }
 }
