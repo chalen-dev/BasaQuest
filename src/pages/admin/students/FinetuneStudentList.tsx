@@ -23,6 +23,7 @@ import {
     type NewFinetuneStudent,
 } from '../useFinetuneStudents.ts'
 import { useStudentRecordingCountsQuery } from '../useStudentRecordings.ts'
+import { useConsentFileCountsQuery } from '../useConsentFiles.ts'
 import StudentFormFields from './StudentFormFields'
 import ConsentFiles from './ConsentFiles'
 
@@ -59,6 +60,12 @@ export default function FinetuneStudentList() {
     const deleteMutation = useDeleteFinetuneStudentMutation()
     const { data: recordingCountsData } = useStudentRecordingCountsQuery()
     const recordingCounts = recordingCountsData ?? {}
+    // consent_on_file (the DB column) stopped being settable once the
+    // manual checkbox was removed from the form — treat "has ≥1 consent
+    // file attached" as the real signal instead, everywhere this page
+    // shows a consent badge.
+    const { data: consentCountsData } = useConsentFileCountsQuery()
+    const consentCounts = consentCountsData ?? {}
 
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(0)
@@ -249,7 +256,8 @@ export default function FinetuneStudentList() {
                 <>
                     <div className="flex flex-col gap-3">
                         {paginated.map((s) => {
-                            const accent = s.consent_on_file ? '#14b8a6' : '#ef4444'
+                            const hasConsent = (consentCounts[s.id] ?? 0) > 0
+                            const accent = hasConsent ? '#14b8a6' : '#ef4444'
                             const isDeleting = deleteMutation.isPending && deleteMutation.variables === s.id
                             const recordingCount = recordingCounts[s.id] ?? 0
                             const hasRecordings = recordingCount > 0
@@ -282,12 +290,12 @@ export default function FinetuneStudentList() {
                                             </span>
                                             <span
                                                 className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                                    s.consent_on_file
+                                                    hasConsent
                                                         ? 'bg-green-500/15 text-green-600 dark:text-green-400'
                                                         : 'bg-red-500/15 text-red-600 dark:text-red-400'
                                                 }`}
                                             >
-                                                {s.consent_on_file ? 'consent on file' : 'no consent'}
+                                                {hasConsent ? 'consent on file' : 'no consent'}
                                             </span>
                                             {s.grade_level != null && (
                                                 <span className="rounded-full bg-gray-900/5 px-2.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
@@ -308,12 +316,9 @@ export default function FinetuneStudentList() {
                                         )}
                                     </div>
                                     <div className="flex shrink-0 items-center gap-1.5">
-                                        {/* New: jumps straight to this student's recordings
-                                        review page — kept on the row itself (not buried in
-                                        the edit drawer) since it's something you'll want
-                                        to check often, separate from editing details.
-                                        Disabled (and shows the count) when there's nothing
-                                        to review yet. */}
+                                        {/* Jumps straight to this student's recordings review
+                                        page — disabled (and shows the count) when there's
+                                        nothing to review yet. */}
                                         <button
                                             type="button"
                                             aria-label="View recordings"

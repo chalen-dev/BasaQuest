@@ -1,11 +1,10 @@
-// File: src/layouts/AssessmentSessionLayout.tsx
-// Same shape as DashboardLayout, but paired with AssessmentSessionHeader
+// File: src/pages/proficiency/pre_assessment/assessment_session/layouts/AssessmentSessionLayout.tsx
+// Same shape as ProtectedLayout, but paired with AssessmentSessionHeader
 // instead of the full site Header — used only for the active reading
 // check-in session route, where navigation and language switching are
 // intentionally locked out.
 import { Outlet } from 'react-router-dom'
-import AssessmentSessionHeader from '../components/partials/AssessmentSessionHeader.tsx'
-
+import AssessmentSessionHeader from './AssessmentSessionHeader.tsx'
 export default function AssessmentSessionLayout() {
     return (
         <div className="flex min-h-screen flex-col bg-orange-50 transition-colors duration-300 dark:bg-gray-950">

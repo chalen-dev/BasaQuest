@@ -7,10 +7,11 @@ import { Dashboard } from "./pages/students/dashboard/Dashboard.tsx";
 import { StudentList } from "./pages/students/list/StudentList.tsx";
 import Register from "./pages/auth/Register.tsx";
 import {Home} from "./pages/home/Home.tsx";
-import ProtectedLayout from "./layouts/ProtectedLayout.tsx";
-import PersistentBackdropLayout from "./layouts/PersistentBackdropLayout.tsx";
-import GuestLayout from "./layouts/GuestLayout.tsx";
-import AssessmentSessionLayout from "./layouts/AssessmentSessionLayout.tsx";
+import ProtectedLayout from "./pages/_layouts/ProtectedLayout.tsx";
+import PersistentBackdropLayout from "./pages/_layouts/PersistentBackdropLayout.tsx";
+import GuestLayout from "./pages/auth/layouts/GuestLayout.tsx";
+import AssessmentSessionLayout from "./pages/proficiency/pre_assessment/assessment_session/layouts/AssessmentSessionLayout.tsx";
+import AdminSessionLayout from "./pages/admin/recording/session/layouts/AdminSessionLayout.tsx";
 import MaterialSelection from "./pages/proficiency/material_selection/MaterialSelection.tsx";
 import BeforeAssessment from "./pages/proficiency/pre_assessment/before_assessment/BeforeAssessment.tsx";
 import AssessmentSession from "./pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx";
@@ -61,21 +62,33 @@ function App() {
                             {/* Admin-only: the child-recording capture page.
                             Nested inside ProtectedRoute (must be logged in)
                             and ProtectedLayout (shares the normal header/
-                            shell) — AdminRoute only adds the role check. */}
+                            shell) — AdminRoute only adds the role check.
+                            /admin/recording/session lives in its own layout
+                            block below instead — it needs the stripped
+                            Exit-only header, not this full nav. */}
                             <Route element = {<AdminRoute />}>
                                 <Route path="/admin/students" element={<FinetuneStudentList />}/>
                                 <Route path="/admin/recording" element={<SelectStudent />}/>
-                                <Route path="/admin/recording/session" element={<RecordSession />}/>
                                 <Route path="/admin/recording/history" element={<RecordingHistory />}/>
                             </Route>
                         </Route>
-                        {/* Focused check-in session — swaps DashboardLayout's full
+                        {/* Focused check-in session — swaps ProtectedLayout's full
                         header for AssessmentSessionLayout's stripped-down one
                         (no nav, no language toggle) once a language has been
                         picked, so the session can't be navigated away from or
                         have its language changed except by an explicit Exit. */}
                         <Route element = {<AssessmentSessionLayout />}>
                             <Route path="/reading/proficiency/assessment/session" element={<AssessmentSession />}/>
+                        </Route>
+                        {/* Same idea for the fine-tune mic-capture screen — a
+                        stripped header with only an Exit button (back to the
+                        student picker) instead of the full admin nav, so an
+                        admin mid-recording can't wander off by accident.
+                        AdminRoute still nests inside for the role check. */}
+                        <Route element = {<AdminSessionLayout />}>
+                            <Route element = {<AdminRoute />}>
+                                <Route path="/admin/recording/session" element={<RecordSession />}/>
+                            </Route>
                         </Route>
                     </Route>
                 </Route>

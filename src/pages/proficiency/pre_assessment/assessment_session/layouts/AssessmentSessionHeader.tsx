@@ -1,3 +1,4 @@
+// File: src/pages/proficiency/pre_assessment/assessment_session/layouts/AssessmentSessionHeader.tsx
 // Stripped-down header shown only during an active reading check-in session
 // (once a language has been picked in PreAssessment.tsx). Deliberately has
 // no nav links, no LangToggle, and no account menu — the point is to keep
@@ -13,23 +14,20 @@
 // next student.
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LogOut, UserRound } from 'lucide-react'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useLang } from '../../contexts/LangContext'
-import { Owl } from '../ui/Owl'
-import { ThemeToggleButton } from '../buttons/ThemeToggleButton'
-import { showConfirmation } from '../../helpers/swalHelpers'
-import type { Lang } from '../buttons/LangToggle'
-
+import { useTheme } from '../../../../../contexts/ThemeContext'
+import { useLang } from '../../../../../contexts/LangContext'
+import { Owl } from '../../../../../components/ui/Owl'
+import { ThemeToggleButton } from '../../../../../components/buttons/ThemeToggleButton'
+import { showConfirmation } from '../../../../../helpers/swalHelpers'
+import type { Lang } from '../../../../../components/buttons/LangToggle'
 const TAGLINE: Record<Lang, string> = {
     fil: 'Plataporma ng Pagkatuto',
     en: 'Learning Platform',
 }
-
 const ASSISTED_LABEL: Record<Lang, string> = {
     fil: 'Para kay',
     en: 'For',
 }
-
 const EXIT_STRINGS: Record<Lang, { label: string; title: string; text: string; confirm: string }> = {
     fil: {
         label: 'Lumabas',
@@ -44,7 +42,6 @@ const EXIT_STRINGS: Record<Lang, { label: string; title: string; text: string; c
         confirm: 'Yes, exit',
     },
 }
-
 export default function AssessmentSessionHeader() {
     const navigate = useNavigate()
     const { theme } = useTheme()
@@ -53,14 +50,12 @@ export default function AssessmentSessionHeader() {
     const et = EXIT_STRINGS[lang]
     const studentName = searchParams.get('studentName')
     const isAssisted = !!searchParams.get('studentId')
-
     const handleExit = async () => {
         const confirmed = await showConfirmation(et.title, et.text, theme === 'dark', 'warning', et.confirm)
         if (confirmed) {
             navigate(isAssisted ? '/reading/proficiency/assessment' : '/reading/proficiency')
         }
     }
-
     return (
         <header className="fixed inset-x-0 top-0 z-40 border-b border-gray-900/10 bg-orange-50/30 backdrop-blur-sm transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-950/35">
             <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">

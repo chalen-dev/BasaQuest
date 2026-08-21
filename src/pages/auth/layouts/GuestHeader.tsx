@@ -1,9 +1,9 @@
-// File: src/components/partials/GuestHeader.tsx
+// File: src/pages/auth/layouts/GuestHeader.tsx
 import React from 'react'
-import { ThemeToggleButton } from '../buttons/ThemeToggleButton.tsx'
-import { LangToggle } from '../buttons/LangToggle.tsx'
-import { useLang } from '../../contexts/LangContext.tsx'
-import { Hint } from '../ui/Hint.tsx'
+import { ThemeToggleButton } from '../../../components/buttons/ThemeToggleButton.tsx'
+import { LangToggle } from '../../../components/buttons/LangToggle.tsx'
+import { useLang } from '../../../contexts/LangContext.tsx'
+import { Hint } from '../../../components/ui/Hint.tsx'
 interface GuestHeaderProps {
     showHints?: boolean
     hintThemeText?: string

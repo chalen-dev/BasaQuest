@@ -1,8 +1,8 @@
-// File: src/layouts/GuestLayout.tsx
+// File: src/pages/auth/layouts/GuestLayout.tsx
 import { Outlet, useLocation } from 'react-router-dom'
-import { GuestHeader } from '../components/partials/GuestHeader.tsx'
-import { HillsideBackdrop } from '../components/backgrounds/HillsideBackdrop.tsx'
-import { useLang } from '../contexts/LangContext.tsx'
+import { GuestHeader } from './GuestHeader.tsx'
+import { HillsideBackdrop } from '../../../components/backgrounds/HillsideBackdrop.tsx'
+import { useLang } from '../../../contexts/LangContext.tsx'
 const HINT_STRINGS: Record<'fil' | 'en', { theme: string; lang: string }> = {
     fil: {
         theme: 'Pindutin dito para sa araw o gabi! ✨',

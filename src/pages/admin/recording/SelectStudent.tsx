@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search as SearchIcon, ShieldAlert, UserRound, Loader2, ArrowRight, Mic, Users, Pencil } from 'lucide-react'
 import { useFinetuneStudentsQuery, type FinetuneStudent } from '../useFinetuneStudents.ts'
+import { useConsentFileCountsQuery } from '../useConsentFiles.ts'
 import { useReadingSentencesQuery, SENTENCE_SET_LABELS, type SentenceSet } from './useReadingSentences'
 import { SearchInput } from '../../../components/input/SearchInput'
 import { Select } from '../../../components/input/Select'
@@ -15,7 +16,9 @@ import { Tooltip } from '../../../components/ui/Tooltip'
 import { Pagination } from '../../../components/ui/Pagination'
 import { AdminSubNav } from '../components/AdminSubNav'
 import { GenderBadge } from '../genderDisplay'
+
 const PAGE_SIZE = 6
+
 export default function SelectStudent() {
     const navigate = useNavigate()
     const [search, setSearch] = useState('')
@@ -24,6 +27,12 @@ export default function SelectStudent() {
     const [sentenceSet, setSentenceSet] = useState<SentenceSet>('g1_2')
     const { data: studentsData, isLoading: loadingStudents, error: studentsError } = useFinetuneStudentsQuery()
     const students = studentsData ?? []
+    // consent_on_file (the DB column) stopped being settable once the
+    // manual checkbox was removed from the student form — "has ≥1
+    // consent file attached" is the real signal now, both for the badge
+    // below and for gating whether recording can start at all.
+    const { data: consentCountsData } = useConsentFileCountsQuery()
+    const consentCounts = consentCountsData ?? {}
     const { data: sentencesData, isLoading: loadingSentences } = useReadingSentencesQuery()
     const sentencesBySet = sentencesData ?? { g1_2: [], g3_4: [] }
     const filtered = useMemo(
@@ -36,7 +45,8 @@ export default function SelectStudent() {
         () => students.find((s) => s.id === studentId) ?? null,
         [students, studentId],
     )
-    const canStart = !!selectedStudent && selectedStudent.consent_on_file
+    const selectedHasConsent = !!selectedStudent && (consentCounts[selectedStudent.id] ?? 0) > 0
+    const canStart = !!selectedStudent && selectedHasConsent
     const handleSearchChange = (value: string) => {
         setSearch(value)
         setPage(0)
@@ -68,10 +78,10 @@ export default function SelectStudent() {
                                 <h1 className="mt-1 truncate text-2xl font-extrabold text-gray-900 dark:text-gray-50">
                                     {selectedStudent.full_name}
                                 </h1>
-                                {!selectedStudent.consent_on_file && (
+                                {!selectedHasConsent && (
                                     <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-red-600 dark:text-red-400">
                                         <ShieldAlert size={14} className="shrink-0" />
-                                        No consent on file — confirm consent on the Students page first.
+                                        No consent file on record — attach one on the Students page first.
                                     </p>
                                 )}
                             </>
@@ -150,6 +160,7 @@ export default function SelectStudent() {
                                 <div className="flex flex-col gap-2.5">
                                     {paginated.map((s) => {
                                         const isSelected = s.id === studentId
+                                        const hasConsent = (consentCounts[s.id] ?? 0) > 0
                                         return (
                                             <div
                                                 key={s.id}
@@ -178,12 +189,12 @@ export default function SelectStudent() {
                                                             <GenderBadge gender={s.gender} />
                                                             <span
                                                                 className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                                    s.consent_on_file
+                                                                    hasConsent
                                                                         ? 'bg-green-500/15 text-green-600 dark:text-green-400'
                                                                         : 'bg-red-500/15 text-red-600 dark:text-red-400'
                                                                 }`}
                                                             >
-                                                                {s.consent_on_file ? 'consent on file' : 'no consent'}
+                                                                {hasConsent ? 'consent on file' : 'no consent'}
                                                             </span>
                                                         </div>
                                                     </div>

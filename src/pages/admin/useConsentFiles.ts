@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabaseClient.ts'
 import { useAuth } from '../../contexts/AuthContext.tsx'
+
 export type ConsentFile = {
     id: string
     student_id: string
@@ -9,11 +10,37 @@ export type ConsentFile = {
     original_filename: string | null
     created_at: string
 }
+
 const BUCKET = 'consent-files'
 export const MAX_CONSENT_FILES = 4
+
 export function consentFilesKey(studentId: string) {
     return ['consent_files', studentId] as const
 }
+
+export const consentFileCountsKey = ['consent_files', 'counts'] as const
+
+// consent_on_file (a DB column) stopped being settable once the manual
+// "Parent consent already on file" checkbox was removed from the form —
+// nothing writes it anymore. Roster badges and the recording gate should
+// treat "has at least one consent file attached" as the real signal
+// instead, which this powers with one query for the whole roster rather
+// than one per row.
+export function useConsentFileCountsQuery() {
+    return useQuery({
+        queryKey: consentFileCountsKey,
+        queryFn: async () => {
+            const { data, error } = await supabase.from('finetune_student_consent_files').select('student_id')
+            if (error) throw error
+            const counts: Record<string, number> = {}
+            for (const row of data ?? []) {
+                counts[row.student_id] = (counts[row.student_id] ?? 0) + 1
+            }
+            return counts
+        },
+    })
+}
+
 export function useConsentFilesQuery(studentId: string | null) {
     return useQuery({
         queryKey: consentFilesKey(studentId ?? ''),
@@ -29,6 +56,7 @@ export function useConsentFilesQuery(studentId: string | null) {
         enabled: !!studentId,
     })
 }
+
 export function useUploadConsentFileMutation(studentId: string | null) {
     const { user } = useAuth()
     const queryClient = useQueryClient()
@@ -56,9 +84,11 @@ export function useUploadConsentFileMutation(studentId: string | null) {
         },
         onSuccess: () => {
             if (studentId) queryClient.invalidateQueries({ queryKey: consentFilesKey(studentId) })
+            queryClient.invalidateQueries({ queryKey: consentFileCountsKey })
         },
     })
 }
+
 export function useDeleteConsentFileMutation(studentId: string | null) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -73,9 +103,11 @@ export function useDeleteConsentFileMutation(studentId: string | null) {
         },
         onSuccess: () => {
             if (studentId) queryClient.invalidateQueries({ queryKey: consentFilesKey(studentId) })
+            queryClient.invalidateQueries({ queryKey: consentFileCountsKey })
         },
     })
 }
+
 // The bucket is private, so viewing a file means minting a short-lived
 // signed URL on demand rather than linking straight to a public path.
 export function useConsentFileSignedUrl() {

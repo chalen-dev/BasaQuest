@@ -1,9 +1,9 @@
-// File: src/layouts/DashboardLayout.tsx
+// File: src/pages/_layouts/ProtectedLayout.tsx
 // The HillsideBackdrop used to be rendered directly inside this layout's
 // <main>. It's now supplied by PersistentBackdropLayout, which App.tsx
-// nests just outside DashboardLayout for the authenticated route group —
+// nests just outside ProtectedLayout for the authenticated route group —
 // same pattern as the guest/auth routes, so both route groups persist
-// their background the same explicit way instead of DashboardLayout
+// their background the same explicit way instead of ProtectedLayout
 // quietly doing its own thing.
 //
 // Header is now `fixed` (not `sticky`) so it stays pinned to the very top
@@ -14,7 +14,7 @@
 // header wraps to two rows, pt-20 on lg+ where it's a single row) so page
 // content doesn't start out hidden underneath it.
 import { Outlet } from 'react-router-dom'
-import ProtectedHeader from "../components/partials/ProtectedHeader.tsx";
+import ProtectedHeader from "../../components/partials/ProtectedHeader.tsx";
 export default function ProtectedLayout() {
     return (
         <div className="flex min-h-screen flex-col bg-orange-50 transition-colors duration-300 dark:bg-gray-950">
