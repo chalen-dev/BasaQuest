@@ -101,7 +101,7 @@ export default function ProtectedHeader() {
     const navItems: NavItem[] = isTeacher
         ? [...NAV_ITEMS[lang], { to: '/dashboard', label: STUDENT_DASHBOARD_LABEL[lang], matchPrefixes: STUDENTS_MATCH_PREFIXES }]
         : isAdmin
-            ? [...NAV_ITEMS[lang], { to: '/admin/recording', label: 'Record' }]
+            ? [...NAV_ITEMS[lang], { to: '/admin/recording', label: 'Record Students', matchPrefixes: ['/admin/recording', '/admin/students'] }]
             : NAV_ITEMS[lang]
 
     const handleLogout = async () => {

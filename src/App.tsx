@@ -15,9 +15,12 @@ import MaterialSelection from "./pages/proficiency/material_selection/MaterialSe
 import BeforeAssessment from "./pages/proficiency/pre_assessment/before_assessment/BeforeAssessment.tsx";
 import AssessmentSession from "./pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx";
 import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
-import RecordStudents from "./pages/admin/recording/RecordStudents.tsx";
+import SelectStudent from "./pages/admin/recording/SelectStudent.tsx";
+import RecordSession from "./pages/admin/recording/session/RecordSession.tsx";
+import RecordingHistory from "./pages/admin/recording/history/RecordingHistory.tsx";
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";
 import { useDocumentTitle } from "./hooks/useDocumentTitle.ts";
+import FinetuneStudentList from "./pages/admin/students/FinetuneStudentList.tsx";
 function App() {
     // Mounted here — above <Routes>, not inside any particular layout —
     // so it's active on every route a logged-in student could be on,
@@ -60,7 +63,10 @@ function App() {
                             and ProtectedLayout (shares the normal header/
                             shell) — AdminRoute only adds the role check. */}
                             <Route element = {<AdminRoute />}>
-                                <Route path="/admin/recording" element={<RecordStudents />}/>
+                                <Route path="/admin/students" element={<FinetuneStudentList />}/>
+                                <Route path="/admin/recording" element={<SelectStudent />}/>
+                                <Route path="/admin/recording/session" element={<RecordSession />}/>
+                                <Route path="/admin/recording/history" element={<RecordingHistory />}/>
                             </Route>
                         </Route>
                         {/* Focused check-in session — swaps DashboardLayout's full
