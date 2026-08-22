@@ -1,15 +1,15 @@
 // File: src/components/partials/Header.tsx
 import { NavLink, useLocation } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
-import { useTheme } from '../../contexts/ThemeContext'
-import { useLang } from '../../contexts/LangContext'
-import { useProfile } from '../../hooks/useProfile'
-import { Owl } from '../ui/Owl'
-import { Tooltip } from '../ui/Tooltip'
-import { LangToggle, type Lang } from '../buttons/LangToggle'
-import { ThemeToggleButton } from '../buttons/ThemeToggleButton'
-import { showConfirmation, showToast } from '../../helpers/swalHelpers'
+import { useAuth } from '../../contexts/AuthContext.tsx'
+import { useTheme } from '../../contexts/ThemeContext.tsx'
+import { useLang } from '../../contexts/LangContext.tsx'
+import { useProfile } from '../../hooks/useProfile.ts'
+import { Owl } from '../../components/ui/Owl.tsx'
+import { Tooltip } from '../../components/ui/Tooltip.tsx'
+import { LangToggle, type Lang } from '../../components/buttons/LangToggle.tsx'
+import { ThemeToggleButton } from '../../components/buttons/ThemeToggleButton.tsx'
+import { showConfirmation, showToast } from '../../helpers/swalHelpers.ts'
 
 type NavItem = { to: string; label: string; matchPrefixes?: string[] }
 
