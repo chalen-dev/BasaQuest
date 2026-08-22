@@ -1,6 +1,6 @@
 // File: src/pages/admin/useStudentRecordings.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabaseClient.ts'
+import { supabase } from '../../lib/supabaseClient'
 export type StudentRecording = {
     id: string
     student_id: string
@@ -36,6 +36,23 @@ export function useStudentRecordingCountsQuery() {
         },
     })
 }
+export const recordedSentenceSetsKey = ['student_recordings', 'recorded_sets'] as const
+// Which sentence_set keys have at least one recording against them,
+// anywhere, from any student — this is exactly the condition that locks
+// a script for editing on SentenceScripts.tsx (see the RLS policies in
+// 20260822090000_add_recording_lock.sql). Client-side dedup for the same
+// reason useStudentRecordingCountsQuery is — the pilot's row volume is
+// small enough that a distinct() round trip isn't worth it.
+export function useRecordedSentenceSetsQuery() {
+    return useQuery({
+        queryKey: recordedSentenceSetsKey,
+        queryFn: async () => {
+            const { data, error } = await supabase.from('student_recordings').select('sentence_set')
+            if (error) throw error
+            return new Set((data ?? []).map((r) => r.sentence_set as string))
+        },
+    })
+}
 export function useStudentRecordingsQuery(studentId: string | null) {
     return useQuery({
         queryKey: studentRecordingsKey(studentId ?? ''),
@@ -66,6 +83,7 @@ export function useDeleteStudentRecordingMutation(studentId: string | null) {
         onSuccess: () => {
             if (studentId) queryClient.invalidateQueries({ queryKey: studentRecordingsKey(studentId) })
             queryClient.invalidateQueries({ queryKey: studentRecordingCountsKey })
+            queryClient.invalidateQueries({ queryKey: recordedSentenceSetsKey })
         },
     })
 }

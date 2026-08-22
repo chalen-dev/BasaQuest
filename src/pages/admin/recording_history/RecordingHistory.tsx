@@ -1,8 +1,14 @@
-// File: src/pages/admin/recording/history/RecordingHistory.tsx
+// File: src/pages/admin/recording_history/RecordingHistory.tsx
 // Per-student recordings review: step through every clip a student has
 // on file one at a time (dot navigation, same pattern as the sentence
 // picker in RecordSession.tsx), with the sentence text they read,
 // playback, and delete. Reached via ?student=<id>.
+//
+// Also where an admin explicitly finalizes ("locks") a student's
+// recordings — the deliberate action that makes the student's details,
+// their recordings, and starting a new session locked for every admin
+// (see 20260822090000_add_recording_lock.sql). Deleting a recording is
+// disabled once locked; unlocking is the same button, toggled.
 //
 // Deliberately doesn't render AdminSubNav — this is meant to be a
 // focused review screen, not another place to navigate from. The only
@@ -10,17 +16,17 @@
 // to that student's edit drawer on the roster page.
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Trash2, Loader2, FileAudio } from 'lucide-react'
-import { useTheme } from '../../../../contexts/ThemeContext.tsx'
-import { showConfirmation, showToast } from '../../../../helpers/swalHelpers.ts'
-import { useFinetuneStudentsQuery } from '../../useFinetuneStudents.ts'
+import { ArrowLeft, ArrowRight, Trash2, Loader2, FileAudio, Lock, LockOpen } from 'lucide-react'
+import { useTheme } from '../../../contexts/ThemeContext'
+import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
+import { useFinetuneStudentsQuery, useSetRecordingLockMutation } from '../useFinetuneStudents.ts'
 import {
     useStudentRecordingsQuery,
     useDeleteStudentRecordingMutation,
     useStudentRecordingSignedUrl,
     type StudentRecording,
-} from '../../useStudentRecordings.ts'
-import { useReadingSentenceSetsQuery } from '../../useReadingSentences.ts'
+} from '../useStudentRecordings.ts'
+import { useReadingSentenceSetsQuery } from '../useReadingSentences'
 export default function RecordingHistory() {
     const { theme } = useTheme()
     const [searchParams] = useSearchParams()
@@ -30,6 +36,7 @@ export default function RecordingHistory() {
     const { data, isLoading, error } = useStudentRecordingsQuery(studentId || null)
     const recordings = data ?? []
     const deleteMutation = useDeleteStudentRecordingMutation(studentId || null)
+    const lockMutation = useSetRecordingLockMutation()
     const signedUrlMutation = useStudentRecordingSignedUrl()
     // Sets are admin-editable now (see SentenceScripts.tsx) — labels come
     // from the DB instead of a hardcoded SENTENCE_SET_LABELS constant, so
@@ -43,7 +50,7 @@ export default function RecordingHistory() {
     const [audioUrl, setAudioUrl] = useState<string | null>(null)
     const [loadingAudio, setLoadingAudio] = useState(false)
     const current = recordings[index] ?? null
-    // Clamp the index if the list shrinks (e.g. right after a delete) so
+    // Clamp the index if the list shrinks (e.g., right after a delete) so
     // it doesn't end up pointing past the end.
     useEffect(() => {
         if (index >= recordings.length && recordings.length > 0) {
@@ -92,6 +99,26 @@ export default function RecordingHistory() {
             showToast(err instanceof Error ? err.message : 'Failed to delete recording.', 'error', theme === 'dark')
         }
     }
+    const handleToggleLock = async () => {
+        if (!student) return
+        const locking = !student.recording_locked
+        const confirmed = await showConfirmation(
+            locking ? "Finalize this student's recordings?" : "Unlock this student's recordings?",
+            locking
+                ? "Once finalized, no admin — including you — will be able to edit this student's details, edit or delete these recordings, or start a new recording session, until it's explicitly unlocked again."
+                : 'This re-opens the student for editing and lets a new recording session be started.',
+            theme === 'dark',
+            'warning',
+            locking ? 'Yes, finalize' : 'Yes, unlock',
+        )
+        if (!confirmed) return
+        try {
+            await lockMutation.mutateAsync({ id: student.id, locked: locking })
+            showToast(locking ? 'Recordings finalized.' : 'Unlocked.', 'success', theme === 'dark', { timer: 1200 })
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Failed to update lock state.', 'error', theme === 'dark')
+        }
+    }
     if (!studentId) {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-6">
@@ -107,17 +134,45 @@ export default function RecordingHistory() {
     }
     return (
         <div className="mx-auto max-w-3xl px-4 pb-12 pt-6">
-            <Link
-                to={`/admin/students?edit=${studentId}`}
-                className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-600 shadow-sm transition-colors duration-300 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-100/10"
-            >
-                <ArrowLeft size={14} /> Back to student
-            </Link>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <Link
+                    to={`/admin/students?edit=${studentId}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-600 shadow-sm transition-colors duration-300 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-100/10"
+                >
+                    <ArrowLeft size={14} /> Back to student
+                </Link>
+                {student && (
+                    <button
+                        type="button"
+                        onClick={handleToggleLock}
+                        disabled={lockMutation.isPending}
+                        className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold shadow-sm transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+                            student.recording_locked
+                                ? 'border border-gray-900/10 bg-white text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-100/10'
+                                : 'bg-amber-500 text-white hover:bg-amber-600 dark:bg-amber-600'
+                        }`}
+                    >
+                        {lockMutation.isPending ? (
+                            <Loader2 size={14} className="animate-spin" />
+                        ) : student.recording_locked ? (
+                            <LockOpen size={14} />
+                        ) : (
+                            <Lock size={14} />
+                        )}
+                        {student.recording_locked ? 'Unlock recordings' : 'Finalize recording'}
+                    </button>
+                )}
+            </div>
             <h1 className="mb-1 text-xl font-extrabold text-gray-900 dark:text-gray-50">
                 Recordings — {student?.full_name ?? '…'}
             </h1>
-            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mb-6 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                 {recordings.length} recording{recordings.length === 1 ? '' : 's'} on file.
+                {student?.recording_locked && (
+                    <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                        <Lock size={11} /> Locked
+                    </span>
+                )}
             </p>
             {isLoading ? (
                 <div className="flex items-center justify-center py-16 text-sm text-gray-500 dark:text-gray-400">
@@ -183,7 +238,7 @@ export default function RecordingHistory() {
                                 <button
                                     type="button"
                                     onClick={() => handleDelete(current)}
-                                    disabled={deleteMutation.isPending && deleteMutation.variables?.id === current.id}
+                                    disabled={(deleteMutation.isPending && deleteMutation.variables?.id === current.id) || student?.recording_locked}
                                     className="flex items-center gap-1.5 rounded-full bg-red-500/15 px-3.5 py-2 text-xs font-bold text-red-700 transition-colors duration-150 hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-300 dark:hover:bg-red-500/25"
                                 >
                                     <Trash2 size={14} />

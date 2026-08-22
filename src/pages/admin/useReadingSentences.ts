@@ -1,7 +1,6 @@
 // File: src/pages/admin/useReadingSentences.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabaseClient'
-
 // Sentence sets ("scripts") used to be a hardcoded 'g1_2' | 'g3_4' union
 // with labels in a source constant. They're admin-editable now (see
 // SentenceScripts.tsx) — created, renamed, and deleted through the
@@ -24,7 +23,6 @@ export type Sentence = {
     text: string
     display_order: number // purely visual ordering — this is what reordering touches, never `number`
 }
-
 export const readingSentenceSetsKey = ['reading_sentence_sets'] as const
 export function useReadingSentenceSetsQuery() {
     return useQuery({
@@ -40,7 +38,6 @@ export function useReadingSentenceSetsQuery() {
         },
     })
 }
-
 export const readingSentencesKey = ['reading_sentences'] as const
 // Grouped-by-set shape used by the recording flow (RecordSession,
 // SelectStudent) — one query for every sentence across every set,
@@ -66,7 +63,6 @@ export function useReadingSentencesQuery() {
         },
     })
 }
-
 // Flat per-set list (with real ids) used by the Sentence Scripts admin
 // page for CRUD + reordering — the grouped query above intentionally
 // doesn't expose enough to edit/delete/reorder a specific row cleanly.
@@ -93,7 +89,6 @@ export function useSentencesForSetQuery(setKey: string | null) {
         enabled: !!setKey,
     })
 }
-
 // Turns a display label into a stable slug for reading_sentence_sets.key
 // (e.g. "Grade 5-6 script" -> "grade_5_6_script"). Falls back to "set" if
 // the label is all punctuation/whitespace, and the mutation below appends
@@ -106,7 +101,6 @@ function slugify(label: string) {
         .replace(/^_+|_+$/g, '')
     return base || 'set'
 }
-
 export function useCreateSentenceSetMutation() {
     const queryClient = useQueryClient()
     return useMutation({
@@ -139,7 +133,6 @@ export function useCreateSentenceSetMutation() {
         },
     })
 }
-
 export function useUpdateSentenceSetLabelMutation() {
     const queryClient = useQueryClient()
     return useMutation({
@@ -154,7 +147,6 @@ export function useUpdateSentenceSetLabelMutation() {
         },
     })
 }
-
 export function useDeleteSentenceSetMutation() {
     const queryClient = useQueryClient()
     return useMutation({
@@ -171,7 +163,6 @@ export function useDeleteSentenceSetMutation() {
         },
     })
 }
-
 export function useCreateSentenceMutation(setKey: string | null) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -200,7 +191,6 @@ export function useCreateSentenceMutation(setKey: string | null) {
         },
     })
 }
-
 export function useUpdateSentenceTextMutation(setKey: string | null) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -216,7 +206,6 @@ export function useUpdateSentenceTextMutation(setKey: string | null) {
         },
     })
 }
-
 export function useDeleteSentenceMutation(setKey: string | null) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -230,7 +219,6 @@ export function useDeleteSentenceMutation(setKey: string | null) {
         },
     })
 }
-
 // Reassigns display_order for a whole set in one round trip via the
 // reorder_reading_sentences DB function — see its comment in the
 // migration for why this doesn't need the temp-offset dance a
@@ -244,6 +232,25 @@ export function useReorderSentencesMutation(setKey: string | null) {
         },
         onSuccess: () => {
             if (setKey) queryClient.invalidateQueries({ queryKey: sentencesBySetKey(setKey) })
+            queryClient.invalidateQueries({ queryKey: readingSentencesKey })
+        },
+    })
+}
+// Escape hatch for a locked script (one with recordings against it) —
+// see duplicate_reading_sentence_set in the recording-lock migration.
+// Runs as the calling admin (SECURITY INVOKER), so it's really just "do
+// the insert-a-set-and-copy-its-sentences dance server-side in one round
+// trip" rather than a privilege escalation.
+export function useDuplicateSentenceSetMutation() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (sourceKey: string) => {
+            const { data, error } = await supabase.rpc('duplicate_reading_sentence_set', { p_source_key: sourceKey })
+            if (error) throw error
+            return data as string // the new set's key
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: readingSentenceSetsKey })
             queryClient.invalidateQueries({ queryKey: readingSentencesKey })
         },
     })

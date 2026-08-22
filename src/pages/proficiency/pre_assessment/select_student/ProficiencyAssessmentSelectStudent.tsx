@@ -193,7 +193,7 @@ const STRINGS: Record<Lang, {
         startNowConfirmButton: 'Yes, start it',
     },
 }
-export const BeforeAssessment: React.FC = () => {
+export const ProficiencyAssessmentSelectStudent: React.FC = () => {
     const navigate = useNavigate()
     const { lang } = useLang()
     const { profile } = useProfile()
@@ -613,4 +613,4 @@ export const BeforeAssessment: React.FC = () => {
         </div>
     )
 }
-export default BeforeAssessment
+export default ProficiencyAssessmentSelectStudent

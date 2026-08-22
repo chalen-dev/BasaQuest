@@ -60,48 +60,44 @@
 //    individual words on a take that's being thrown out entirely, so
 //    the word-tagging UI hides itself once any whole-clip chip is
 //    active.
+//
+// A finalized ("locked") student — see 20260822090000_add_recording_lock.sql
+// — bounces the admin back before rendering the recorder at all (below,
+// right after the "student not found" guard). This is defense-in-depth:
+// SelectStudent.tsx already disables "Start recording" for a locked
+// student, but this page is also reachable directly via a bookmarked or
+// shared URL, so it needs its own check too.
+//
+// Split across a few files to keep this one to "wire the pieces together
+// and lay out two panels": the actual save sequence (upload -> replace
+// old row -> insert -> word-flags -> invalidate -> reset/advance) lives
+// in hooks/useSaveRecording.ts, and the two recorder-panel sub-UIs
+// (whole-clip flag chips, word-level tagging) live in
+// components/QualityFlagChips.tsx and components/WordTaggingPanel.tsx.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import { Mic, Check, RotateCcw, Loader2, ShieldAlert, ArrowLeft, TriangleAlert, Flag, Tag } from 'lucide-react'
-import { supabase } from '../../../../lib/supabaseClient'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { useRecorder } from '../../../proficiency/pre_assessment/assessment_session/features/useRecorder'
 import { Waveform } from '../../../proficiency/pre_assessment/assessment_session/features/Waveform'
 import { useReadingSentencesQuery, useReadingSentenceSetsQuery } from '../../useReadingSentences'
 import { useFinetuneStudentsQuery } from '../../useFinetuneStudents.ts'
 import { useConsentFileCountsQuery } from '../../useConsentFiles.ts'
-import {
-    useStudentRecordingsQuery,
-    useStudentRecordingSignedUrl,
-    studentRecordingsKey,
-    studentRecordingCountsKey,
-} from '../../useStudentRecordings.ts'
-import { showToast } from '../../../../helpers/swalHelpers'
+import { useStudentRecordingsQuery, useStudentRecordingSignedUrl } from '../../useStudentRecordings.ts'
 import { useTheme } from '../../../../contexts/ThemeContext'
+import { useSaveRecording } from './hooks/useSaveRecording'
+import { QualityFlagChips } from './components/QualityFlagChips'
+import { WordTaggingPanel } from './components/WordTaggingPanel'
 // Short takes, so the near-limit color cue kicks in for the last third of
 // the cap rather than assessment's proportionally tiny final ~5%.
 const RECORD_MAX_SECONDS = 15
 const NEAR_LIMIT_AT = RECORD_MAX_SECONDS - 5
-// Whole-clip quality flags — see header comment. Keys are what gets
-// joined into student_recordings.notes; labels are what the admin sees.
-// "Misread / wrong words" used to live here, but word-level tagging now
-// covers that case precisely (which words, not just "something's off"),
-// so it was removed — a take with real word mistakes should be tagged
-// per-word and saved as 'evaluation', not thrown out as 'discarded'.
-const FLAG_REASONS = [
-    { key: 'noise', label: 'Background noise' },
-    { key: 'cutoff', label: 'Cut off / incomplete' },
-    { key: 'wrong_sentence', label: 'Wrong sentence read' },
-    { key: 'other', label: 'Other issue' },
-] as const
 function recordingKey(set: string, number: number) {
     return `${set}-${number}`
 }
 export default function RecordSession() {
     const { user } = useAuth()
     const { theme } = useTheme()
-    const queryClient = useQueryClient()
     const [searchParams] = useSearchParams()
     const studentId = searchParams.get('student') ?? ''
     // Sets are admin-editable now (see SentenceScripts.tsx) — no longer a
@@ -110,7 +106,6 @@ export default function RecordSession() {
     // once useReadingSentenceSetsQuery has loaded.
     const sentenceSet = searchParams.get('set') ?? ''
     const [sentenceIndex, setSentenceIndex] = useState(0)
-    const [saving, setSaving] = useState(false)
     const [savedCount, setSavedCount] = useState(0)
     const { status, seconds, audioUrl, levels, isNoisy, start, stop, reset } = useRecorder()
     const { data: setsData, isLoading: loadingSentenceSets } = useReadingSentenceSetsQuery()
@@ -198,6 +193,21 @@ export default function RecordSession() {
     const removeInsertion = useCallback((index: number) => {
         setInsertions((prev) => prev.filter((_, i) => i !== index))
     }, [])
+    // Bundles the "this take is no longer current" resets shared between
+    // goToSentence and a successful save (see useSaveRecording.ts) — kept
+    // as one callback so both stay in sync rather than drifting apart.
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
+    const clearTakeState = useCallback(() => {
+        setExistingSignedUrl(null)
+        setFlagReasons([])
+        setWordFlags({})
+        setInsertions([])
+        setInsertionDraft('')
+    }, [])
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
+    const incrementSavedCount = useCallback(() => {
+        setSavedCount((n) => n + 1)
+    }, [])
     // Redundant hard stop — see header comment. Fires on every tick while
     // recording; harmless if useRecorder's own internal cap already beat
     // it to the punch, since stop() on an already-stopped recorder is a
@@ -228,143 +238,14 @@ export default function RecordSession() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [existingRecording?.id, status])
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
-    const handleSave = useCallback(async () => {
-        if (!hasConsent) return // Save button is disabled in this case anyway
-        if (!audioUrl || !user || !current) return
-        setSaving(true)
-        try {
-            const blob = await fetch(audioUrl).then((r) => r.blob())
-            const ext = blob.type.includes('mp4') ? 'm4a' : 'webm'
-            const path = `${studentId}/${sentenceSet}-${current.number}-${Date.now()}.${ext}`
-            const { error: uploadErr } = await supabase.storage
-                .from('student-recordings')
-                .upload(path, blob, { contentType: blob.type || 'audio/webm' })
-            // noinspection ExceptionCaughtLocallyJS -- intentional: short-circuits to the shared catch block below
-            if (uploadErr) throw uploadErr
-
-            // Re-saving a sentence that already has a take — remove the old
-            // row first so we never end up with two rows for the same
-            // (student, set, sentence) combo. The DB delete is the part
-            // that matters for correctness (its word_flags rows cascade
-            // with it); if the storage cleanup after it fails, that's just
-            // a wasted (unreferenced) file, not a dangling/broken
-            // reference, so it's logged rather than thrown.
-            if (existingRecording) {
-                const { error: deleteRowErr } = await supabase
-                    .from('student_recordings')
-                    .delete()
-                    .eq('id', existingRecording.id)
-                // noinspection ExceptionCaughtLocallyJS -- intentional: short-circuits to the shared catch block below
-                if (deleteRowErr) throw deleteRowErr
-                const { error: removeStorageErr } = await supabase.storage
-                    .from('student-recordings')
-                    .remove([existingRecording.storage_path])
-                if (removeStorageErr) {
-                    console.warn('RecordSession: failed to remove old storage object', removeStorageErr)
-                }
-            }
-
-            // A flagged take still gets uploaded and logged — just tagged
-            // as discarded with why, rather than silently thrown away or
-            // left looking identical to a clean take.
-            const isFlagged = flagReasons.length > 0
-            const flagNotes = isFlagged
-                ? FLAG_REASONS.filter((r) => flagReasons.includes(r.key))
-                    .map((r) => r.label)
-                    .join(', ')
-                : null
-
-            // Status mapping — see the student_recording_word_flags migration
-            // comment: discarded (whole-clip unusable) beats evaluation (real
-            // tagged word mistakes -> GOP-scorer ground truth) beats
-            // fine_tuning (clean read -> straight (audio, reference-phonemes)
-            // training pair).
-            const recordingStatus = isFlagged ? 'discarded' : hasWordLevelIssues ? 'evaluation' : 'fine_tuning'
-
-            const { data: insertedRow, error: insertErr } = await supabase
-                .from('student_recordings')
-                .insert({
-                    student_id: studentId,
-                    recorded_by: user.id,
-                    sentence_set: sentenceSet,
-                    sentence_number: current.number,
-                    sentence_text: current.text,
-                    storage_path: path,
-                    duration_seconds: seconds,
-                    status: recordingStatus,
-                    ...(isFlagged ? { notes: flagNotes } : {}),
-                })
-                .select('id')
-                .single()
-            // noinspection ExceptionCaughtLocallyJS -- intentional: short-circuits to the shared catch block below
-            if (insertErr) throw insertErr
-
-            // Word-level ground-truth rows only make sense for a take that
-            // wasn't thrown out whole-clip.
-            if (!isFlagged && hasWordLevelIssues && insertedRow) {
-                const wordFlagRows = [
-                    ...Object.entries(wordFlags).map(([indexStr, errorType]) => ({
-                        recording_id: insertedRow.id,
-                        word_index: Number(indexStr),
-                        word_text: words[Number(indexStr)] ?? null,
-                        error_type: errorType,
-                    })),
-                    // Insertions have no fixed reference position — placed
-                    // after every real word, in the order they were added.
-                    ...insertions.map((word, i) => ({
-                        recording_id: insertedRow.id,
-                        word_index: words.length + i + 1,
-                        word_text: null,
-                        error_type: 'insertion' as const,
-                        notes: word,
-                    })),
-                ]
-                const { error: wordFlagErr } = await supabase.from('student_recording_word_flags').insert(wordFlagRows)
-                if (wordFlagErr) {
-                    console.error('RecordSession: failed to save word-level flags', wordFlagErr)
-                    showToast('Recording saved, but the word-level tags failed to save.', 'warning', theme === 'dark')
-                }
-            }
-
-            await queryClient.invalidateQueries({ queryKey: studentRecordingsKey(studentId) })
-            await queryClient.invalidateQueries({ queryKey: studentRecordingCountsKey })
-
-            setSavedCount((n) => n + 1)
-            reset()
-            setExistingSignedUrl(null)
-            setFlagReasons([])
-            setWordFlags({})
-            setInsertions([])
-            setInsertionDraft('')
-            showToast(
-                isFlagged
-                    ? `Saved sentence ${current.number} (flagged: ${flagNotes}).`
-                    : hasWordLevelIssues
-                        ? `Saved sentence ${current.number} as labeled evaluation data.`
-                        : existingRecording
-                            ? `Replaced the recording for sentence ${current.number}.`
-                            : `Saved sentence ${current.number} for fine-tuning.`,
-                isFlagged ? 'warning' : 'success',
-                theme === 'dark',
-                { timer: isFlagged || hasWordLevelIssues ? 2200 : 1500 },
-            )
-            if (sentenceIndex < sentences.length - 1) {
-                setSentenceIndex((i) => i + 1)
-            }
-        } catch (err) {
-            console.error('RecordSession: save failed', err)
-            showToast(err instanceof Error ? err.message : 'Failed to save the recording.', 'error', theme === 'dark')
-        } finally {
-            setSaving(false)
-        }
-    }, [
-        hasConsent,
-        audioUrl,
-        user,
-        current,
+    const { handleSave, saving } = useSaveRecording({
+        theme,
         studentId,
         sentenceSet,
+        userId: user?.id,
+        audioUrl,
+        hasConsent,
+        current,
         existingRecording,
         seconds,
         flagReasons,
@@ -372,25 +253,22 @@ export default function RecordSession() {
         insertions,
         words,
         hasWordLevelIssues,
-        queryClient,
-        theme,
         sentenceIndex,
-        sentences.length,
+        sentencesLength: sentences.length,
         reset,
-    ])
+        setSentenceIndex,
+        clearTakeState,
+        incrementSavedCount,
+    })
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const goToSentence = useCallback(
         // eslint-disable-next-line react-hooks/preserve-manual-memoization
         (i: number) => {
             setSentenceIndex(i)
             reset()
-            setExistingSignedUrl(null)
-            setFlagReasons([])
-            setWordFlags({})
-            setInsertions([])
-            setInsertionDraft('')
+            clearTakeState()
         },
-        [reset],
+        [reset, clearTakeState],
     )
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const handleRetake = useCallback(() => {
@@ -460,6 +338,25 @@ export default function RecordSession() {
                     That student couldn't be found — they may have been removed from the roster.{' '}
                     <Link to="/admin/recording" className="font-semibold text-teal-600 underline dark:text-teal-400">
                         Pick another
+                    </Link>
+                    .
+                </div>
+            </div>
+        )
+    }
+    // A finalized ("locked") student — bounce back rather than showing a
+    // recorder for a session that can no longer be started. Defense in
+    // depth alongside the RLS lock and SelectStudent's disabled "Start
+    // recording" button — this page is also reachable directly via a
+    // bookmarked/shared URL.
+    if (selectedStudent.recording_locked) {
+        return (
+            <div className="mx-auto max-w-2xl px-4 pb-12 pt-2">
+                <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-8 text-center text-sm font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                    {selectedStudent.full_name}'s recordings have been finalized and are locked — no new session can be
+                    started.{' '}
+                    <Link to="/admin/recording" className="font-semibold text-teal-600 underline dark:text-teal-400">
+                        Pick another student
                     </Link>
                     .
                 </div>
@@ -654,95 +551,18 @@ export default function RecordSession() {
                         )}
                         {!showSavedPanel && <Waveform active={isRecording} levels={levels} />}
                         {isRecorded && audioUrl && <audio controls src={audioUrl} className="w-full" />}
-                        {isRecorded && (
-                            <div className="w-full">
-                                <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                    <Flag size={12} /> Flag this take? (optional)
-                                </p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {FLAG_REASONS.map((reason) => {
-                                        const active = flagReasons.includes(reason.key)
-                                        return (
-                                            <button
-                                                key={reason.key}
-                                                type="button"
-                                                onClick={() => toggleFlag(reason.key)}
-                                                aria-pressed={active}
-                                                className={`cursor-pointer rounded-full border-2 px-3 py-1 text-xs font-bold transition-colors duration-150 ${
-                                                    active
-                                                        ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:border-amber-400 dark:bg-amber-400/15 dark:text-amber-300'
-                                                        : 'border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
-                                                }`}
-                                            >
-                                                {reason.label}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )}
+                        {isRecorded && <QualityFlagChips flagReasons={flagReasons} onToggle={toggleFlag} />}
                         {isRecorded && flagReasons.length === 0 && words.length > 0 && (
-                            <div className="w-full">
-                                <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                    <Tag size={12} /> Tag mistakes (optional) — tap a word: correct → mispronounced → omitted
-                                </p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {words.map((word, i) => {
-                                        const flag = wordFlags[i]
-                                        return (
-                                            <button
-                                                key={i}
-                                                type="button"
-                                                onClick={() => cycleWordFlag(i)}
-                                                aria-label={`Word "${word}": ${flag ?? 'correct'}`}
-                                                className={`cursor-pointer rounded-full border-2 px-3 py-1 text-sm font-bold transition-colors duration-150 ${
-                                                    flag === 'mispronunciation'
-                                                        ? 'border-orange-500 bg-orange-500/15 text-orange-700 dark:border-orange-400 dark:bg-orange-400/15 dark:text-orange-300'
-                                                        : flag === 'omission'
-                                                            ? 'border-rose-500 bg-rose-500/15 text-rose-700 line-through dark:border-rose-400 dark:bg-rose-400/15 dark:text-rose-300'
-                                                            : 'border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
-                                                }`}
-                                            >
-                                                {word}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                    {insertions.map((word, i) => (
-                                        <button
-                                            key={i}
-                                            type="button"
-                                            onClick={() => removeInsertion(i)}
-                                            title="Remove"
-                                            className="flex items-center gap-1 rounded-full border-2 border-violet-500 bg-violet-500/15 px-3 py-1 text-sm font-bold text-violet-700 dark:border-violet-400 dark:bg-violet-400/15 dark:text-violet-300"
-                                        >
-                                            + {word} ×
-                                        </button>
-                                    ))}
-                                    <input
-                                        type="text"
-                                        value={insertionDraft}
-                                        onChange={(e) => setInsertionDraft(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault()
-                                                addInsertion()
-                                            }
-                                        }}
-                                        placeholder="Extra word said…"
-                                        className="w-36 rounded-full border-2 border-gray-900/10 bg-transparent px-3 py-1 text-sm font-semibold text-gray-700 outline-none focus:border-violet-400 dark:border-gray-100/10 dark:text-gray-200"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={addInsertion}
-                                        disabled={!insertionDraft.trim()}
-                                        className="cursor-pointer rounded-full border-2 border-gray-900/10 px-3 py-1 text-sm font-bold text-gray-600 hover:bg-gray-900/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10"
-                                    >
-                                        Add
-                                    </button>
-                                </div>
-                            </div>
+                            <WordTaggingPanel
+                                words={words}
+                                wordFlags={wordFlags}
+                                onCycleWord={cycleWordFlag}
+                                insertions={insertions}
+                                onRemoveInsertion={removeInsertion}
+                                insertionDraft={insertionDraft}
+                                onInsertionDraftChange={setInsertionDraft}
+                                onAddInsertion={addInsertion}
+                            />
                         )}
                         {!isRecorded && (
                             <button
