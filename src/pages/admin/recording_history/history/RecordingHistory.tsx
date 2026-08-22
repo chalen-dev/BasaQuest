@@ -8,11 +8,11 @@
 // focused review screen, not another place to navigate from. The only
 // way out is the explicit "Back to student" link below, which returns
 // to that student's edit drawer on the roster page.
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Trash2, Loader2, FileAudio } from 'lucide-react'
-import { useTheme } from '../../../../contexts/ThemeContext'
-import { showConfirmation, showToast } from '../../../../helpers/swalHelpers'
+import { useTheme } from '../../../../contexts/ThemeContext.tsx'
+import { showConfirmation, showToast } from '../../../../helpers/swalHelpers.ts'
 import { useFinetuneStudentsQuery } from '../../useFinetuneStudents.ts'
 import {
     useStudentRecordingsQuery,
@@ -20,12 +20,7 @@ import {
     useStudentRecordingSignedUrl,
     type StudentRecording,
 } from '../../useStudentRecordings.ts'
-import { SENTENCE_SET_LABELS, type SentenceSet } from '../useReadingSentences'
-
-function setLabel(set: string) {
-    return SENTENCE_SET_LABELS[set as SentenceSet] ?? set
-}
-
+import { useReadingSentenceSetsQuery } from '../../useReadingSentences.ts'
 export default function RecordingHistory() {
     const { theme } = useTheme()
     const [searchParams] = useSearchParams()
@@ -36,11 +31,18 @@ export default function RecordingHistory() {
     const recordings = data ?? []
     const deleteMutation = useDeleteStudentRecordingMutation(studentId || null)
     const signedUrlMutation = useStudentRecordingSignedUrl()
+    // Sets are admin-editable now (see SentenceScripts.tsx) — labels come
+    // from the DB instead of a hardcoded SENTENCE_SET_LABELS constant, so
+    // this falls back to the raw key for any set that's since been
+    // renamed away or deleted (the recording itself still exists — it
+    // just snapshots its own sentence_text, no FK to the set).
+    const { data: setsData } = useReadingSentenceSetsQuery()
+    const sentenceSetLabels = useMemo(() => new Map((setsData ?? []).map((s) => [s.key, s.label])), [setsData])
+    const setLabel = (set: string) => sentenceSetLabels.get(set) ?? set
     const [index, setIndex] = useState(0)
     const [audioUrl, setAudioUrl] = useState<string | null>(null)
     const [loadingAudio, setLoadingAudio] = useState(false)
     const current = recordings[index] ?? null
-
     // Clamp the index if the list shrinks (e.g. right after a delete) so
     // it doesn't end up pointing past the end.
     useEffect(() => {
@@ -49,7 +51,6 @@ export default function RecordingHistory() {
             setIndex(recordings.length - 1)
         }
     }, [recordings.length, index])
-
     useEffect(() => {
         if (!current) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -75,7 +76,6 @@ export default function RecordingHistory() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [current?.id])
-
     const handleDelete = async (recording: StudentRecording) => {
         const confirmed = await showConfirmation(
             'Delete this recording?',
@@ -92,7 +92,6 @@ export default function RecordingHistory() {
             showToast(err instanceof Error ? err.message : 'Failed to delete recording.', 'error', theme === 'dark')
         }
     }
-
     if (!studentId) {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-6">
@@ -106,7 +105,6 @@ export default function RecordingHistory() {
             </div>
         )
     }
-
     return (
         <div className="mx-auto max-w-3xl px-4 pb-12 pt-6">
             <Link

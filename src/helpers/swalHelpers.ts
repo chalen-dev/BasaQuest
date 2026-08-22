@@ -1,4 +1,3 @@
-// File: src/helpers/swalHelpers.ts
 import Swal, { type SweetAlertIcon } from 'sweetalert2';
 
 const getThemeConfig = (isDark: boolean) => ({

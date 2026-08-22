@@ -16,9 +16,10 @@ import MaterialSelection from "./pages/proficiency/material_selection/MaterialSe
 import BeforeAssessment from "./pages/proficiency/pre_assessment/before_assessment/BeforeAssessment.tsx";
 import AssessmentSession from "./pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx";
 import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
-import SelectStudent from "./pages/admin/recording/SelectStudent.tsx";
+import SelectStudent from "./pages/admin/recording/select_student/SelectStudent.tsx";
 import RecordSession from "./pages/admin/recording/session/RecordSession.tsx";
-import RecordingHistory from "./pages/admin/recording/history/RecordingHistory.tsx";
+import RecordingHistory from "./pages/admin/recording_history/history/RecordingHistory.tsx";
+import SentenceScripts from "./pages/admin/sentence_scripts/SentenceScripts.tsx";
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";
 import { useDocumentTitle } from "./hooks/useDocumentTitle.ts";
 import FinetuneStudentList from "./pages/admin/students/FinetuneStudentList.tsx";
@@ -69,6 +70,7 @@ function App() {
                             <Route element = {<AdminRoute />}>
                                 <Route path="/admin/students" element={<FinetuneStudentList />}/>
                                 <Route path="/admin/recording" element={<SelectStudent />}/>
+                                <Route path="/admin/recording/scripts" element={<SentenceScripts />}/>
                                 <Route path="/admin/recording/history" element={<RecordingHistory />}/>
                             </Route>
                         </Route>

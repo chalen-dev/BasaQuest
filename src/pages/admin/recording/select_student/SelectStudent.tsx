@@ -1,30 +1,31 @@
-// File: src/pages/admin/recording/SelectStudent.tsx
+// File: src/pages/admin/recording/select_student/SelectStudent.tsx
 // Step 1 of the recording flow: search the fine-tuning roster, pick a
 // student, pick a script, confirm. The actual mic-capture flow lives in
 // the separate RecordSession page — this page never touches the mic.
 // Layout mirrors BeforeAssessment.tsx: a compact status/confirm hero card
 // on top, the searchable picker in its own card below.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search as SearchIcon, ShieldAlert, UserRound, Loader2, ArrowRight, Mic, Users, Pencil } from 'lucide-react'
-import { useFinetuneStudentsQuery, type FinetuneStudent } from '../useFinetuneStudents.ts'
-import { useConsentFileCountsQuery } from '../useConsentFiles.ts'
-import { useReadingSentencesQuery, SENTENCE_SET_LABELS, type SentenceSet } from './useReadingSentences'
-import { SearchInput } from '../../../components/input/SearchInput'
-import { Select } from '../../../components/input/Select'
-import { Tooltip } from '../../../components/ui/Tooltip'
-import { Pagination } from '../../../components/ui/Pagination'
-import { AdminSubNav } from '../components/AdminSubNav'
-import { GenderBadge } from '../genderDisplay'
-
+import { Search as SearchIcon, ShieldAlert, UserRound, Loader2, ArrowRight, Mic, Users, Pencil, ScrollText } from 'lucide-react'
+import { useFinetuneStudentsQuery, type FinetuneStudent } from '../../useFinetuneStudents.ts'
+import { useConsentFileCountsQuery } from '../../useConsentFiles.ts'
+import { useReadingSentencesQuery, useReadingSentenceSetsQuery } from '../../useReadingSentences'
+import { SearchInput } from '../../../../components/input/SearchInput'
+import { Select } from '../../../../components/input/Select'
+import { Tooltip } from '../../../../components/ui/Tooltip'
+import { Pagination } from '../../../../components/ui/Pagination'
+import { AdminSubNav } from '../../components/AdminSubNav'
+import { GenderBadge } from '../../genderDisplay'
 const PAGE_SIZE = 6
-
 export default function SelectStudent() {
     const navigate = useNavigate()
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(0)
     const [studentId, setStudentId] = useState('')
-    const [sentenceSet, setSentenceSet] = useState<SentenceSet>('g1_2')
+    // Was a hardcoded 'g1_2' | 'g3_4' union with a fixed default — sets are
+    // admin-editable now (see SentenceScripts.tsx), so this starts empty
+    // and gets filled in once the sets have actually loaded (below).
+    const [sentenceSet, setSentenceSet] = useState('')
     const { data: studentsData, isLoading: loadingStudents, error: studentsError } = useFinetuneStudentsQuery()
     const students = studentsData ?? []
     // consent_on_file (the DB column) stopped being settable once the
@@ -33,8 +34,22 @@ export default function SelectStudent() {
     // below and for gating whether recording can start at all.
     const { data: consentCountsData } = useConsentFileCountsQuery()
     const consentCounts = consentCountsData ?? {}
+    const { data: setsData, isLoading: loadingSets } = useReadingSentenceSetsQuery()
+    const sets = useMemo(() => setsData ?? [], [setsData])
     const { data: sentencesData, isLoading: loadingSentences } = useReadingSentencesQuery()
-    const sentencesBySet = sentencesData ?? { g1_2: [], g3_4: [] }
+    const sentencesBySet = sentencesData ?? {}
+    // Default the picker to the first script once the sets have loaded,
+    // and re-point it if the currently-selected one ever disappears
+    // (e.g. deleted on the Sentence Scripts page in another tab).
+    useEffect(() => {
+        if (sets.length === 0) return
+        if (!sentenceSet || !sets.some((s) => s.key === sentenceSet)) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setSentenceSet(sets[0].key)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sets])
+    const effectiveSentenceSet = sentenceSet || sets[0]?.key || ''
     const filtered = useMemo(
         () => students.filter((s) => s.full_name.toLowerCase().includes(search.toLowerCase())),
         [students, search],
@@ -46,14 +61,14 @@ export default function SelectStudent() {
         [students, studentId],
     )
     const selectedHasConsent = !!selectedStudent && (consentCounts[selectedStudent.id] ?? 0) > 0
-    const canStart = !!selectedStudent && selectedHasConsent
+    const canStart = !!selectedStudent && selectedHasConsent && !!effectiveSentenceSet
     const handleSearchChange = (value: string) => {
         setSearch(value)
         setPage(0)
     }
     const handleStart = () => {
         if (!canStart) return
-        navigate(`/admin/recording/session?student=${studentId}&set=${sentenceSet}`)
+        navigate(`/admin/recording/session?student=${studentId}&set=${effectiveSentenceSet}`)
     }
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
@@ -101,12 +116,12 @@ export default function SelectStudent() {
                             <Select
                                 name="sentence_set"
                                 label="Script"
-                                value={sentenceSet}
-                                onChange={(e) => setSentenceSet(e.target.value as SentenceSet)}
-                                disabled={loadingSentences}
-                                options={(Object.keys(sentencesBySet) as SentenceSet[]).map((set) => ({
-                                    value: set,
-                                    label: `${SENTENCE_SET_LABELS[set]} (${sentencesBySet[set].length} sentences)`,
+                                value={effectiveSentenceSet}
+                                onChange={(e) => setSentenceSet(e.target.value)}
+                                disabled={loadingSets || loadingSentences || sets.length === 0}
+                                options={sets.map((set) => ({
+                                    value: set.key,
+                                    label: `${set.label} (${(sentencesBySet[set.key] ?? []).length} sentences)`,
                                 }))}
                             />
                         </div>
@@ -127,14 +142,29 @@ export default function SelectStudent() {
                 <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }} />
                 <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }} />
                 <div className="relative">
-                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
-                        <Users size={14} />
-                        Choose a student
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                                <Users size={14} />
+                                Choose a student
+                            </div>
+                            <h2 className="mt-1 text-xl font-extrabold text-gray-900 dark:text-gray-50">Select a student</h2>
+                            <p className="mt-1.5 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                Search and pick who you're recording. Manage the roster itself from the Students page.
+                            </p>
+                        </div>
+                        {/* Quick escape hatch to the script editor — most admins
+                        land here first, so this saves a trip through AdminSubNav
+                        when they actually want to edit a script's sentences. */}
+                        <button
+                            type="button"
+                            onClick={() => navigate('/admin/recording/scripts')}
+                            className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-3.5 py-1.5 text-xs font-bold text-gray-600 shadow-sm transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-100/10"
+                        >
+                            <ScrollText size={13} />
+                            Manage scripts
+                        </button>
                     </div>
-                    <h2 className="mt-1 text-xl font-extrabold text-gray-900 dark:text-gray-50">Select a student</h2>
-                    <p className="mt-1.5 text-sm font-medium text-gray-600 dark:text-gray-400">
-                        Search and pick who you're recording. Manage the roster itself from the Students page.
-                    </p>
                     <div className="mt-5">
                         <SearchInput value={search} onChange={handleSearchChange} label="Search" placeholder="Name…" />
                     </div>
