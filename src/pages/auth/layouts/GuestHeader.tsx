@@ -4,11 +4,13 @@ import { ThemeToggleButton } from '../../../components/buttons/ThemeToggleButton
 import { LangToggle } from '../../../components/buttons/LangToggle.tsx'
 import { useLang } from '../../../contexts/LangContext.tsx'
 import { Hint } from '../../../components/ui/Hint.tsx'
+
 interface GuestHeaderProps {
     showHints?: boolean
     hintThemeText?: string
     hintLangText?: string
 }
+
 // Bare header for the guest (login/register) pages — no border, no fill,
 // just enough structure to hold the theme toggle (left) and language
 // toggle (right) in normal document flow, instead of each button being
@@ -34,10 +36,14 @@ interface GuestHeaderProps {
 // button could lose contrast depending on what's behind it. The chip gives
 // both toggles a consistent, always-readable backing regardless of the
 // scenery.
+//
+// `fixed inset-x-0 top-0` pins this to the top of the viewport instead of
+// scrolling away with page content — GuestLayout reserves matching top
+// padding on <main> so page content never renders underneath it.
 export const GuestHeader: React.FC<GuestHeaderProps> = ({ showHints = true, hintThemeText, hintLangText }) => {
     const { lang, setLang } = useLang()
     return (
-        <div className="relative z-20 flex items-center justify-between p-4">
+        <div className="fixed inset-x-0 top-0 z-20 flex items-center justify-between p-4">
             <div className="relative rounded-full bg-white/80 p-1 shadow-md ring-1 ring-black/5 backdrop-blur-sm transition-colors duration-300 dark:bg-slate-800/80 dark:ring-white/10">
                 <ThemeToggleButton />
                 {hintThemeText && (
@@ -53,4 +59,5 @@ export const GuestHeader: React.FC<GuestHeaderProps> = ({ showHints = true, hint
         </div>
     )
 }
+
 export default GuestHeader

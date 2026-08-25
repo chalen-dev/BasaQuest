@@ -9,7 +9,11 @@
 //   - `isNoisy`: true when the recent ambient floor (see below) suggests
 //     the room itself is noisy, not just that the pupil is reading loudly
 // Produces a playable Blob URL so the take can be listened back to
-// before it's submitted.
+// before it's submitted. Also exposes the underlying `blob` directly —
+// the submit flow (see hooks.ts's useSubmitAttempt, once built) needs
+// the actual bytes to upload to Supabase Storage; re-fetching them from
+// the object URL would work but is wasteful when we already have the
+// Blob in hand the moment MediaRecorder produces it.
 //
 // FREQUENCY MAPPING: log-scaled across roughly the human-voice range
 // (~60Hz-8kHz), not linear across the whole 0Hz-Nyquist span — a linear
@@ -52,10 +56,9 @@
 // then extended with the real per-bar spectrum, the max-duration cap, the
 // attack/release envelope, and ambient noise detection.
 //
-// Nothing here uploads or scores the recording — per AssessmentSession.tsx's
-// header comment, submission/scoring isn't wired up to a backend yet. This
-// hook only captures + previews; "Ipasa sa Guro" just flips local UI state
-// for now (see AssessmentSession.tsx's handleSubmit).
+// Nothing here uploads or scores the recording on its own — that's the
+// submit flow's job (see AssessmentSession.tsx's handleSubmit once it's
+// wired up). This hook only captures + previews + hands back the Blob.
 import { useCallback, useEffect, useRef, useState } from 'react'
 export type RecorderStatus = 'idle' | 'recording' | 'recorded' | 'unsupported'
 export const WAVEFORM_BARS = 36
@@ -88,6 +91,7 @@ export function useRecorder() {
     const [status, setStatus] = useState<RecorderStatus>('idle')
     const [seconds, setSeconds] = useState(0)
     const [audioUrl, setAudioUrl] = useState<string | null>(null)
+    const [blob, setBlob] = useState<Blob | null>(null)
     const [level, setLevel] = useState(0)
     const [levels, setLevels] = useState<number[]>(() => new Array(WAVEFORM_BARS).fill(0))
     const [isNoisy, setIsNoisy] = useState(false)
@@ -126,6 +130,7 @@ export function useRecorder() {
             URL.revokeObjectURL(audioUrl)
             setAudioUrl(null)
         }
+        setBlob(null)
         if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
             setStatus('unsupported')
             setError('Hindi available ang mikropono sa browser na ito.')
@@ -141,8 +146,9 @@ export function useRecorder() {
                 if (e.data.size > 0) chunksRef.current.push(e.data)
             }
             mr.onstop = () => {
-                const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' })
-                setAudioUrl(URL.createObjectURL(blob))
+                const recordedBlob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' })
+                setBlob(recordedBlob)
+                setAudioUrl(URL.createObjectURL(recordedBlob))
                 cleanupAudio()
                 setLevel(0)
                 setLevels(new Array(WAVEFORM_BARS).fill(0))
@@ -256,6 +262,7 @@ export function useRecorder() {
     const reset = useCallback(() => {
         if (audioUrl) URL.revokeObjectURL(audioUrl)
         setAudioUrl(null)
+        setBlob(null)
         setSeconds(0)
         setStatus('idle')
         setError(null)
@@ -268,6 +275,7 @@ export function useRecorder() {
         setSeconds(secs)
         setStatus('recorded')
         setAudioUrl(null)
+        setBlob(null)
     }, [])
-    return { status, seconds, audioUrl, level, levels, isNoisy, error, start, stop, reset, simulate }
+    return { status, seconds, audioUrl, blob, level, levels, isNoisy, error, start, stop, reset, simulate }
 }

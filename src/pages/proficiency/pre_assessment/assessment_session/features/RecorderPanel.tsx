@@ -13,6 +13,14 @@
 // (rec.isNoisy) trips — see useRecorder.ts's header comment for how that's
 // estimated. It's a nudge only; it never pauses or blocks recording.
 //
+// `submitting` (from AssessmentSession.tsx's useSubmitAttempt call) covers
+// the window between tapping "Submit to Teacher" and the upload + attempt
+// insert (+ scoring kick-off, for English) actually finishing — Redo and
+// Submit both disable during that window so a pupil can't fire a second
+// upload or yank the recording out from under an in-flight one, and the
+// Submit label swaps to t.submitting so it's clear something's happening
+// rather than looking like a dead click.
+//
 // Three one-time onboarding <Hint>s (see components/ui/Hint.tsx): the mic
 // button (gated to `!isRecording`, so it only shows in the idle "ready to
 // record" state), and — once a take exists (isRecorded) — Redo and
@@ -39,10 +47,11 @@ import { Waveform } from './Waveform.tsx'
 type RecorderPanelProps = {
     t: AssessmentStrings
     submitted: boolean
+    submitting: boolean
     rec: ReturnType<typeof useRecorder>
     onSubmit: () => void
 }
-export function RecorderPanel({ t, submitted, rec, onSubmit }: RecorderPanelProps) {
+export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: RecorderPanelProps) {
     const isRecording = rec.status === 'recording'
     const isRecorded = rec.status === 'recorded'
     const nearLimit = isRecording && rec.seconds >= MAX_RECORDING_SECONDS - 10
@@ -140,7 +149,8 @@ export function RecorderPanel({ t, submitted, rec, onSubmit }: RecorderPanelProp
                             <div className="relative flex-1">
                                 <button
                                     onClick={rec.reset}
-                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
+                                    disabled={submitting}
+                                    className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10 ${submitting ? 'cursor-not-allowed opacity-40 hover:bg-transparent dark:hover:bg-transparent' : ''}`}
                                 >
                                     <RotateCcw size={17} />
                                     {t.redoLabel}
@@ -150,10 +160,11 @@ export function RecorderPanel({ t, submitted, rec, onSubmit }: RecorderPanelProp
                             <div className="relative flex-[2]">
                                 <button
                                     onClick={onSubmit}
-                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-5 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                                    disabled={submitting}
+                                    className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-5 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59] ${submitting ? 'cursor-not-allowed opacity-60 hover:translate-y-0 active:translate-y-0' : ''}`}
                                 >
                                     <Send size={17} />
-                                    {t.submitLabel}
+                                    {submitting ? t.submitting : t.submitLabel}
                                 </button>
                                 <Hint id="assessment-submit-button" text={t.submitHint} placement="top" align="end" autoHideMs={6000} />
                             </div>

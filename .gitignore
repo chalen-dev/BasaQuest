@@ -31,3 +31,5 @@ dist-ssr
 # Supabase
 supabase/.branches
 supabase/.temp
+
+litellm_config.yaml

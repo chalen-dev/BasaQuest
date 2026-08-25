@@ -64,6 +64,7 @@ export type AssessmentStrings = {
     simulatedTake: string
     redoLabel: string
     submitLabel: string
+    submitting: string
     recorderEncourage: string
     pendingTitle: string
     pendingDesc: string
@@ -110,6 +111,7 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         simulatedTake: 'Simulated na pagbasa (walang mikropono)',
         redoLabel: 'Ulitin',
         submitLabel: 'Ipasa sa Guro',
+        submitting: 'Ipinapadala…',
         recorderEncourage: 'Huwag mag-alala kung may mali — susuriin muna ito ng iyong guro bago maging pinal.',
         pendingTitle: 'Hinihintay ang Guro',
         pendingDesc: 'Naipasa na ang iyong pagbasa. Susuriin ito ng iyong guro bago maging pinal ang resulta.',
@@ -155,6 +157,7 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         simulatedTake: 'Simulated reading (no microphone)',
         redoLabel: 'Redo',
         submitLabel: 'Submit to Teacher',
+        submitting: 'Sending…',
         recorderEncourage: "Don't worry about mistakes — your teacher reviews it first before it's final.",
         pendingTitle: 'Waiting for Teacher',
         pendingDesc: 'Your reading has been submitted. Your teacher will review it before the result is final.',

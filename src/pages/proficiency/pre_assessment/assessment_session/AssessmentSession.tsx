@@ -30,13 +30,18 @@
 // Recording itself (useRecorder, ported from the prototype's
 // src/lib/useRecorder.js) is REAL browser mic capture via
 // getUserMedia + MediaRecorder, with a real per-bar frequency waveform and
-// a MAX_RECORDING_SECONDS auto-stop cap. What ISN'T real yet: submitting
-// the take anywhere. There's no storage bucket or attempts table wired
-// up, so "Ipasa sa Guro" just flips local UI into a "Hinihintay ang Guro"
-// pending state for now (and stays there — no resubmitting) — the
-// recording itself is never uploaded. Wiring that up (upload the blob,
-// insert an attempt row keyed by studentId when assisted, otherwise
-// auth.uid()) is the natural next step once storage is in place.
+// a MAX_RECORDING_SECONDS auto-stop cap.
+//
+// Submission (handleSubmit, via useSubmitAttempt) uploads the take to the
+// assessment-recordings bucket, creates its assessment_attempts row, and
+// — English only, for now — kicks off scoring on the basaquest-scoring
+// service (Azure Pronunciation Assessment). Filipino attempts are saved
+// but not yet scored by anything; there's no Filipino scoring pipeline
+// wired up here (that's the separate basaquest-filipino-miscue-detection
+// project). If there's no real Blob (mic was unavailable and the pupil
+// continued via the simulated take — see useRecorder.ts's `simulate`),
+// there's nothing to upload or score, so it falls back to the old
+// local-only "flip to pending UI" behavior instead.
 import React, { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { BookOpenCheck, RefreshCw, UserRound } from 'lucide-react'
@@ -47,6 +52,7 @@ import { useLang } from '../../../../contexts/LangContext.tsx'
 import { supabase } from '../../../../lib/supabaseClient.ts'
 import { useAssistedStudentProfile } from '../hooks.ts'
 import { useRecorder } from './features/useRecorder.ts'
+import { useSubmitAttempt } from './features/useSubmitAttempt.ts'
 import { PassagePanel } from './features/PassagePanel.tsx'
 import { RecorderPanel } from './features/RecorderPanel.tsx'
 import {
@@ -57,12 +63,10 @@ import {
     type Step,
 } from './assessmentSessionStrings.ts'
 import type { Lang } from '../../../../components/buttons/LangToggle.tsx'
-
 export const AssessmentSession: React.FC = () => {
     const [searchParams] = useSearchParams()
     const rawLang = searchParams.get('lang')
     const assessmentLang: Lang | null = rawLang === 'fil' || rawLang === 'en' ? rawLang : null
-
     const studentIdParam = searchParams.get('studentId')
     const studentNameParam = searchParams.get('studentName')
     const isAssisted = !!studentIdParam
@@ -70,18 +74,15 @@ export const AssessmentSession: React.FC = () => {
     const { profile: assistedProfile, loading: assistedProfileLoading } = useAssistedStudentProfile(studentIdParam)
     const activeProfile = isAssisted ? assistedProfile : ownProfile
     const profileLoading = isAssisted ? assistedProfileLoading : ownProfileLoading
-
     const { lang: uiLang } = useLang()
     const t = STRINGS[uiLang]
     const gradeLevel = activeProfile?.grade_level ?? 3
-
     const [step, setStep] = useState<Step>('intro')
     const [passage, setPassage] = useState<Passage | null>(null)
     const [submitted, setSubmitted] = useState(false)
     const rec = useRecorder()
-
+    const submitAttempt = useSubmitAttempt()
     const showPassageStep = step === 'passage' && !!passage
-
     const generatePassage = async () => {
         if (!assessmentLang) return
         setStep('loading')
@@ -105,30 +106,57 @@ export const AssessmentSession: React.FC = () => {
             setStep('error')
         }
     }
-
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setStep('intro')
         setPassage(null)
     }, [assessmentLang])
-
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSubmitted(false)
         rec.reset()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [passage])
-
     if (!assessmentLang) {
         return <Navigate to="/reading/proficiency/assessment" replace />
     }
-
     const isNonReader = activeProfile?.is_non_reader === true
-
-    const handleSubmit = () => {
-        setSubmitted(true)
+    // Uploads the take, creates its assessment_attempts row, and (English
+    // only) kicks off scoring — see this file's header comment and
+    // useSubmitAttempt.ts for the full breakdown. Falls back to the old
+    // local-only stub when there's no real Blob to submit (simulated
+    // take). On failure, just logs and leaves the UI in the pre-submit
+    // state so the pupil/teacher can hit Submit again — matching how
+    // handleAssign/handleCancel elsewhere in this app handle failures
+    // (console.error only, no failure toast).
+    const handleSubmit = async () => {
+        if (!passage) return
+        if (!rec.blob) {
+            setSubmitted(true)
+            return
+        }
+        const studentId = isAssisted ? studentIdParam : ownProfile?.id
+        if (!studentId) {
+            console.error('AssessmentSession: missing studentId at submit time')
+            return
+        }
+        const teacherId = isAssisted ? (ownProfile?.id ?? null) : (ownProfile?.teacher_id ?? null)
+        try {
+            await submitAttempt.mutateAsync({
+                studentId,
+                teacherId,
+                language: assessmentLang,
+                passageTitle: passage.title,
+                passageText: passage.passage,
+                gradeLevel,
+                blob: rec.blob,
+                durationSeconds: rec.seconds,
+            })
+            setSubmitted(true)
+        } catch (err) {
+            console.error('AssessmentSession: failed to submit attempt', err)
+        }
     }
-
     return (
         <div
             className={
@@ -143,13 +171,11 @@ export const AssessmentSession: React.FC = () => {
                     {t.assistedBannerLabel}: {studentNameParam}
                 </div>
             )}
-
             {profileLoading && (
                 <section className="flex min-h-[240px] items-center justify-center rounded-3xl border border-gray-900/5 shadow-sm dark:border-gray-100/10">
                     <OwlLoader message="…" />
                 </section>
             )}
-
             {!profileLoading && isNonReader && step === 'intro' && (
                 <section className="flex flex-col items-center gap-4 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-8 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
                     <Owl mood="greeting" size={80} bob />
@@ -161,7 +187,6 @@ export const AssessmentSession: React.FC = () => {
                     <p className="max-w-md text-xs font-semibold text-amber-700 dark:text-amber-300">{t.nonReaderComingSoon}</p>
                 </section>
             )}
-
             {!profileLoading && !isNonReader && step === 'intro' && (
                 <section className="relative overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
                     <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }} />
@@ -199,13 +224,11 @@ export const AssessmentSession: React.FC = () => {
                     </div>
                 </section>
             )}
-
             {step === 'loading' && (
                 <section className="flex min-h-[320px] items-center justify-center rounded-3xl border border-gray-900/5 shadow-sm dark:border-gray-100/10">
                     <OwlLoader message={t.loadingMessage} />
                 </section>
             )}
-
             {step === 'error' && (
                 <section className="flex flex-col items-center gap-4 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">
                     <Owl mood="greeting" size={72} />
@@ -220,15 +243,13 @@ export const AssessmentSession: React.FC = () => {
                     </button>
                 </section>
             )}
-
             {showPassageStep && passage && (
                 <div className="grid gap-6 lg:h-[calc(100vh-14rem)] lg:grid-cols-[1.6fr_1fr]">
                     <PassagePanel t={t} gradeLevel={gradeLevel} assessmentLang={assessmentLang} passage={passage} />
-                    <RecorderPanel t={t} submitted={submitted} rec={rec} onSubmit={handleSubmit} />
+                    <RecorderPanel t={t} submitted={submitted} submitting={submitAttempt.isPending} rec={rec} onSubmit={handleSubmit} />
                 </div>
             )}
         </div>
     )
 }
-
 export default AssessmentSession

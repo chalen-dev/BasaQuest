@@ -2,7 +2,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
-
 /* Root background + color-scheme
    ------------------------------------------------------------------
    The wrapper <div>s (bg-orange-50 / dark:bg-gray-950) theme the
@@ -13,22 +12,50 @@
    theme. Setting it here themes that region too. `color-scheme` on top
    of that tells Brave/Chromium to paint its own native scrollbar chrome
    (not just our custom thumb/track colors) using a dark palette when
-   dark mode is active, instead of assuming light. */
+   dark mode is active, instead of assuming light.
+
+   `font-size: 16px` pins the root em/rem base to a fixed value instead
+   of letting it inherit the browser's own "Font size" preference
+   (chrome://settings/appearance — Medium/Large/Very Large/etc). Every
+   Tailwind class in this app is rem-based, so without this, switching
+   browsers or profiles with a different Font Size setting makes the
+   *entire* UI scale up or down together, even at 100% zoom. Trade-off,
+   on purpose: a user who bumped their browser's font size specifically
+   for readability stops getting any benefit from that here.
+
+   `zoom: 0.75` exists for a related but different reason: this whole
+   app was designed and eyeballed at 75% browser zoom during
+   development, so every spacing/sizing decision across every page is
+   actually calibrated for that, not for true 100%. Rather than manually
+   re-tuning every Tailwind class on every page to shrink ~25%, this one
+   rule reproduces the dev-time viewport exactly for every visitor, at
+   whatever zoom level THEY happen to be at — someone at their own
+   100% now sees what the developer saw at 75%, someone who then also
+   zooms in with Ctrl+/- stacks normally on top of this baseline.
+   `zoom` (not `transform: scale`) is used deliberately — `zoom`
+   re-flows layout at the scaled size the same way real browser zoom
+   does (so breakpoints, `dvh`, scrollbars etc. all still behave
+   correctly), whereas `transform: scale` only visually stretches
+   pixels without affecting layout, which would need extra width/height
+   compensation hacks to avoid clipping or stray whitespace. `zoom` has
+   been supported in Chromium/Safari for years and landed in Firefox in
+   2024, so it's safe to rely on across current browsers. */
 html {
     background-color: #fff7ed;
     color-scheme: light;
+    font-size: 12px;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
 }
 html.dark {
     background-color: #030712;
     color-scheme: dark;
 }
-
 /* Custom scrollbar
    ------------------------------------------------------------------
    `scrollbar-gutter: stable` reserves the scrollbar's space
    unconditionally so short pages and tall pages render the same width
    (no more layout "jump" when navigating between them).
-
    Colors are hardcoded per light/dark rather than read from a CSS
    custom property — `var()` does not reliably resolve inside
    `::-webkit-scrollbar-*` pseudo-elements in Chromium/Brave, so
@@ -36,7 +63,6 @@ html.dark {
    Both `html.dark::-webkit-scrollbar-thumb` (the class sits on <html>
    itself) and `.dark *::-webkit-scrollbar-thumb` (in case it ever ends
    up on a wrapper instead) are covered.
-
    Light mode uses orange-700 (darker/more saturated than the earlier
    orange-500) since the pale orange-500 was hard to see against the
    cream orange-50 background. */
@@ -48,7 +74,6 @@ html {
 html.dark {
     scrollbar-color: rgba(96, 165, 250, 0.45) transparent;
 }
-
 *::-webkit-scrollbar {
     width: 9px;
     height: 9px;
@@ -82,9 +107,6 @@ html.dark::-webkit-scrollbar-thumb:hover,
 *::-webkit-scrollbar-corner {
     background: transparent;
 }
-
-
-
 /* Owl loader animations */
 @keyframes owl-flap-left {
     0%, 100% { transform: rotate(0deg); }
