@@ -1,4 +1,3 @@
-// File: AssessmentSession.tsx
 // File: src/pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx
 // The actual reading check-in session — reached either after a language
 // has been picked in PreAssessment.tsx (student's own flow, or a
@@ -59,6 +58,20 @@
 // calls the same useSubmitReviewMutation the "Send"-mode review page
 // uses, then routes back to the student picker — mirroring
 // AssessmentSessionHeader's own Exit-button routing for assisted sessions.
+// Save Draft (useSaveDraftMutation) works the same way but stays on this
+// screen — it doesn't navigate anywhere, since the point is to let the
+// teacher keep going rather than treat it as a finish line.
+//
+// EXIT-DURING-REVIEW: registers a save handler with
+// AssessmentSessionLayout.tsx (via useOutletContext, see that file's own
+// comment for the full wiring) for exactly as long as the actual review
+// UI is on screen (reviewReady below — scored data loaded, not just
+// "submitted"). AssessmentSessionHeader.tsx's Exit button calls that
+// handler instead of showing its normal confirm dialog, which is why
+// this holds a ref to AttemptWordReview: the verdicts/flags/overrides a
+// teacher has been editing live inside THAT component's own state, not
+// here, so reaching them means calling AttemptWordReview's own
+// saveDraftNow() rather than duplicating that state up into this file.
 //
 // CONTAINER WIDTH: the outer container widens to the same max-w-[1350px]
 // used for the passage/recorder grid whenever showInlineReview is true —
@@ -70,8 +83,8 @@
 // showing, AttemptWordReview itself displays the student's name
 // prominently inside its own card (via the studentName prop below), so
 // repeating it in a second tiny banner above the card would be redundant.
-import React, { useEffect, useState } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import React, { useEffect, useRef, useState } from 'react'
+import { Navigate, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { BookOpenCheck, RefreshCw, UserRound } from 'lucide-react'
 import { Owl } from '../../../../components/ui/Owl.tsx'
 import { OwlLoader } from '../../../../components/ui/OwlLoader.tsx'
@@ -93,12 +106,19 @@ import {
 } from './assessmentSessionStrings.ts'
 import { USE_PLACEHOLDER_PASSAGE } from '../../../../../devFlags.ts'
 import type { Lang } from '../../../../components/buttons/LangToggle.tsx'
-import { useAttemptQuery, useAttemptWordsQuery, useSubmitReviewMutation, type WordVerdictOverride } from '../../../students/review/hooks.ts'
-import { AttemptWordReview } from '../../../students/review/features/AttemptWordReview.tsx'
-
+import type { AssessmentSessionOutletContext } from './layouts/AssessmentSessionLayout.tsx'
+import {
+    useAttemptQuery,
+    useAttemptWordsQuery,
+    useSaveDraftMutation,
+    useSubmitReviewMutation,
+    type WordReviewOverride,
+} from '../../../students/review/hooks.ts'
+import { AttemptWordReview, type AttemptWordReviewHandle } from '../../../students/review/features/AttemptWordReview.tsx'
 export const AssessmentSession: React.FC = () => {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
+    const { registerReviewSaveHandler } = useOutletContext<AssessmentSessionOutletContext>()
     const rawLang = searchParams.get('lang')
     const assessmentLang: Lang | null = rawLang === 'fil' || rawLang === 'en' ? rawLang : null
     const studentIdParam = searchParams.get('studentId')
@@ -118,6 +138,7 @@ export const AssessmentSession: React.FC = () => {
     const [attemptId, setAttemptId] = useState<string | null>(null)
     const rec = useRecorder()
     const submitAttempt = useSubmitAttempt()
+    const reviewRef = useRef<AttemptWordReviewHandle>(null)
     const showPassageStep = step === 'passage' && !!passage
     // Only ever polled for an assisted session that's actually been
     // submitted — the non-assisted case never needs this data at all.
@@ -125,6 +146,12 @@ export const AssessmentSession: React.FC = () => {
     const attemptQuery = useAttemptQuery(showInlineReview ? attemptId : null)
     const wordsQuery = useAttemptWordsQuery(attemptId, showInlineReview && attemptQuery.data?.status === 'scored')
     const submitReview = useSubmitReviewMutation(ownProfile?.id)
+    const saveDraft = useSaveDraftMutation(ownProfile?.id)
+    // True only once the actual AttemptWordReview UI is on screen (not
+    // just "submitted and waiting on scoring") — matches the render
+    // condition below exactly, since that's the only window where
+    // reviewRef.current is non-null and there's anything to save.
+    const reviewReady = showInlineReview && attemptQuery.data?.status === 'scored' && !!wordsQuery.data
     const generatePassage = async () => {
         if (!assessmentLang) return
         setStep('loading')
@@ -160,6 +187,22 @@ export const AssessmentSession: React.FC = () => {
         rec.reset()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [passage])
+    // Registers/unregisters the Exit-button save handler with the layout
+    // exactly for as long as reviewReady is true — see this file's
+    // header comment and AssessmentSessionLayout.tsx's own comment for
+    // the full wiring. registerReviewSaveHandler is stable (wrapped in
+    // useCallback in the layout), so this effect only re-fires when
+    // reviewReady itself flips.
+    useEffect(() => {
+        if (!reviewReady) {
+            registerReviewSaveHandler(null)
+            return
+        }
+        registerReviewSaveHandler(async () => {
+            await reviewRef.current?.saveDraftNow()
+        })
+        return () => registerReviewSaveHandler(null)
+    }, [reviewReady, registerReviewSaveHandler])
     if (!assessmentLang) {
         return <Navigate to="/reading/proficiency/assessment" replace />
     }
@@ -206,14 +249,29 @@ export const AssessmentSession: React.FC = () => {
     // picker — same destination AssessmentSessionHeader's Exit button
     // already uses for an assisted session, so behavior stays consistent
     // whether the teacher exits early or actually finishes a review.
-    const handleConfirmReview = async (verdicts: WordVerdictOverride[]) => {
+    const handleConfirmReview = async (overrides: WordReviewOverride[]) => {
         if (!attemptId) return
         try {
-            await submitReview.mutateAsync({ attemptId, verdicts })
+            await submitReview.mutateAsync({ attemptId, overrides })
             showToast(t.reviewConfirmedToast, 'success', theme === 'dark')
             navigate('/reading/proficiency/assessment')
         } catch (err) {
             console.error('AssessmentSession: failed to confirm review', err)
+        }
+    }
+    // Saves the in-progress review without finalizing it or leaving this
+    // screen — unlike handleConfirmReview, there's nowhere to navigate to,
+    // since the whole point is the teacher keeps working from right here.
+    // Uses an inline bilingual string rather than adding a key to
+    // assessmentSessionStrings.ts's STRINGS object. Also what the Exit
+    // button ends up calling (via reviewRef) when exiting mid-review.
+    const handleSaveDraft = async (overrides: WordReviewOverride[]) => {
+        if (!attemptId) return
+        try {
+            await saveDraft.mutateAsync({ attemptId, overrides })
+            showToast(uiLang === 'fil' ? 'Na-save ang draft.' : 'Draft saved.', 'success', theme === 'dark')
+        } catch (err) {
+            console.error('AssessmentSession: failed to save draft', err)
         }
     }
     return (
@@ -311,10 +369,13 @@ export const AssessmentSession: React.FC = () => {
             {showInlineReview && (
                 attemptQuery.data?.status === 'scored' && wordsQuery.data ? (
                     <AttemptWordReview
+                        ref={reviewRef}
                         attempt={attemptQuery.data}
                         words={wordsQuery.data}
                         onConfirm={handleConfirmReview}
                         confirming={submitReview.isPending}
+                        onSaveDraft={handleSaveDraft}
+                        savingDraft={saveDraft.isPending}
                         studentName={studentNameParam}
                     />
                 ) : (

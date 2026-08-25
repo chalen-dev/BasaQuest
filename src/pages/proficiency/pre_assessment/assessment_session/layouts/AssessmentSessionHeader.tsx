@@ -4,7 +4,17 @@
 // no nav links, no LangToggle, and no account menu — the point is to keep
 // the teacher/pupil from navigating away or changing the assessment
 // language mid-session. Only the brand mark, dark-mode toggle, and an Exit
-// button (with a confirmation, since this ends the check-in) remain.
+// button remain.
+//
+// EXIT BEHAVIOR splits in two, based on reviewSaveHandler (passed down by
+// AssessmentSessionLayout.tsx — see that file's own comment for the full
+// wiring): when it's set, that means AssessmentSession.tsx's inline
+// word-review step is actively showing, and there's nothing to warn
+// about losing — Exit just saves the current review as a draft and
+// leaves immediately, no confirmation popup. Every other step (intro,
+// passage, recording, still-scoring) has no handler registered, so Exit
+// falls back to the original "are you sure, the passage will be lost"
+// confirmation before navigating.
 //
 // When a "Now" (one-device, teacher-run) session is active — see
 // PreAssessment.tsx's handleStartNow — this also shows a small "Acting
@@ -42,7 +52,10 @@ const EXIT_STRINGS: Record<Lang, { label: string; title: string; text: string; c
         confirm: 'Yes, exit',
     },
 }
-export default function AssessmentSessionHeader() {
+type AssessmentSessionHeaderProps = {
+    reviewSaveHandler: (() => Promise<void>) | null
+}
+export default function AssessmentSessionHeader({ reviewSaveHandler }: AssessmentSessionHeaderProps) {
     const navigate = useNavigate()
     const { theme } = useTheme()
     const { lang } = useLang()
@@ -51,9 +64,24 @@ export default function AssessmentSessionHeader() {
     const studentName = searchParams.get('studentName')
     const isAssisted = !!searchParams.get('studentId')
     const handleExit = async () => {
+        const exitDestination = isAssisted ? '/reading/proficiency/assessment' : '/reading/proficiency'
+        // Actively reviewing: save-and-leave, no dialog — nothing here is
+        // actually being lost, so there's nothing to confirm. A failed
+        // save is logged, not blocked on — matches how other failures in
+        // this app degrade (console.error only), and a teacher stuck
+        // unable to leave the screen would be worse than a dropped draft.
+        if (reviewSaveHandler) {
+            try {
+                await reviewSaveHandler()
+            } catch (err) {
+                console.error('AssessmentSessionHeader: failed to save draft on exit', err)
+            }
+            navigate(exitDestination)
+            return
+        }
         const confirmed = await showConfirmation(et.title, et.text, theme === 'dark', 'warning', et.confirm)
         if (confirmed) {
-            navigate(isAssisted ? '/reading/proficiency/assessment' : '/reading/proficiency')
+            navigate(exitDestination)
         }
     }
     return (

@@ -1,4 +1,3 @@
-// File: hooks.ts
 // File: src/pages/students/review/hooks.ts
 //
 // Data layer for the teacher-review feature — shared by both review
@@ -32,6 +31,20 @@ import { supabase } from '../../../lib/supabaseClient'
 export type AttemptStatus = 'pending' | 'processing' | 'scored' | 'failed'
 export type ErrorType = 'None' | 'Omission' | 'Insertion' | 'Mispronunciation'
 export type Verdict = 'correct' | 'miscue'
+// The only two error types the manual type-picker in WordListCard.tsx
+// ever offers — Insertion and None aren't picker options (see the
+// migration's own comment for why), so an override can only ever be one
+// of these two, or null (no override, defer to the system's error_type).
+export type ManualErrorTypeOverride = 'Omission' | 'Mispronunciation' | null
+
+// Bucket a pupil's recording is uploaded to at submit time — mirrors
+// RECORDINGS_BUCKET in
+// proficiency/pre_assessment/assessment_session/features/useSubmitAttempt.ts.
+// Kept as its own local constant rather than importing across into that
+// unrelated feature folder, same self-containment call already made for
+// useStudentProfileQuery below — but if that bucket name ever changes,
+// it has to change in BOTH places.
+const RECORDINGS_BUCKET = 'assessment-recordings'
 
 export type PendingReviewAttempt = {
     id: string
@@ -63,6 +76,7 @@ export type AttemptDetail = {
     prosody_score: number | null
     completeness_score: number | null
     pron_score: number | null
+    audio_path: string | null
     created_at: string
     scored_at: string | null
     reviewed_at: string | null
@@ -82,9 +96,26 @@ export type AttemptWord = {
     teacher_verdict: Verdict | null
     teacher_reviewed_at: string | null
     teacher_reviewed_by: string | null
+    // Both added alongside the "Save Draft" feature — previously these
+    // were local-only component state (manualFlags / manualErrorType in
+    // AttemptWordReview.tsx) with no column at all, so they reset on
+    // reload. See the migration comment for the full rationale.
+    teacher_manual_flag: boolean
+    teacher_error_type_override: ManualErrorTypeOverride
 }
 
-export type WordVerdictOverride = { wordId: string; verdict: Verdict }
+// Everything a teacher can edit for one word, bundled together — used by
+// BOTH useSaveDraftMutation and useSubmitReviewMutation, since a final
+// Confirm Results should persist manual flags/overrides just as much as
+// a draft save does. The only difference between draft and final is
+// whether reviewed_at/reviewed_by get set on assessment_attempts
+// afterward.
+export type WordReviewOverride = {
+    wordId: string
+    verdict: Verdict
+    manualFlag: boolean
+    errorTypeOverride: ManualErrorTypeOverride
+}
 
 export type ReviewStudentProfile = {
     id: string
@@ -169,7 +200,7 @@ export function useAttemptQuery(attemptId: string | null | undefined) {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('assessment_attempts')
-                .select('id, student_id, teacher_id, language, passage_title, passage_text, grade_level, status, error_message, accuracy_score, fluency_score, prosody_score, completeness_score, pron_score, created_at, scored_at, reviewed_at, reviewed_by')
+                .select('id, student_id, teacher_id, language, passage_title, passage_text, grade_level, status, error_message, accuracy_score, fluency_score, prosody_score, completeness_score, pron_score, audio_path, created_at, scored_at, reviewed_at, reviewed_by')
                 .eq('id', attemptId as string)
                 .single()
             if (error) throw error
@@ -192,7 +223,7 @@ export function useAttemptWordsQuery(attemptId: string | null | undefined, enabl
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('assessment_attempt_words')
-                .select('id, attempt_id, word_index, reference_word, recognized_word, error_type, accuracy_score, system_verdict, confidence, teacher_verdict, teacher_reviewed_at, teacher_reviewed_by')
+                .select('id, attempt_id, word_index, reference_word, recognized_word, error_type, accuracy_score, system_verdict, confidence, teacher_verdict, teacher_reviewed_at, teacher_reviewed_by, teacher_manual_flag, teacher_error_type_override')
                 .eq('attempt_id', attemptId as string)
                 .order('word_index', { ascending: true })
             if (error) throw error
@@ -202,29 +233,88 @@ export function useAttemptWordsQuery(attemptId: string | null | undefined, enabl
     })
 }
 
-// Writes a teacher_verdict for EVERY word (not just the ones the teacher
-// actually flipped) — that's deliberate, not wasted writes: the whole
-// point of teacher_verdict living alongside system_verdict (per the
-// column's own migration comment) is to let a Cohen's kappa agreement
-// rate be computed later, which needs a human judgment recorded for
-// every word, agreement included, not just disagreements. Then marks the
-// attempt itself reviewed.
+// A pupil's recording lives in a PRIVATE bucket (nothing here is
+// publicly readable — see the bucket's own RLS/storage policies), so
+// playback needs a short-lived signed URL rather than a plain public
+// URL. Re-fetched well before the 1-hour signature actually expires
+// (staleTime below is 50 minutes) so a teacher who leaves the review
+// page open doesn't hit a dead link mid-session. Disabled entirely when
+// the attempt has no audio_path — older attempts predating this column,
+// or anything that failed upload.
+export function useAttemptAudioUrlQuery(audioPath: string | null | undefined) {
+    return useQuery({
+        queryKey: ['attempt-audio-url', audioPath],
+        queryFn: async () => {
+            const { data, error } = await supabase.storage
+                .from(RECORDINGS_BUCKET)
+                .createSignedUrl(audioPath as string, 3600)
+            if (error) throw error
+            return data.signedUrl
+        },
+        enabled: !!audioPath,
+        staleTime: 50 * 60 * 1000,
+    })
+}
+
+// Writes every word's verdict/flag/error-type-override in one go —
+// shared by useSaveDraftMutation and useSubmitReviewMutation so a draft
+// save and a final confirm persist identically at the word level; the
+// only thing that differs between them is whether the ATTEMPT itself
+// gets marked reviewed afterward. Every word gets written, not just
+// changed ones — see useSubmitReviewMutation's own comment for why
+// (Cohen's kappa agreement tracking needs agreement recorded too, not
+// only disagreement).
+async function writeWordReviewOverrides(overrides: WordReviewOverride[], teacherId: string) {
+    const nowIso = new Date().toISOString()
+    const results = await Promise.all(
+        overrides.map((o) =>
+            supabase
+                .from('assessment_attempt_words')
+                .update({
+                    teacher_verdict: o.verdict,
+                    teacher_reviewed_at: nowIso,
+                    teacher_reviewed_by: teacherId,
+                    teacher_manual_flag: o.manualFlag,
+                    teacher_error_type_override: o.errorTypeOverride,
+                })
+                .eq('id', o.wordId)
+        )
+    )
+    const wordError = results.find((r) => r.error)?.error
+    if (wordError) throw wordError
+}
+
+// Persists the current in-progress review WITHOUT finalizing it — the
+// attempt stays exactly where it was (still shows up in the pending
+// review list, since reviewed_at stays null) but the next time this
+// attempt is opened, AttemptWordReview.tsx can seed its state from
+// teacher_verdict/teacher_manual_flag/teacher_error_type_override
+// instead of starting over from the system's own defaults.
+export function useSaveDraftMutation(teacherId: string | undefined) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ attemptId, overrides }: { attemptId: string; overrides: WordReviewOverride[] }) => {
+            if (!teacherId) throw new Error('Missing teacher id')
+            await writeWordReviewOverrides(overrides, teacherId)
+            return { attemptId }
+        },
+        onSuccess: ({ attemptId }) => {
+            queryClient.invalidateQueries({ queryKey: attemptWordsKey(attemptId) })
+        },
+    })
+}
+
+// Writes a teacher_verdict (plus manual flag / error-type override) for
+// EVERY word, then marks the attempt itself reviewed — this is the
+// terminal action; unlike useSaveDraftMutation, it also clears the
+// attempt off the pending-review list.
 export function useSubmitReviewMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async ({ attemptId, verdicts }: { attemptId: string; verdicts: WordVerdictOverride[] }) => {
+        mutationFn: async ({ attemptId, overrides }: { attemptId: string; overrides: WordReviewOverride[] }) => {
             if (!teacherId) throw new Error('Missing teacher id')
+            await writeWordReviewOverrides(overrides, teacherId)
             const nowIso = new Date().toISOString()
-            const wordResults = await Promise.all(
-                verdicts.map((v) =>
-                    supabase
-                        .from('assessment_attempt_words')
-                        .update({ teacher_verdict: v.verdict, teacher_reviewed_at: nowIso, teacher_reviewed_by: teacherId })
-                        .eq('id', v.wordId)
-                )
-            )
-            const wordError = wordResults.find((r) => r.error)?.error
-            if (wordError) throw wordError
             const { error: attemptError } = await supabase
                 .from('assessment_attempts')
                 .update({ reviewed_at: nowIso, reviewed_by: teacherId })

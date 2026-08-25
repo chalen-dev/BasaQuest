@@ -1,4 +1,3 @@
-// File: TeacherReviewAttempt.tsx
 // File: src/pages/students/review/TeacherReviewAttempt.tsx
 //
 // Detail page for reviewing a single "Send"-mode attempt. Routed at
@@ -30,12 +29,12 @@ import type { Lang } from '../../../components/buttons/LangToggle'
 import {
     useAttemptQuery,
     useAttemptWordsQuery,
+    useSaveDraftMutation,
     useStudentProfileQuery,
     useSubmitReviewMutation,
-    type WordVerdictOverride,
+    type WordReviewOverride,
 } from './hooks'
 import { AttemptWordReview } from './features/AttemptWordReview'
-
 const STRINGS: Record<Lang, {
     back: string
     for: string
@@ -50,6 +49,7 @@ const STRINGS: Record<Lang, {
     notFoundTitle: string
     notFoundDesc: string
     confirmedToast: string
+    draftSavedToast: string
 }> = {
     fil: {
         back: 'Bumalik sa Review',
@@ -65,6 +65,7 @@ const STRINGS: Record<Lang, {
         notFoundTitle: 'Hindi Nahanap',
         notFoundDesc: 'Hindi na available ang pagbasang ito.',
         confirmedToast: 'Nakumpirma ang resulta.',
+        draftSavedToast: 'Na-save ang draft.',
     },
     en: {
         back: 'Back to Review',
@@ -80,9 +81,9 @@ const STRINGS: Record<Lang, {
         notFoundTitle: 'Not Found',
         notFoundDesc: "This reading isn't available anymore.",
         confirmedToast: 'Results confirmed.',
+        draftSavedToast: 'Draft saved.',
     },
 }
-
 export const TeacherReviewAttempt: React.FC = () => {
     const { attemptId } = useParams<{ attemptId: string }>()
     const navigate = useNavigate()
@@ -94,22 +95,32 @@ export const TeacherReviewAttempt: React.FC = () => {
     const { data: words, isLoading: wordsLoading } = useAttemptWordsQuery(attemptId, attempt?.status === 'scored')
     const { data: student } = useStudentProfileQuery(attempt?.student_id)
     const submitReview = useSubmitReviewMutation(profile?.id)
-
+    const saveDraft = useSaveDraftMutation(profile?.id)
     const showingWordReview = !attemptLoading && !attemptError && !!attempt
         && attempt.status !== 'pending' && attempt.status !== 'processing' && attempt.status !== 'failed'
         && !attempt.reviewed_at && !wordsLoading && !!words
-
-    const handleConfirm = async (verdicts: WordVerdictOverride[]) => {
+    const handleConfirm = async (overrides: WordReviewOverride[]) => {
         if (!attemptId) return
         try {
-            await submitReview.mutateAsync({ attemptId, verdicts })
+            await submitReview.mutateAsync({ attemptId, overrides })
             showToast(t.confirmedToast, 'success', theme === 'dark')
             navigate('/students/review')
         } catch (err) {
             console.error('TeacherReviewAttempt: failed to submit review', err)
         }
     }
-
+    // Unlike handleConfirm, this doesn't navigate away — saving a draft
+    // is meant to let the teacher keep reviewing (or come back to this
+    // exact page later), not to close the attempt out.
+    const handleSaveDraft = async (overrides: WordReviewOverride[]) => {
+        if (!attemptId) return
+        try {
+            await saveDraft.mutateAsync({ attemptId, overrides })
+            showToast(t.draftSavedToast, 'success', theme === 'dark')
+        } catch (err) {
+            console.error('TeacherReviewAttempt: failed to save draft', err)
+        }
+    }
     const backLink = (
         <button
             onClick={() => navigate('/students/review')}
@@ -119,7 +130,6 @@ export const TeacherReviewAttempt: React.FC = () => {
             {t.back}
         </button>
     )
-
     if (attemptLoading) {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
@@ -130,7 +140,6 @@ export const TeacherReviewAttempt: React.FC = () => {
             </div>
         )
     }
-
     if (attemptError || !attempt) {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
@@ -143,9 +152,7 @@ export const TeacherReviewAttempt: React.FC = () => {
             </div>
         )
     }
-
     const studentName = student?.full_name || student?.username || t.unnamedStudent
-
     return (
         <div className={showingWordReview ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
             {backLink}
@@ -185,6 +192,8 @@ export const TeacherReviewAttempt: React.FC = () => {
                     words={words}
                     onConfirm={handleConfirm}
                     confirming={submitReview.isPending}
+                    onSaveDraft={handleSaveDraft}
+                    savingDraft={saveDraft.isPending}
                     studentName={studentName}
                 />
             )}
