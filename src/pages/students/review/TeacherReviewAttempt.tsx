@@ -1,0 +1,194 @@
+// File: TeacherReviewAttempt.tsx
+// File: src/pages/students/review/TeacherReviewAttempt.tsx
+//
+// Detail page for reviewing a single "Send"-mode attempt. Routed at
+// /students/review/:attemptId, reached from ReviewList.tsx. Renders the
+// same AttemptWordReview component the inline "Now"-mode step uses, so
+// the two flows produce identical review data.
+//
+// CONTAINER WIDTH: widens to max-w-[1350px] only for the actual review
+// step (showingWordReview) — AttemptWordReview's two-panel layout needs
+// real width or both panels get crushed. Every other state here
+// (loading/failed/already-reviewed/not-found) is just a centered message
+// card, so those stay at the narrower max-w-3xl.
+//
+// The old small "{for} {studentName}" line only renders when NOT showing
+// the word-review step — once AttemptWordReview is on screen it displays
+// the student's name itself, prominently, inside its own card (via the
+// studentName prop below), so repeating it in a second tiny line above
+// the card would be redundant.
+import React from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+import { useLang } from '../../../contexts/LangContext'
+import { useTheme } from '../../../contexts/ThemeContext'
+import { useProfile } from '../../../hooks/useProfile'
+import { OwlLoader } from '../../../components/ui/OwlLoader'
+import { Owl } from '../../../components/ui/Owl'
+import { showToast } from '../../../helpers/swalHelpers'
+import type { Lang } from '../../../components/buttons/LangToggle'
+import {
+    useAttemptQuery,
+    useAttemptWordsQuery,
+    useStudentProfileQuery,
+    useSubmitReviewMutation,
+    type WordVerdictOverride,
+} from './hooks'
+import { AttemptWordReview } from './features/AttemptWordReview'
+
+const STRINGS: Record<Lang, {
+    back: string
+    for: string
+    unnamedStudent: string
+    loading: string
+    scoringTitle: string
+    scoringDesc: string
+    failedTitle: string
+    failedDesc: string
+    alreadyTitle: string
+    alreadyDesc: string
+    notFoundTitle: string
+    notFoundDesc: string
+    confirmedToast: string
+}> = {
+    fil: {
+        back: 'Bumalik sa Review',
+        for: 'Para kay',
+        unnamedStudent: 'Estudyante',
+        loading: 'Kinukuha ang detalye...',
+        scoringTitle: 'Isinasagawa pa ang Pagsusuri',
+        scoringDesc: 'Sinusuri pa ng sistema ang pagbasang ito. Maghintay lang ng ilang segundo.',
+        failedTitle: 'Hindi Nasuri',
+        failedDesc: 'May problema sa pagsusuri sa pagbasang ito. Wala pang paraan para subukan ulit dito.',
+        alreadyTitle: 'Nakumpirma na',
+        alreadyDesc: 'Nasuri na at nakumpirma ang pagbasang ito.',
+        notFoundTitle: 'Hindi Nahanap',
+        notFoundDesc: 'Hindi na available ang pagbasang ito.',
+        confirmedToast: 'Nakumpirma ang resulta.',
+    },
+    en: {
+        back: 'Back to Review',
+        for: 'For',
+        unnamedStudent: 'Student',
+        loading: 'Loading...',
+        scoringTitle: 'Scoring In Progress',
+        scoringDesc: 'This reading is still being scored. This should only take a few seconds.',
+        failedTitle: 'Scoring Failed',
+        failedDesc: "There was a problem scoring this reading. There's no retry option here yet.",
+        alreadyTitle: 'Already Confirmed',
+        alreadyDesc: 'This reading has already been reviewed and confirmed.',
+        notFoundTitle: 'Not Found',
+        notFoundDesc: "This reading isn't available anymore.",
+        confirmedToast: 'Results confirmed.',
+    },
+}
+
+export const TeacherReviewAttempt: React.FC = () => {
+    const { attemptId } = useParams<{ attemptId: string }>()
+    const navigate = useNavigate()
+    const { lang } = useLang()
+    const { theme } = useTheme()
+    const { profile } = useProfile()
+    const t = STRINGS[lang]
+    const { data: attempt, isLoading: attemptLoading, error: attemptError } = useAttemptQuery(attemptId)
+    const { data: words, isLoading: wordsLoading } = useAttemptWordsQuery(attemptId, attempt?.status === 'scored')
+    const { data: student } = useStudentProfileQuery(attempt?.student_id)
+    const submitReview = useSubmitReviewMutation(profile?.id)
+
+    const showingWordReview = !attemptLoading && !attemptError && !!attempt
+        && attempt.status !== 'pending' && attempt.status !== 'processing' && attempt.status !== 'failed'
+        && !attempt.reviewed_at && !wordsLoading && !!words
+
+    const handleConfirm = async (verdicts: WordVerdictOverride[]) => {
+        if (!attemptId) return
+        try {
+            await submitReview.mutateAsync({ attemptId, verdicts })
+            showToast(t.confirmedToast, 'success', theme === 'dark')
+            navigate('/students/review')
+        } catch (err) {
+            console.error('TeacherReviewAttempt: failed to submit review', err)
+        }
+    }
+
+    const backLink = (
+        <button
+            onClick={() => navigate('/students/review')}
+            className="mb-4 flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
+        >
+            <ArrowLeft size={16} />
+            {t.back}
+        </button>
+    )
+
+    if (attemptLoading) {
+        return (
+            <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
+                {backLink}
+                <div className="flex justify-center py-10">
+                    <OwlLoader message={t.loading} />
+                </div>
+            </div>
+        )
+    }
+
+    if (attemptError || !attempt) {
+        return (
+            <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
+                {backLink}
+                <section className="flex flex-col items-center gap-3 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">
+                    <Owl mood="greeting" size={64} />
+                    <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.notFoundTitle}</h2>
+                    <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.notFoundDesc}</p>
+                </section>
+            </div>
+        )
+    }
+
+    const studentName = student?.full_name || student?.username || t.unnamedStudent
+
+    return (
+        <div className={showingWordReview ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
+            {backLink}
+            {!showingWordReview && (
+                <p className="mb-4 text-sm font-bold text-teal-700 dark:text-teal-300">
+                    {t.for} {studentName}
+                </p>
+            )}
+            {attempt.status === 'pending' || attempt.status === 'processing' ? (
+                <section className="flex flex-col items-center gap-3 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-8 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
+                    <OwlLoader message="…" />
+                    <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.scoringTitle}</h2>
+                    <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringDesc}</p>
+                </section>
+            ) : attempt.status === 'failed' ? (
+                <section className="flex flex-col items-center gap-3 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">
+                    <Owl mood="greeting" size={64} />
+                    <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.failedTitle}</h2>
+                    <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.failedDesc}</p>
+                    {attempt.error_message && (
+                        <p className="max-w-sm text-xs font-semibold text-gray-400 dark:text-gray-500">{attempt.error_message}</p>
+                    )}
+                </section>
+            ) : attempt.reviewed_at ? (
+                <section className="flex flex-col items-center gap-3 rounded-3xl border border-green-500/25 bg-green-500/5 p-8 text-center shadow-sm dark:border-green-400/25 dark:bg-green-400/5">
+                    <Owl mood="greeting" size={64} />
+                    <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.alreadyTitle}</h2>
+                    <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.alreadyDesc}</p>
+                </section>
+            ) : wordsLoading || !words ? (
+                <div className="flex justify-center py-10">
+                    <OwlLoader message={t.loading} />
+                </div>
+            ) : (
+                <AttemptWordReview
+                    attempt={attempt}
+                    words={words}
+                    onConfirm={handleConfirm}
+                    confirming={submitReview.isPending}
+                    studentName={studentName}
+                />
+            )}
+        </div>
+    )
+}
+export default TeacherReviewAttempt

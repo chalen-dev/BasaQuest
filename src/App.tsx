@@ -1,3 +1,4 @@
+// File: App.tsx
 // File: src/App.tsx
 import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom"
 import './App.css'
@@ -5,6 +6,8 @@ import {AdminRoute, GuestRoute, ProtectedRoute} from "./components/routes/AuthRo
 import Login from "./pages/auth/Login.tsx";
 import { Dashboard } from "./pages/students/dashboard/Dashboard.tsx";
 import { StudentList } from "./pages/students/list/StudentList.tsx";
+import ReviewList from "./pages/students/review/ReviewList.tsx";
+import TeacherReviewAttempt from "./pages/students/review/TeacherReviewAttempt.tsx";
 import Register from "./pages/auth/Register.tsx";
 import {Home} from "./pages/home/Home.tsx";
 import ProtectedLayout from "./pages/_layouts/ProtectedLayout.tsx";
@@ -57,6 +60,16 @@ function App() {
                         <Route element = {<ProtectedLayout />}>
                             <Route path="/dashboard" element={<Dashboard />}/>
                             <Route path="/students" element={<StudentList />}/>
+                            {/* Teacher review inbox ("Send"-mode attempts
+                            that finished scoring but haven't been
+                            confirmed yet) and its per-attempt detail page.
+                            "Now"-mode attempts are reviewed inline on the
+                            session screen itself instead — see
+                            AssessmentSession.tsx — so they normally never
+                            need to be reached from here, but nothing stops
+                            one from showing up if a teacher exits early. */}
+                            <Route path="/students/review" element={<ReviewList />}/>
+                            <Route path="/students/review/:attemptId" element={<TeacherReviewAttempt />}/>
                             <Route path="/home" element={<Home />}/>
                             <Route path="/reading/proficiency" element={<MaterialSelection />}/>
                             <Route path="/reading/proficiency/assessment" element={<ProficiencyAssessmentSelectStudent />}/>

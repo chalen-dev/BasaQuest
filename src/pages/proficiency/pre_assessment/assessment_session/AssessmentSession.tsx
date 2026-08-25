@@ -1,3 +1,4 @@
+// File: AssessmentSession.tsx
 // File: src/pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx
 // The actual reading check-in session — reached either after a language
 // has been picked in PreAssessment.tsx (student's own flow, or a
@@ -42,14 +43,43 @@
 // continued via the simulated take — see useRecorder.ts's `simulate`),
 // there's nothing to upload or score, so it falls back to the old
 // local-only "flip to pending UI" behavior instead.
+//
+// ASSISTED ("Now" mode) INLINE REVIEW: scoring runs async on the separate
+// basaquest-scoring service, so submitting doesn't mean scoring is done
+// yet. For an assisted session, the teacher is physically still at this
+// screen, so once submitted this file polls the new attempt (useAttemptQuery,
+// from students/review/hooks.ts — the same data layer the standalone
+// "Send"-mode review page uses) and, once it lands on status 'scored',
+// swaps the passage/recorder grid out for the shared AttemptWordReview
+// panel right here, instead of leaving the teacher on the old permanent
+// "Waiting for Teacher" card (which only ever made sense for the
+// non-assisted/self-serve case, where there's no teacher present to
+// review anything right now — that case still gets the old card,
+// untouched, via RecorderPanel's own `submitted` branch). Confirming here
+// calls the same useSubmitReviewMutation the "Send"-mode review page
+// uses, then routes back to the student picker — mirroring
+// AssessmentSessionHeader's own Exit-button routing for assisted sessions.
+//
+// CONTAINER WIDTH: the outer container widens to the same max-w-[1350px]
+// used for the passage/recorder grid whenever showInlineReview is true —
+// AttemptWordReview's two-panel layout (passage left, word list right)
+// needs real width or both panels get crushed into a phone-width column.
+//
+// The old "Acting as: {name}" banner only renders for the intro/passage/
+// recording steps now (!showInlineReview) — once the review step is
+// showing, AttemptWordReview itself displays the student's name
+// prominently inside its own card (via the studentName prop below), so
+// repeating it in a second tiny banner above the card would be redundant.
 import React, { useEffect, useState } from 'react'
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { BookOpenCheck, RefreshCw, UserRound } from 'lucide-react'
 import { Owl } from '../../../../components/ui/Owl.tsx'
 import { OwlLoader } from '../../../../components/ui/OwlLoader.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
 import { useLang } from '../../../../contexts/LangContext.tsx'
+import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { supabase } from '../../../../lib/supabaseClient.ts'
+import { showToast } from '../../../../helpers/swalHelpers.ts'
 import { useAssistedStudentProfile } from '../hooks.ts'
 import { useRecorder } from './features/useRecorder.ts'
 import { useSubmitAttempt } from './features/useSubmitAttempt.ts'
@@ -58,12 +88,16 @@ import { RecorderPanel } from './features/RecorderPanel.tsx'
 import {
     PLACEHOLDER_PASSAGES,
     STRINGS,
-    USE_PLACEHOLDER_PASSAGE,
     type Passage,
     type Step,
 } from './assessmentSessionStrings.ts'
+import { USE_PLACEHOLDER_PASSAGE } from '../../../../../devFlags.ts'
 import type { Lang } from '../../../../components/buttons/LangToggle.tsx'
+import { useAttemptQuery, useAttemptWordsQuery, useSubmitReviewMutation, type WordVerdictOverride } from '../../../students/review/hooks.ts'
+import { AttemptWordReview } from '../../../students/review/features/AttemptWordReview.tsx'
+
 export const AssessmentSession: React.FC = () => {
+    const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const rawLang = searchParams.get('lang')
     const assessmentLang: Lang | null = rawLang === 'fil' || rawLang === 'en' ? rawLang : null
@@ -75,14 +109,22 @@ export const AssessmentSession: React.FC = () => {
     const activeProfile = isAssisted ? assistedProfile : ownProfile
     const profileLoading = isAssisted ? assistedProfileLoading : ownProfileLoading
     const { lang: uiLang } = useLang()
+    const { theme } = useTheme()
     const t = STRINGS[uiLang]
     const gradeLevel = activeProfile?.grade_level ?? 3
     const [step, setStep] = useState<Step>('intro')
     const [passage, setPassage] = useState<Passage | null>(null)
     const [submitted, setSubmitted] = useState(false)
+    const [attemptId, setAttemptId] = useState<string | null>(null)
     const rec = useRecorder()
     const submitAttempt = useSubmitAttempt()
     const showPassageStep = step === 'passage' && !!passage
+    // Only ever polled for an assisted session that's actually been
+    // submitted — the non-assisted case never needs this data at all.
+    const showInlineReview = isAssisted && submitted
+    const attemptQuery = useAttemptQuery(showInlineReview ? attemptId : null)
+    const wordsQuery = useAttemptWordsQuery(attemptId, showInlineReview && attemptQuery.data?.status === 'scored')
+    const submitReview = useSubmitReviewMutation(ownProfile?.id)
     const generatePassage = async () => {
         if (!assessmentLang) return
         setStep('loading')
@@ -114,6 +156,7 @@ export const AssessmentSession: React.FC = () => {
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSubmitted(false)
+        setAttemptId(null)
         rec.reset()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [passage])
@@ -142,7 +185,7 @@ export const AssessmentSession: React.FC = () => {
         }
         const teacherId = isAssisted ? (ownProfile?.id ?? null) : (ownProfile?.teacher_id ?? null)
         try {
-            await submitAttempt.mutateAsync({
+            const result = await submitAttempt.mutateAsync({
                 studentId,
                 teacherId,
                 language: assessmentLang,
@@ -152,20 +195,36 @@ export const AssessmentSession: React.FC = () => {
                 blob: rec.blob,
                 durationSeconds: rec.seconds,
             })
+            setAttemptId(result.attemptId)
             setSubmitted(true)
         } catch (err) {
             console.error('AssessmentSession: failed to submit attempt', err)
         }
     }
+    // Confirms the teacher's word-level review right here on the session
+    // screen (assisted/"Now" mode only), then routes back to the student
+    // picker — same destination AssessmentSessionHeader's Exit button
+    // already uses for an assisted session, so behavior stays consistent
+    // whether the teacher exits early or actually finishes a review.
+    const handleConfirmReview = async (verdicts: WordVerdictOverride[]) => {
+        if (!attemptId) return
+        try {
+            await submitReview.mutateAsync({ attemptId, verdicts })
+            showToast(t.reviewConfirmedToast, 'success', theme === 'dark')
+            navigate('/reading/proficiency/assessment')
+        } catch (err) {
+            console.error('AssessmentSession: failed to confirm review', err)
+        }
+    }
     return (
         <div
             className={
-                showPassageStep
+                showPassageStep || showInlineReview
                     ? 'mx-auto w-full max-w-[1350px] px-6 pb-6 pt-2 sm:px-10'
                     : 'mx-auto max-w-3xl px-4 pb-12 pt-2'
             }
         >
-            {isAssisted && studentNameParam && (
+            {isAssisted && studentNameParam && !showInlineReview && (
                 <div className="mb-4 flex items-center gap-2 rounded-2xl border border-teal-500/25 bg-teal-500/10 px-4 py-2.5 text-sm font-bold text-teal-700 dark:border-teal-400/25 dark:bg-teal-400/10 dark:text-teal-300">
                     <UserRound size={16} />
                     {t.assistedBannerLabel}: {studentNameParam}
@@ -243,11 +302,28 @@ export const AssessmentSession: React.FC = () => {
                     </button>
                 </section>
             )}
-            {showPassageStep && passage && (
+            {showPassageStep && passage && !showInlineReview && (
                 <div className="grid gap-6 lg:h-[calc(100vh-14rem)] lg:grid-cols-[1.6fr_1fr]">
                     <PassagePanel t={t} gradeLevel={gradeLevel} assessmentLang={assessmentLang} passage={passage} />
                     <RecorderPanel t={t} submitted={submitted} submitting={submitAttempt.isPending} rec={rec} onSubmit={handleSubmit} />
                 </div>
+            )}
+            {showInlineReview && (
+                attemptQuery.data?.status === 'scored' && wordsQuery.data ? (
+                    <AttemptWordReview
+                        attempt={attemptQuery.data}
+                        words={wordsQuery.data}
+                        onConfirm={handleConfirmReview}
+                        confirming={submitReview.isPending}
+                        studentName={studentNameParam}
+                    />
+                ) : (
+                    <section className="flex flex-col items-center gap-4 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-8 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
+                        <OwlLoader message="…" />
+                        <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.scoringTitle}</h2>
+                        <p className="max-w-md text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringDesc}</p>
+                    </section>
+                )
             )}
         </div>
     )

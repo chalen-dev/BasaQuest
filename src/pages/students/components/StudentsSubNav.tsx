@@ -1,20 +1,22 @@
+// File: StudentsSubNav.tsx
 // File: src/pages/students/components/StudentsSubNav.tsx
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardCheck } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
+import { useProfile } from '../../../hooks/useProfile'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { HomeButton } from '../../../components/buttons/HomeButton'
-
-const STRINGS: Record<Lang, { dashboard: string; list: string }> = {
-    fil: { dashboard: 'Dashboard', list: 'Listahan' },
-    en: { dashboard: 'Dashboard', list: 'Student List' },
+import { usePendingReviewCountQuery } from '../review/hooks'
+const STRINGS: Record<Lang, { dashboard: string; list: string; review: string }> = {
+    fil: { dashboard: 'Dashboard', list: 'Listahan', review: 'Suriin' },
+    en: { dashboard: 'Dashboard', list: 'Student List', review: 'Review' },
 }
-
 export const StudentsSubNav: React.FC = () => {
     const { lang } = useLang()
+    const { profile } = useProfile()
     const t = STRINGS[lang]
-
+    const { data: pendingCount } = usePendingReviewCountQuery(profile?.id)
     // Inactive pills used to be border-only with a near-invisible hover
     // tint, so the animated backdrop showed straight through them. Gave
     // the inactive state a solid white/gray-900 background (matching the
@@ -26,7 +28,6 @@ export const StudentsSubNav: React.FC = () => {
                 ? 'bg-gray-900 text-white dark:bg-gray-50 dark:text-gray-900'
                 : 'border border-gray-900/10 bg-white text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-100/10'
         }`
-
     return (
         <nav className="mb-6 flex flex-wrap items-center gap-2">
             {/* Reusing the shared HomeButton here instead of a lookalike —
@@ -40,12 +41,27 @@ export const StudentsSubNav: React.FC = () => {
                 <LayoutDashboard size={15} />
                 {t.dashboard}
             </NavLink>
-            <NavLink to="/students" className={tabClass}>
+            <NavLink to="/students" end className={tabClass}>
                 <Users size={15} />
                 {t.list}
             </NavLink>
+            {/* Badge mirrors ProtectedHeader's "Students" pill badge —
+                same usePendingReviewCountQuery hook, so the two never
+                drift out of sync. Shown here specifically (rather than
+                on Dashboard/List too) since this tab is the actual
+                destination for those pending attempts. */}
+            <div className="relative">
+                <NavLink to="/students/review" className={tabClass}>
+                    <ClipboardCheck size={15} />
+                    {t.review}
+                </NavLink>
+                {!!pendingCount && pendingCount > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                )}
+            </div>
         </nav>
     )
 }
-
 export default StudentsSubNav

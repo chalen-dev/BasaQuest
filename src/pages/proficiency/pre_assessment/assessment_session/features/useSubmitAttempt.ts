@@ -1,3 +1,4 @@
+// File: useSubmitAttempt.ts
 // File: src/pages/proficiency/pre_assessment/assessment_session/features/useSubmitAttempt.ts
 // Uploads a finished take to Storage, creates its assessment_attempts row,
 // and (English only, for now) kicks off scoring on the basaquest-scoring
@@ -20,11 +21,21 @@
 // scoring call just leaves the row at its default status ('pending')
 // with nothing having processed it yet; there's no retry mechanism wired
 // up for that today (a follow-up admin action or cron, not built here).
+//
+// When USE_PLACEHOLDER_SCORING (root devFlags.ts) is on, the real
+// basaquest-scoring call below is skipped entirely and fake-but-plausible
+// scored data is written directly instead, via applyPlaceholderScoring()
+// (placeholderScoring.ts) — same idea as USE_PLACEHOLDER_PASSAGE, just
+// for Azure credits instead of Gemini's.
 import { useMutation } from '@tanstack/react-query'
 import { supabase } from '../../../../../lib/supabaseClient.ts'
 import type { Lang } from '../../../../../components/buttons/LangToggle.tsx'
+import { USE_PLACEHOLDER_SCORING } from '../../../../../../devFlags.ts'
+import { applyPlaceholderScoring } from './placeholderScoring.ts'
+
 const RECORDINGS_BUCKET = 'assessment-recordings'
 const SCORING_SERVICE_URL = import.meta.env.VITE_SCORING_SERVICE_URL as string | undefined
+
 export type SubmitAttemptArgs = {
     studentId: string
     teacherId: string | null
@@ -35,20 +46,24 @@ export type SubmitAttemptArgs = {
     blob: Blob
     durationSeconds: number
 }
+
 export type SubmitAttemptResult = {
     attemptId: string
 }
+
 function extensionFor(blob: Blob): string {
     if (blob.type.includes('webm')) return 'webm'
     if (blob.type.includes('ogg')) return 'ogg'
     if (blob.type.includes('mp4')) return 'mp4'
     return 'dat'
 }
+
 export function useSubmitAttempt() {
     return useMutation({
         mutationFn: async (args: SubmitAttemptArgs): Promise<SubmitAttemptResult> => {
             const attemptId = crypto.randomUUID()
             const audioPath = `${args.studentId}/${attemptId}.${extensionFor(args.blob)}`
+
             const { error: uploadError } = await supabase.storage
                 .from(RECORDINGS_BUCKET)
                 .upload(audioPath, args.blob, {
@@ -58,6 +73,7 @@ export function useSubmitAttempt() {
             if (uploadError) {
                 throw new Error(`Failed to upload recording: ${uploadError.message}`)
             }
+
             const { error: insertError } = await supabase.from('assessment_attempts').insert({
                 id: attemptId,
                 student_id: args.studentId,
@@ -72,6 +88,7 @@ export function useSubmitAttempt() {
             if (insertError) {
                 throw new Error(`Failed to create attempt: ${insertError.message}`)
             }
+
             // Only English has a scoring pipeline wired up (Azure
             // Pronunciation Assessment via basaquest-scoring) — the
             // service itself also rejects non-English attempts, but
@@ -81,16 +98,28 @@ export function useSubmitAttempt() {
             if (args.language !== 'en') {
                 return { attemptId }
             }
+
+            if (USE_PLACEHOLDER_SCORING) {
+                try {
+                    await applyPlaceholderScoring(attemptId, args.passageText)
+                } catch (err) {
+                    console.error('useSubmitAttempt: placeholder scoring failed', err)
+                }
+                return { attemptId }
+            }
+
             if (!SCORING_SERVICE_URL) {
                 console.error('useSubmitAttempt: VITE_SCORING_SERVICE_URL is not set — skipping the scoring request. The attempt was still saved.')
                 return { attemptId }
             }
+
             const { data: sessionData } = await supabase.auth.getSession()
             const accessToken = sessionData.session?.access_token
             if (!accessToken) {
                 console.error('useSubmitAttempt: no active session — skipping the scoring request. The attempt was still saved.')
                 return { attemptId }
             }
+
             try {
                 const res = await fetch(`${SCORING_SERVICE_URL}/score/${attemptId}`, {
                     method: 'POST',
@@ -103,6 +132,7 @@ export function useSubmitAttempt() {
             } catch (err) {
                 console.error('useSubmitAttempt: scoring request threw', err)
             }
+
             return { attemptId }
         },
     })
