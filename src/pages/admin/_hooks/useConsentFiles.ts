@@ -1,7 +1,7 @@
 // File: src/pages/admin/useConsentFiles.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabaseClient.ts'
-import { useAuth } from '../../contexts/AuthContext.tsx'
+import { supabase } from '../../../lib/supabaseClient.ts'
+import { useAuth } from '../../../contexts/AuthContext.tsx'
 
 export type ConsentFile = {
     id: string

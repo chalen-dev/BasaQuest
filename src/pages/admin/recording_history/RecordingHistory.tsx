@@ -19,14 +19,14 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Trash2, Loader2, FileAudio, Lock, LockOpen } from 'lucide-react'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
-import { useFinetuneStudentsQuery, useSetRecordingLockMutation } from '../useFinetuneStudents.ts'
+import { useFinetuneStudentsQuery, useSetRecordingLockMutation } from '../_hooks/useFinetuneStudents.ts'
 import {
     useStudentRecordingsQuery,
     useDeleteStudentRecordingMutation,
     useStudentRecordingSignedUrl,
     type StudentRecording,
-} from '../useStudentRecordings.ts'
-import { useReadingSentenceSetsQuery } from '../useReadingSentences'
+} from '../_hooks/useStudentRecordings.ts'
+import { useReadingSentenceSetsQuery } from '../_hooks/useReadingSentences.ts'
 export default function RecordingHistory() {
     const { theme } = useTheme()
     const [searchParams] = useSearchParams()

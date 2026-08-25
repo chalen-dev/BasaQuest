@@ -30,7 +30,7 @@
 // is to duplicate it into a fresh, unlocked copy.
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Check, Copy, FileText, Loader2, Lock, Pencil, Plus, ScrollText, Trash2, X } from 'lucide-react'
-import { AdminSubNav } from '../components/AdminSubNav.tsx'
+import { AdminSubNav } from '../_components/AdminSubNav.tsx'
 import { Tooltip } from '../../../components/ui/Tooltip.tsx'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers.ts'
 import { useTheme } from '../../../contexts/ThemeContext.tsx'
@@ -45,8 +45,8 @@ import {
     useDeleteSentenceMutation,
     useReorderSentencesMutation,
     useDuplicateSentenceSetMutation,
-} from '../useReadingSentences.ts'
-import { useRecordedSentenceSetsQuery } from '../useStudentRecordings.ts'
+} from '../_hooks/useReadingSentences.ts'
+import { useRecordedSentenceSetsQuery } from '../_hooks/useStudentRecordings.ts'
 // Fixed palette for the per-sentence accent — each entry is a complete,
 // literal Tailwind class string (never built with a template variable),
 // since Tailwind's build-time scan can't see dynamically-assembled class

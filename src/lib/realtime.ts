@@ -6,3 +6,4 @@
 // force-logout-student edge function sends that broadcast via the
 // Realtime REST Broadcast API rather than opening its own websocket.
 export const teacherPresenceChannelName = (teacherId: string) => `teacher-presence-${teacherId}`
+export const adminRecordingSessionsChannelName = () => 'admin-recording-sessions'

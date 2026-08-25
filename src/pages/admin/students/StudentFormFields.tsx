@@ -3,8 +3,8 @@ import { Text } from '../../../components/input/Text'
 import { Number as NumberInput } from '../../../components/input/Number'
 import { Select } from '../../../components/input/Select'
 import { TextArea } from '../../../components/input/TextArea'
-import { GenderBadge } from '../genderDisplay'
-import type { NewFinetuneStudent, ReadingTier } from '../useFinetuneStudents.ts'
+import { GenderBadge } from '../_components/genderDisplay.tsx'
+import type { NewFinetuneStudent, ReadingTier } from '../_hooks/useFinetuneStudents.ts'
 const GENDER_OPTIONS = [
     { value: '', label: '—' },
     { value: 'female', label: 'Female' },

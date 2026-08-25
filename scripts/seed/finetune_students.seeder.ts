@@ -17,7 +17,7 @@
 // files to attach, so setting it true would just be a lie about paperwork
 // that doesn't exist.
 import { supabase } from '../client.ts'
-import type { ReadingTier } from '../../src/pages/admin/useFinetuneStudents.ts'
+import type { ReadingTier } from '../../src/pages/admin/_hooks/useFinetuneStudents.ts'
 
 type SeedFinetuneStudent = {
     full_name: string

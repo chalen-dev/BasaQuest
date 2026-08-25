@@ -15,7 +15,7 @@ import {
     useConsentFileSignedUrl,
     MAX_CONSENT_FILES,
     type ConsentFile,
-} from '../useConsentFiles.ts'
+} from '../_hooks/useConsentFiles.ts'
 
 type Props = {
     studentId: string

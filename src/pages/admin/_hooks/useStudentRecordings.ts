@@ -1,6 +1,6 @@
 // File: src/pages/admin/useStudentRecordings.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabaseClient.ts'
 export type StudentRecording = {
     id: string
     student_id: string

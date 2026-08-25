@@ -1,6 +1,6 @@
 // File: src/pages/admin/useReadingSentences.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabaseClient.ts'
 // Sentence sets ("scripts") used to be a hardcoded 'g1_2' | 'g3_4' union
 // with labels in a source constant. They're admin-editable now (see
 // SentenceScripts.tsx) — created, renamed, and deleted through the

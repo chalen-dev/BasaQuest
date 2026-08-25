@@ -12,8 +12,8 @@ import { SearchInput } from '../../../components/input/SearchInput'
 import { Drawer } from '../../../components/ui/Drawer'
 import { Tooltip } from '../../../components/ui/Tooltip'
 import { Pagination } from '../../../components/ui/Pagination'
-import { AdminSubNav } from '../components/AdminSubNav'
-import { GenderBadge } from '../genderDisplay'
+import { AdminSubNav } from '../_components/AdminSubNav'
+import { GenderBadge } from '../_components/genderDisplay.tsx'
 import {
     useFinetuneStudentsQuery,
     useCreateFinetuneStudentMutation,
@@ -21,9 +21,9 @@ import {
     useDeleteFinetuneStudentMutation,
     type FinetuneStudent,
     type NewFinetuneStudent,
-} from '../useFinetuneStudents.ts'
-import { useStudentRecordingCountsQuery } from '../useStudentRecordings.ts'
-import { useConsentFileCountsQuery } from '../useConsentFiles.ts'
+} from '../_hooks/useFinetuneStudents.ts'
+import { useStudentRecordingCountsQuery } from '../_hooks/useStudentRecordings.ts'
+import { useConsentFileCountsQuery } from '../_hooks/useConsentFiles.ts'
 import StudentFormFields from './StudentFormFields'
 import ConsentFiles from './ConsentFiles'
 

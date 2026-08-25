@@ -7,16 +7,17 @@
 // column shape borrowed from ProficiencyAssessmentSelectStudent.tsx).
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search as SearchIcon, ShieldAlert, UserRound, Loader2, ArrowRight, Lock, Mic, Users, Pencil, ScrollText } from 'lucide-react'
-import { useFinetuneStudentsQuery, type FinetuneStudent } from '../../useFinetuneStudents.ts'
-import { useConsentFileCountsQuery } from '../../useConsentFiles.ts'
-import { useReadingSentencesQuery, useReadingSentenceSetsQuery } from '../../useReadingSentences'
+import { Search as SearchIcon, ShieldAlert, UserRound, Loader2, ArrowRight, Lock, Mic, Users, Pencil, ScrollText, Radio } from 'lucide-react'
+import { useFinetuneStudentsQuery, type FinetuneStudent } from '../../_hooks/useFinetuneStudents.ts'
+import { useConsentFileCountsQuery } from '../../_hooks/useConsentFiles.ts'
+import { useReadingSentencesQuery, useReadingSentenceSetsQuery } from '../../_hooks/useReadingSentences.ts'
+import { useRecordingSessionsPresence } from '../../_hooks/useRecordingSessions.ts'
 import { SearchInput } from '../../../../components/input/SearchInput'
 import { Select } from '../../../../components/input/Select'
 import { Tooltip } from '../../../../components/ui/Tooltip'
 import { Pagination } from '../../../../components/ui/Pagination'
-import { AdminSubNav } from '../../components/AdminSubNav'
-import { GenderBadge } from '../../genderDisplay'
+import { AdminSubNav } from '../../_components/AdminSubNav'
+import { GenderBadge } from '../../_components/genderDisplay.tsx'
 
 const PAGE_SIZE = 6
 
@@ -52,6 +53,11 @@ export default function AdminSelectStudent() {
     // below, the consent filter, and the default sort order.
     const { data: consentCountsData } = useConsentFileCountsQuery()
     const consentCounts = consentCountsData ?? {}
+
+    // Real-time "who's actively recording right now" map — see
+    // useRecordingSessions.ts. Used to badge each row and to disable
+    // starting a session with a student someone else already has open.
+    const { sessions: recordingSessions } = useRecordingSessionsPresence()
 
     const { data: setsData, isLoading: loadingSets } = useReadingSentenceSetsQuery()
     const sets = useMemo(() => setsData ?? [], [setsData])
@@ -148,10 +154,18 @@ export default function AdminSelectStudent() {
         [students, studentId],
     )
     const selectedHasConsent = !!selectedStudent && (consentCounts[selectedStudent.id] ?? 0) > 0
+    const activeSessionForSelected = selectedStudent ? recordingSessions.get(selectedStudent.id) : undefined
     // A finalized ("locked") student can't have a new session started —
     // for everyone, no exception for the admin who recorded them. See
-    // 20260822083253_add_recording_lock.sql.
-    const canStart = !!selectedStudent && selectedHasConsent && !!effectiveSentenceSet && !selectedStudent.recording_locked
+    // 20260822083253_add_recording_lock.sql. Same for a student someone
+    // else currently has RecordSession.tsx open for — see
+    // useRecordingSessions.ts.
+    const canStart =
+        !!selectedStudent &&
+        selectedHasConsent &&
+        !!effectiveSentenceSet &&
+        !selectedStudent.recording_locked &&
+        !activeSessionForSelected
 
     const handleSearchChange = (value: string) => {
         setSearch(value)
@@ -196,6 +210,13 @@ export default function AdminSelectStudent() {
                                     <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400">
                                         <Lock size={14} className="shrink-0" />
                                         This student's recordings have been finalized and locked — no new session can be started.
+                                    </p>
+                                )}
+                                {activeSessionForSelected && (
+                                    <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-sky-600 dark:text-sky-400">
+                                        <Radio size={14} className="shrink-0" />
+                                        Currently being recorded by {activeSessionForSelected.adminName} — try again once
+                                        they're done.
                                     </p>
                                 )}
                             </>
@@ -337,6 +358,7 @@ export default function AdminSelectStudent() {
                                         {paginated.map((s) => {
                                             const isSelected = s.id === studentId
                                             const hasConsent = (consentCounts[s.id] ?? 0) > 0
+                                            const activeSession = recordingSessions.get(s.id)
                                             return (
                                                 <div
                                                     key={s.id}
@@ -380,6 +402,11 @@ export default function AdminSelectStudent() {
                                                                 {s.recording_locked && (
                                                                     <span className="flex items-center gap-1 rounded-full bg-gray-900/10 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                                                                         <Lock size={11} /> locked
+                                                                    </span>
+                                                                )}
+                                                                {activeSession && (
+                                                                    <span className="flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-600 dark:text-sky-400">
+                                                                        <Radio size={11} /> recording — {activeSession.adminName}
                                                                     </span>
                                                                 )}
                                                             </div>

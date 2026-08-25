@@ -61,12 +61,26 @@
 //    the word-tagging UI hides itself once any whole-clip chip is
 //    active.
 //
-// A finalized ("locked") student — see 20260822090000_add_recording_lock.sql
+// A finalized ("locked") student — see 20260822083253_add_recording_lock.sql
 // — bounces the admin back before rendering the recorder at all (below,
 // right after the "student not found" guard). This is defense-in-depth:
 // SelectStudent.tsx already disables "Start recording" for a locked
 // student, but this page is also reachable directly via a bookmarked or
 // shared URL, so it needs its own check too.
+//
+// A DIFFERENT admin already having this student's recorder open right
+// now (not a permanent lock, just "someone's mid-session") gets the same
+// bounce-back treatment via useRecordingSessionsPresence (see
+// useRecordingSessions.ts) — real-time Supabase Presence, not a DB row,
+// so it can't get permanently stuck occupied if that admin's browser
+// crashes. This is a soft, best-effort signal (see that file's header
+// comment on the race it doesn't close), not a substitute for
+// recording_locked. Both the "read who's recording" and "announce that
+// I'm recording" concerns for THIS page go through a single call to
+// useRecordingSessionsPresence — deliberately not two separate hook
+// calls — because the shared 'admin-recording-sessions' topic can only
+// ever have one channel object per tab (see that file's header comment
+// for why a second channel() call on the same topic silently no-ops).
 //
 // Split across a few files to keep this one to "wire the pieces together
 // and lay out two panels": the actual save sequence (upload -> replace
@@ -76,14 +90,16 @@
 // components/QualityFlagChips.tsx and components/WordTaggingPanel.tsx.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Mic, Check, RotateCcw, Loader2, ShieldAlert, ArrowLeft, TriangleAlert, Flag, Tag } from 'lucide-react'
+import { Mic, Check, RotateCcw, Loader2, ShieldAlert, ArrowLeft, TriangleAlert, Flag, Tag, Radio } from 'lucide-react'
 import { useAuth } from '../../../../contexts/AuthContext'
+import { useProfile } from '../../../../hooks/useProfile'
 import { useRecorder } from '../../../proficiency/pre_assessment/assessment_session/features/useRecorder'
 import { Waveform } from '../../../proficiency/pre_assessment/assessment_session/features/Waveform'
-import { useReadingSentencesQuery, useReadingSentenceSetsQuery } from '../../useReadingSentences'
-import { useFinetuneStudentsQuery } from '../../useFinetuneStudents.ts'
-import { useConsentFileCountsQuery } from '../../useConsentFiles.ts'
-import { useStudentRecordingsQuery, useStudentRecordingSignedUrl } from '../../useStudentRecordings.ts'
+import { useReadingSentencesQuery, useReadingSentenceSetsQuery } from '../../_hooks/useReadingSentences.ts'
+import { useFinetuneStudentsQuery } from '../../_hooks/useFinetuneStudents.ts'
+import { useConsentFileCountsQuery } from '../../_hooks/useConsentFiles.ts'
+import { useStudentRecordingsQuery, useStudentRecordingSignedUrl } from '../../_hooks/useStudentRecordings.ts'
+import { useRecordingSessionsPresence } from '../../_hooks/useRecordingSessions.ts'
 import { useTheme } from '../../../../contexts/ThemeContext'
 import { useSaveRecording } from './hooks/useSaveRecording'
 import { QualityFlagChips } from './components/QualityFlagChips'
@@ -97,6 +113,7 @@ function recordingKey(set: string, number: number) {
 }
 export default function RecordSession() {
     const { user } = useAuth()
+    const { profile } = useProfile()
     const { theme } = useTheme()
     const [searchParams] = useSearchParams()
     const studentId = searchParams.get('student') ?? ''
@@ -151,6 +168,24 @@ export default function RecordSession() {
     const current = sentences[sentenceIndex]
     const words = useMemo(() => (current ? current.text.split(/\s+/).filter(Boolean) : []), [current])
     const selectedStudent = useMemo(() => students.find((s) => s.id === studentId) ?? null, [students, studentId])
+    // Real-time "is someone else already recording this student right
+    // now" check, AND (on this page only) announcing that WE are now
+    // recording — both concerns share the one channel this hook opens.
+    // See header comment and useRecordingSessions.ts for why this must
+    // be a single hook call, not a separate read hook + write hook.
+    const adminDisplayName = profile?.username || profile?.full_name || user?.email?.split('@')[0] || 'An admin'
+    const { sessions: recordingSessions, loaded: sessionsLoaded } = useRecordingSessionsPresence(
+        studentId
+            ? {
+                studentId,
+                adminId: user?.id,
+                adminName: adminDisplayName,
+                enabled: !!selectedStudent && !selectedStudent.recording_locked,
+            }
+            : undefined,
+    )
+    const activeSession = studentId ? recordingSessions.get(studentId) : undefined
+    const isSessionTakenByOther = !!activeSession && activeSession.adminId !== user?.id
     const hasConsent = !!selectedStudent && (consentCounts[selectedStudent.id] ?? 0) > 0
     const isRecording = status === 'recording'
     const isRecorded = status === 'recorded'
@@ -294,7 +329,7 @@ export default function RecordSession() {
             </div>
         )
     }
-    if (loadingSentenceSets || loadingSentences || loadingStudents || loadingConsentCounts || loadingRecordings) {
+    if (loadingSentenceSets || loadingSentences || loadingStudents || loadingConsentCounts || loadingRecordings || !sessionsLoaded) {
         return (
             <div className="mx-auto max-w-2xl px-4 pb-12 pt-2">
                 <div className="flex items-center justify-center py-20 text-sm text-gray-500 dark:text-gray-400">
@@ -355,6 +390,28 @@ export default function RecordSession() {
                 <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-8 text-center text-sm font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
                     {selectedStudent.full_name}'s recordings have been finalized and are locked — no new session can be
                     started.{' '}
+                    <Link to="/admin/recording" className="font-semibold text-teal-600 underline dark:text-teal-400">
+                        Pick another student
+                    </Link>
+                    .
+                </div>
+            </div>
+        )
+    }
+    // A DIFFERENT admin already has this student's recorder open right
+    // now — bounce back rather than letting two admins record over each
+    // other simultaneously. Same defense-in-depth reasoning as the
+    // recording_locked check above: SelectStudent.tsx already disables
+    // "Start recording" for an occupied student, but this page is also
+    // reachable directly. See header comment / useRecordingSessions.ts
+    // for the race this doesn't fully close.
+    if (isSessionTakenByOther && activeSession) {
+        return (
+            <div className="mx-auto max-w-2xl px-4 pb-12 pt-2">
+                <div className="rounded-2xl border border-dashed border-sky-300 bg-sky-50 p-8 text-center text-sm font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300">
+                    <Radio size={16} className="mx-auto mb-2" />
+                    {selectedStudent.full_name} is currently being recorded by {activeSession.adminName} — please wait
+                    until they finish, or pick another student.{' '}
                     <Link to="/admin/recording" className="font-semibold text-teal-600 underline dark:text-teal-400">
                         Pick another student
                     </Link>

@@ -15,7 +15,7 @@ import { useCallback, useState, type Dispatch, type SetStateAction } from 'react
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../../../lib/supabaseClient'
 import { showToast } from '../../../../../helpers/swalHelpers'
-import { studentRecordingsKey, studentRecordingCountsKey } from '../../../useStudentRecordings.ts'
+import { studentRecordingsKey, studentRecordingCountsKey } from '../../../_hooks/useStudentRecordings.ts'
 import { FLAG_REASONS } from '../flagReasons'
 type SentenceLike = { number: number; text: string }
 type ExistingRecordingLike = { id: string; storage_path: string } | null
