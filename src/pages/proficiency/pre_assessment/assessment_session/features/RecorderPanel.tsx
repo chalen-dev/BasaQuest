@@ -1,3 +1,4 @@
+// File: RecorderPanel.tsx
 // File: src/pages/proficiency/pre_assessment/assessment_session/features/RecorderPanel.tsx
 // Right column of the passage + recording step — the timer, waveform, mic
 // toggle, redo/submit controls, and the submitted/"waiting for teacher"
@@ -21,6 +22,14 @@
 // Submit label swaps to t.submitting so it's clear something's happening
 // rather than looking like a dead click.
 //
+// LISTEN-BACK PLAYER: once recorded, the take is played back through the
+// shared AudioPlayer (components/ui/AudioPlayer.tsx) instead of a native
+// <audio controls> element — same custom play/pause + scrub bar used in
+// the teacher review page's PassageCard.tsx, moved into components/ui/
+// since both features need it. Falls back to the "simulated take" pill
+// when there's no real audioUrl (mic was unavailable and the pupil
+// continued via useRecorder's `simulate`).
+//
 // Three one-time onboarding <Hint>s (see components/ui/Hint.tsx): the mic
 // button (gated to `!isRecording`, so it only shows in the idle "ready to
 // record" state), and — once a take exists (isRecorded) — Redo and
@@ -40,6 +49,7 @@
 import { Hourglass, Mic, RotateCcw, Send, TriangleAlert } from 'lucide-react'
 import { Owl } from '../../../../../components/ui/Owl.tsx'
 import { Hint } from '../../../../../components/ui/Hint.tsx'
+import { AudioPlayer } from '../../../../../components/ui/AudioPlayer.tsx'
 import type { AssessmentStrings } from '../assessmentSessionStrings.ts'
 import { formatSeconds, MAX_RECORDING_SECONDS } from '../assessmentSessionStrings.ts'
 import type { useRecorder } from './useRecorder.ts'
@@ -103,7 +113,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                     )}
                     <Waveform active={isRecording} levels={rec.levels} />
                     {isRecorded && rec.audioUrl && (
-                        <audio controls src={rec.audioUrl} className="w-full" />
+                        <AudioPlayer src={rec.audioUrl} className="w-full" />
                     )}
                     {isRecorded && !rec.audioUrl && (
                         <div className="rounded-full bg-gray-900/5 px-4 py-1.5 text-sm font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">

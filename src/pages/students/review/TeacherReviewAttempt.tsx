@@ -16,7 +16,18 @@
 // the student's name itself, prominently, inside its own card (via the
 // studentName prop below), so repeating it in a second tiny line above
 // the card would be redundant.
-import React from 'react'
+//
+// BACK BUTTON: while showingWordReview is true, Back fires a three-way
+// swal (showSaveOnLeaveConfirmation) — Save & Leave / Discard & Leave /
+// Stay — instead of navigating straight away, since there could be
+// unsaved verdict/flag/error-type edits sitting in AttemptWordReview's
+// own local state. "Save & Leave" calls into that state via reviewRef
+// (the same saveDraftNow() escape hatch AssessmentSessionHeader.tsx uses
+// for its own Exit button — see AttemptWordReview.tsx's own comment).
+// Every OTHER state on this page (loading, scoring, failed, already-
+// reviewed, not-found) has nothing to save, so Back just navigates
+// immediately there, same as before.
+import React, { useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
@@ -24,7 +35,7 @@ import { useTheme } from '../../../contexts/ThemeContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { OwlLoader } from '../../../components/ui/OwlLoader'
 import { Owl } from '../../../components/ui/Owl'
-import { showToast } from '../../../helpers/swalHelpers'
+import { showSaveOnLeaveConfirmation, showToast } from '../../../helpers/swalHelpers'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import {
     useAttemptQuery,
@@ -34,7 +45,7 @@ import {
     useSubmitReviewMutation,
     type WordReviewOverride,
 } from './hooks'
-import { AttemptWordReview } from './features/AttemptWordReview'
+import { AttemptWordReview, type AttemptWordReviewHandle } from './features/AttemptWordReview'
 const STRINGS: Record<Lang, {
     back: string
     for: string
@@ -50,6 +61,11 @@ const STRINGS: Record<Lang, {
     notFoundDesc: string
     confirmedToast: string
     draftSavedToast: string
+    leaveDialogTitle: string
+    leaveDialogText: string
+    leaveDialogSaveButton: string
+    leaveDialogDiscardButton: string
+    leaveDialogCancelButton: string
 }> = {
     fil: {
         back: 'Bumalik sa Review',
@@ -66,6 +82,11 @@ const STRINGS: Record<Lang, {
         notFoundDesc: 'Hindi na available ang pagbasang ito.',
         confirmedToast: 'Nakumpirma ang resulta.',
         draftSavedToast: 'Na-save ang draft.',
+        leaveDialogTitle: 'Lumabas sa pagsusuring ito?',
+        leaveDialogText: 'May mga pagbabagong hindi pa na-save. I-save muna bilang draft bago umalis, o i-discard na lang?',
+        leaveDialogSaveButton: 'I-save at Umalis',
+        leaveDialogDiscardButton: 'I-discard at Umalis',
+        leaveDialogCancelButton: 'Manatili',
     },
     en: {
         back: 'Back to Review',
@@ -82,6 +103,11 @@ const STRINGS: Record<Lang, {
         notFoundDesc: "This reading isn't available anymore.",
         confirmedToast: 'Results confirmed.',
         draftSavedToast: 'Draft saved.',
+        leaveDialogTitle: 'Leave this review?',
+        leaveDialogText: 'You have unsaved changes. Save them as a draft before leaving, or discard them?',
+        leaveDialogSaveButton: 'Save & Leave',
+        leaveDialogDiscardButton: 'Discard & Leave',
+        leaveDialogCancelButton: 'Stay',
     },
 }
 export const TeacherReviewAttempt: React.FC = () => {
@@ -96,6 +122,7 @@ export const TeacherReviewAttempt: React.FC = () => {
     const { data: student } = useStudentProfileQuery(attempt?.student_id)
     const submitReview = useSubmitReviewMutation(profile?.id)
     const saveDraft = useSaveDraftMutation(profile?.id)
+    const reviewRef = useRef<AttemptWordReviewHandle>(null)
     const showingWordReview = !attemptLoading && !attemptError && !!attempt
         && attempt.status !== 'pending' && attempt.status !== 'processing' && attempt.status !== 'failed'
         && !attempt.reviewed_at && !wordsLoading && !!words
@@ -111,7 +138,8 @@ export const TeacherReviewAttempt: React.FC = () => {
     }
     // Unlike handleConfirm, this doesn't navigate away — saving a draft
     // is meant to let the teacher keep reviewing (or come back to this
-    // exact page later), not to close the attempt out.
+    // exact page later), not to close the attempt out. Also what
+    // handleBack calls (via reviewRef) when leaving with "Save & Leave".
     const handleSaveDraft = async (overrides: WordReviewOverride[]) => {
         if (!attemptId) return
         try {
@@ -121,9 +149,36 @@ export const TeacherReviewAttempt: React.FC = () => {
             console.error('TeacherReviewAttempt: failed to save draft', err)
         }
     }
+    // Only asks (and only bothers saving) while the actual review UI is
+    // showing — every other state on this page has nothing to lose.
+    const handleBack = async () => {
+        if (!showingWordReview) {
+            navigate('/students/review')
+            return
+        }
+        const choice = await showSaveOnLeaveConfirmation(
+            t.leaveDialogTitle,
+            t.leaveDialogText,
+            theme === 'dark',
+            {
+                saveButtonText: t.leaveDialogSaveButton,
+                discardButtonText: t.leaveDialogDiscardButton,
+                cancelButtonText: t.leaveDialogCancelButton,
+            }
+        )
+        if (choice === 'cancel') return
+        if (choice === 'save') {
+            try {
+                await reviewRef.current?.saveDraftNow()
+            } catch (err) {
+                console.error('TeacherReviewAttempt: failed to save draft before leaving', err)
+            }
+        }
+        navigate('/students/review')
+    }
     const backLink = (
         <button
-            onClick={() => navigate('/students/review')}
+            onClick={handleBack}
             className="mb-4 flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
         >
             <ArrowLeft size={16} />
@@ -188,6 +243,7 @@ export const TeacherReviewAttempt: React.FC = () => {
                 </div>
             ) : (
                 <AttemptWordReview
+                    ref={reviewRef}
                     attempt={attempt}
                     words={words}
                     onConfirm={handleConfirm}

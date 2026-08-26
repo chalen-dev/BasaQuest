@@ -1,7 +1,9 @@
 // File: Dashboard.tsx
+// File: Dashboard.tsx
 // File: src/pages/students/dashboard/Dashboard.tsx
 import React from 'react'
-import { Users, Clock, Percent, Gauge, Mic } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Users, Clock, Percent, Gauge, Mic, ArrowRight } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import type { Lang } from '../../../components/buttons/LangToggle'
@@ -86,6 +88,7 @@ function formatRelativeTime(iso: string, t: (typeof STRINGS)[Lang]): string {
 export const Dashboard: React.FC = () => {
     const { lang } = useLang()
     const { profile } = useProfile()
+    const navigate = useNavigate()
     const t = STRINGS[lang]
     const { data: dashboardStats } = useDashboardStatsQuery(profile?.id)
     const { data: pendingCount } = usePendingReviewCountQuery(profile?.id)
@@ -157,10 +160,11 @@ export const Dashboard: React.FC = () => {
                         const pending = attempt.reviewed_at == null
                         const accent = '#ff7a59'
                         return (
-                            <div
+                            <button
                                 key={attempt.id}
+                                onClick={() => navigate(`/students/review/${attempt.id}`)}
                                 style={{ borderLeftColor: accent, borderLeftWidth: 6 }}
-                                className="flex items-center gap-4 rounded-2xl border-2 border-gray-900/5 bg-white p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
+                                className="flex w-full cursor-pointer items-center gap-4 rounded-2xl border-2 border-gray-900/5 bg-white p-4 text-left shadow-sm transition-colors duration-150 hover:border-teal-500/30 dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-teal-400/30"
                             >
                                 <span
                                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
@@ -190,10 +194,11 @@ export const Dashboard: React.FC = () => {
                                         {attempt.accuracy_score != null ? `${Math.round(attempt.accuracy_score)}%` : '—'}
                                     </div>
                                 </div>
-                                <span className="shrink-0 text-xs font-bold text-gray-400 dark:text-gray-500">
+                                <span className="flex shrink-0 items-center gap-2 text-xs font-bold text-gray-400 dark:text-gray-500">
                                     {attempt.scored_at ? formatRelativeTime(attempt.scored_at, t) : ''}
+                                    <ArrowRight size={16} className="text-gray-400 dark:text-gray-500" />
                                 </span>
-                            </div>
+                            </button>
                         )
                     })}
                 </div>

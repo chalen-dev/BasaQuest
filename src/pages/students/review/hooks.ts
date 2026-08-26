@@ -1,3 +1,4 @@
+// File: hooks.ts
 // File: src/pages/students/review/hooks.ts
 //
 // Data layer for the teacher-review feature — shared by both review
@@ -27,7 +28,6 @@
 // foreign-key constraint name.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient'
-
 export type AttemptStatus = 'pending' | 'processing' | 'scored' | 'failed'
 export type ErrorType = 'None' | 'Omission' | 'Insertion' | 'Mispronunciation'
 export type Verdict = 'correct' | 'miscue'
@@ -36,7 +36,6 @@ export type Verdict = 'correct' | 'miscue'
 // migration's own comment for why), so an override can only ever be one
 // of these two, or null (no override, defer to the system's error_type).
 export type ManualErrorTypeOverride = 'Omission' | 'Mispronunciation' | null
-
 // Bucket a pupil's recording is uploaded to at submit time — mirrors
 // RECORDINGS_BUCKET in
 // proficiency/pre_assessment/assessment_session/features/useSubmitAttempt.ts.
@@ -45,7 +44,6 @@ export type ManualErrorTypeOverride = 'Omission' | 'Mispronunciation' | null
 // useStudentProfileQuery below — but if that bucket name ever changes,
 // it has to change in BOTH places.
 const RECORDINGS_BUCKET = 'assessment-recordings'
-
 export type PendingReviewAttempt = {
     id: string
     student_id: string
@@ -60,7 +58,6 @@ export type PendingReviewAttempt = {
     scored_at: string | null
     student: { full_name: string | null; username: string | null; grade_level: number | null } | null
 }
-
 export type AttemptDetail = {
     id: string
     student_id: string
@@ -82,7 +79,6 @@ export type AttemptDetail = {
     reviewed_at: string | null
     reviewed_by: string | null
 }
-
 export type AttemptWord = {
     id: string
     attempt_id: string
@@ -103,7 +99,6 @@ export type AttemptWord = {
     teacher_manual_flag: boolean
     teacher_error_type_override: ManualErrorTypeOverride
 }
-
 // Everything a teacher can edit for one word, bundled together — used by
 // BOTH useSaveDraftMutation and useSubmitReviewMutation, since a final
 // Confirm Results should persist manual flags/overrides just as much as
@@ -116,21 +111,17 @@ export type WordReviewOverride = {
     manualFlag: boolean
     errorTypeOverride: ManualErrorTypeOverride
 }
-
 export type ReviewStudentProfile = {
     id: string
     full_name: string | null
     username: string | null
     grade_level: number | null
 }
-
 export const REVIEW_PAGE_SIZE = 8
-
 const pendingReviewCountKey = (teacherId: string | undefined) => ['pending-review-count', teacherId] as const
 const pendingReviewAttemptsKey = (teacherId: string | undefined) => ['pending-review-attempts', teacherId] as const
 const attemptKey = (attemptId: string | null | undefined) => ['attempt', attemptId] as const
 const attemptWordsKey = (attemptId: string | null | undefined) => ['attempt-words', attemptId] as const
-
 // Shared by the ProtectedHeader "Students" pill badge and the Dashboard
 // stat card — one source of truth so the two never drift out of sync.
 // Polled (not realtime) since scoring finishes on a separate service; a
@@ -153,9 +144,14 @@ export function usePendingReviewCountQuery(teacherId: string | undefined) {
         refetchInterval: 15000,
     })
 }
-
 type PendingReviewAttemptsArgs = { teacherId: string | undefined; page: number }
-
+// Ordered by created_at (ascending — oldest submitted reading first, so
+// this behaves as a FIFO review queue) rather than scored_at. Scoring
+// finishes on a separate async service (basaquest-scoring) at a variable
+// delay after submission, so scored_at order could jumble two readings
+// out of the order they actually came in — created_at is the stable,
+// meaningful "when was this actually recorded" timestamp a teacher would
+// expect a queue to be ordered by.
 export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReviewAttemptsArgs) {
     return useQuery({
         queryKey: [...pendingReviewAttemptsKey(teacherId), page],
@@ -168,7 +164,7 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
                 .eq('teacher_id', teacherId as string)
                 .eq('status', 'scored')
                 .is('reviewed_at', null)
-                .order('scored_at', { ascending: true })
+                .order('created_at', { ascending: true })
                 .range(from, to)
             if (error) throw error
             const studentIds = Array.from(new Set((attempts ?? []).map((a) => a.student_id)))
@@ -191,7 +187,6 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
         placeholderData: (prev) => prev,
     })
 }
-
 // Polls every 3s while the attempt is still pending/processing (scoring
 // in flight on basaquest-scoring), stops once it lands on scored/failed.
 export function useAttemptQuery(attemptId: string | null | undefined) {
@@ -213,7 +208,6 @@ export function useAttemptQuery(attemptId: string | null | undefined) {
         },
     })
 }
-
 // `enabled` is threaded through explicitly (rather than just checking
 // attemptId) so callers can gate this off until the attempt has actually
 // reached 'scored' — there's nothing to fetch before then.
@@ -232,7 +226,6 @@ export function useAttemptWordsQuery(attemptId: string | null | undefined, enabl
         enabled: !!attemptId && enabled,
     })
 }
-
 // A pupil's recording lives in a PRIVATE bucket (nothing here is
 // publicly readable — see the bucket's own RLS/storage policies), so
 // playback needs a short-lived signed URL rather than a plain public
@@ -255,7 +248,6 @@ export function useAttemptAudioUrlQuery(audioPath: string | null | undefined) {
         staleTime: 50 * 60 * 1000,
     })
 }
-
 // Writes every word's verdict/flag/error-type-override in one go —
 // shared by useSaveDraftMutation and useSubmitReviewMutation so a draft
 // save and a final confirm persist identically at the word level; the
@@ -283,7 +275,6 @@ async function writeWordReviewOverrides(overrides: WordReviewOverride[], teacher
     const wordError = results.find((r) => r.error)?.error
     if (wordError) throw wordError
 }
-
 // Persists the current in-progress review WITHOUT finalizing it — the
 // attempt stays exactly where it was (still shows up in the pending
 // review list, since reviewed_at stays null) but the next time this
@@ -303,7 +294,6 @@ export function useSaveDraftMutation(teacherId: string | undefined) {
         },
     })
 }
-
 // Writes a teacher_verdict (plus manual flag / error-type override) for
 // EVERY word, then marks the attempt itself reviewed — this is the
 // terminal action; unlike useSaveDraftMutation, it also clears the
@@ -329,7 +319,6 @@ export function useSubmitReviewMutation(teacherId: string | undefined) {
         },
     })
 }
-
 // Used by TeacherReviewAttempt.tsx to show whose reading this is — a
 // small standalone lookup rather than reusing
 // proficiency/pre_assessment/hooks.ts's useAssistedStudentProfile, to

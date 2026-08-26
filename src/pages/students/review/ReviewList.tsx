@@ -1,4 +1,5 @@
 // File: ReviewList.tsx
+// File: ReviewList.tsx
 // File: src/pages/students/review/ReviewList.tsx
 //
 // "Send"-mode review inbox — attempts that finished scoring but haven't
@@ -7,9 +8,18 @@
 // they never linger here for long, but they CAN still show up if a
 // teacher exits before confirming). Routed at /students/review, third
 // tab in StudentsSubNav.
+//
+// SUBMITTED-AT TIMESTAMP: each row shows when the reading was actually
+// recorded (attempt.created_at — the same column the list is now sorted
+// by, see hooks.ts), formatted in Philippine time (Asia/Manila) via
+// formatPHTime() below rather than the browser's local timezone. This
+// app's whole userbase is assumed to be in the Philippines regardless of
+// what timezone a teacher's device happens to be set to, so a fixed
+// timeZone in the Intl.DateTimeFormat call is deliberate — NOT a bug to
+// "fix" by dropping it and letting the browser localize automatically.
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mic, ArrowRight } from 'lucide-react'
+import { Mic, ArrowRight, Clock } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { Pagination } from '../../../components/ui/Pagination'
@@ -56,6 +66,15 @@ const STRINGS: Record<Lang, {
         reviewButton: 'Review',
         unnamedStudent: 'Student',
     },
+}
+// Fixed to Asia/Manila regardless of the viewing device's own timezone —
+// see this file's header comment for why that's deliberate, not a bug.
+function formatPHTime(isoString: string): string {
+    return new Intl.DateTimeFormat('en-PH', {
+        timeZone: 'Asia/Manila',
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(new Date(isoString))
 }
 export const ReviewList: React.FC = () => {
     const { lang } = useLang()
@@ -135,6 +154,10 @@ export const ReviewList: React.FC = () => {
                                             {attempt.accuracy_score != null ? ` · ${Math.round(attempt.accuracy_score)}%` : ''}
                                         </div>
                                     )}
+                                    <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500">
+                                        <Clock size={11} />
+                                        {formatPHTime(attempt.created_at)}
+                                    </div>
                                 </div>
                                 <ArrowRight size={16} className="shrink-0 text-gray-400 dark:text-gray-500" />
                             </button>

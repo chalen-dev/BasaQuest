@@ -1,3 +1,4 @@
+// File: PassageCard.tsx
 // File: src/pages/students/review/features/PassageCard.tsx
 //
 // LEFT card of AttemptWordReview: header info (kicker/title, who this
@@ -17,10 +18,13 @@
 // AUDIO PLAYBACK: audioUrl is a plain string (or null) handed down from
 // the orchestrator, which is the only thing that knows it's actually a
 // short-lived signed Supabase Storage URL underneath
-// (useAttemptAudioUrlQuery) — this component just renders a native
-// <audio> element and doesn't care where the URL came from. Renders
-// nothing when null (older attempts predating the audio_path column, or
-// a signed URL that hasn't resolved yet).
+// (useAttemptAudioUrlQuery) — this component just hands it to
+// AudioPlayer and doesn't care where the URL came from. AudioPlayer is a
+// custom-styled player (see that file) replacing the native
+// <audio controls> element, which read as too small/fiddly to tap and
+// didn't match the app's visual language. Renders nothing when null
+// (older attempts predating the audio_path column, or a signed URL that
+// hasn't resolved yet).
 //
 // Selected words need to stand out even though the verdict color
 // (green/rose) already owns the word's background — a thick, high-
@@ -53,6 +57,7 @@ import type { AttemptDetail, AttemptWord, Verdict } from '../hooks'
 import type { AttemptWordReviewStrings } from './attemptWordReviewStrings'
 import { effectiveErrorType, wordTooltip } from './attemptWordReviewHelpers'
 import { ErrorTypeIcon, LegendSwatch, ScorePill } from './AttemptWordReviewShared'
+import { AudioPlayer } from '../../../../components/ui/AudioPlayer.tsx'
 type PassageCardProps = {
     attempt: AttemptDetail
     studentName?: string | null
@@ -119,7 +124,7 @@ export function PassageCard({
                         <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                             {t.recordingLabel}
                         </span>
-                        <audio controls src={audioUrl} className="h-9 w-full" />
+                        <AudioPlayer src={audioUrl} className="px-1 py-1" />
                     </div>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">

@@ -1,12 +1,11 @@
+// File: swalHelpers.ts
 import Swal, { type SweetAlertIcon } from 'sweetalert2';
-
 const getThemeConfig = (isDark: boolean) => ({
     background: isDark ? '#1f2937' : '#ffffff',
     color: isDark ? '#f9fafb' : '#111827',
     confirmButtonColor: '#3b82f6',
     cancelButtonColor: isDark ? '#374151' : '#d1d5db',
 });
-
 export const showConfirmation = async (
     title: string,
     text: string,
@@ -25,7 +24,37 @@ export const showConfirmation = async (
     });
     return result.isConfirmed;
 };
-
+export type LeaveWithSaveChoice = 'save' | 'discard' | 'cancel';
+// Three-way variant of showConfirmation, for "leave this screen" moments
+// where there's also a save-or-not decision bundled in — e.g. TeacherReviewAttempt.tsx's
+// Back button mid-review. SweetAlert2's showDenyButton is what makes a
+// THIRD button possible: Confirm = save-and-leave, Deny = discard-and-
+// leave, Cancel (or the X) = stay put. denyButtonColor uses the same
+// rose-600 this app already uses for destructive/miscue actions
+// elsewhere, since "discard" is the destructive option here.
+export const showSaveOnLeaveConfirmation = async (
+    title: string,
+    text: string,
+    isDark: boolean = false,
+    labels: { saveButtonText: string; discardButtonText: string; cancelButtonText: string }
+): Promise<LeaveWithSaveChoice> => {
+    const result = await Swal.fire({
+        title,
+        text,
+        icon: 'question',
+        ...getThemeConfig(isDark),
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: labels.saveButtonText,
+        denyButtonText: labels.discardButtonText,
+        cancelButtonText: labels.cancelButtonText,
+        denyButtonColor: '#e11d48',
+        showCloseButton: true,
+    });
+    if (result.isConfirmed) return 'save';
+    if (result.isDenied) return 'discard';
+    return 'cancel';
+};
 export const showToast = (
     message: string,
     icon: SweetAlertIcon = 'success',
@@ -50,7 +79,6 @@ export const showToast = (
         title: message,
     });
 };
-
 // Clickable Toast specifically designed to replace the old blocking modal
 export const showClickableToast = (
     title: string,
@@ -85,7 +113,6 @@ export const showClickableToast = (
         }
     });
 };
-
 // A blocking, must-acknowledge notice — no close button, no dismiss by
 // clicking outside or pressing Escape. Used for the "you've been logged
 // out by your teacher" popup, where it matters that the pupil actually
