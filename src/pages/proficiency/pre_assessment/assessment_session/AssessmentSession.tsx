@@ -245,16 +245,17 @@ export const AssessmentSession: React.FC = () => {
         }
     }
     // Confirms the teacher's word-level review right here on the session
-    // screen (assisted/"Now" mode only), then routes back to the student
-    // picker — same destination AssessmentSessionHeader's Exit button
-    // already uses for an assisted session, so behavior stays consistent
-    // whether the teacher exits early or actually finishes a review.
+    // screen (assisted/"Now" mode only), then routes to the read-only
+    // results page for this attempt — same destination TeacherReviewAttempt.tsx's
+    // Send-mode confirm now uses, so both flows land somewhere with the
+    // actual final scores instead of one of them just bouncing back to a
+    // list/picker screen with nothing to show for it.
     const handleConfirmReview = async (overrides: WordReviewOverride[]) => {
         if (!attemptId) return
         try {
             await submitReview.mutateAsync({ attemptId, overrides })
             showToast(t.reviewConfirmedToast, 'success', theme === 'dark')
-            navigate('/reading/proficiency/assessment')
+            navigate(`/students/review/${attemptId}/results`)
         } catch (err) {
             console.error('AssessmentSession: failed to confirm review', err)
         }

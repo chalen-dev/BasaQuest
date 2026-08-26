@@ -1,7 +1,8 @@
+// File: attemptWordReviewStrings.ts
 // File: src/pages/students/review/features/attemptWordReviewStrings.ts
 //
 // Bilingual copy for AttemptWordReview and its two sub-cards
-// (PassageCard, WordListCard). Split out into its own file so those
+// (PassageCard, SelectedWordsCard). Split out into its own file so those
 // components — and any future one that needs the same copy — can import
 // just the strings without pulling in the whole orchestrator component.
 import type { Lang } from '../../../../components/buttons/LangToggle'
@@ -17,7 +18,6 @@ export const STRINGS: Record<Lang, {
     needsAttention: (n: number) => string
     allClear: string
     tapHint: string
-    tapHintSelectMode: string
     legendCorrect: string
     legendMiscue: string
     legendInserted: string
@@ -32,20 +32,14 @@ export const STRINGS: Record<Lang, {
     savingDraftLabel: string
     recordingLabel: string
     emptyWords: string
-    selectWordsLabel: string
-    doneLabel: string
-    selectedCount: (n: number) => string
-    selectNone: string
-    setToCorrect: string
-    setToMiscue: string
-    clearSelection: string
     confirmDialogTitle: string
     confirmDialogText: string
     confirmDialogConfirmButton: string
-    jumpDialogTitle: (word: string) => string
-    jumpDialogText: string
-    jumpDialogConfirmButton: string
     backToPassageLabel: string
+    selectedWordsKicker: string
+    selectedWordsEmptyTitle: string
+    selectedWordsEmptyHint: string
+    clearAllLabel: string
 }> = {
     fil: {
         kicker: 'Pagsusuri',
@@ -58,8 +52,7 @@ export const STRINGS: Record<Lang, {
         pronunciation: 'Bigkas',
         needsAttention: (n) => `${n} salitang kailangan ng pansin`,
         allClear: 'Walang naka-flag na salita',
-        tapHint: 'Pindutin ang salita sa talata para tumalon dito sa listahan.',
-        tapHintSelectMode: 'Nasa select mode: pindutin ang mga salita sa talata o sa listahan para piliin.',
+        tapHint: 'Pindutin ang salita sa talata para idagdag ito dito.',
         legendCorrect: 'Tama',
         legendMiscue: 'Mali',
         legendInserted: 'Idinagdag na salita',
@@ -74,20 +67,14 @@ export const STRINGS: Record<Lang, {
         savingDraftLabel: 'Sine-save…',
         recordingLabel: 'Rekording',
         emptyWords: 'Wala pang word-level na datos para sa pagsusuring ito.',
-        selectWordsLabel: 'Pumili ng mga Salita',
-        doneLabel: 'Tapos na',
-        selectedCount: (n) => `${n} napiling salita`,
-        selectNone: 'Walang napiling salita — pindutin ang salita sa talata o sa listahan',
-        setToCorrect: 'Gawing Tama',
-        setToMiscue: 'Gawing Mali',
-        clearSelection: 'I-clear',
         confirmDialogTitle: 'Isumite ang mga resultang ito?',
         confirmDialogText: 'Malapit mo nang kumpirmahin ang pagsusuring ito. Hindi na ito maaaring bawiin.',
         confirmDialogConfirmButton: 'Oo, Kumpirmahin',
-        jumpDialogTitle: (word) => `Tumalon papunta sa "${word}"?`,
-        jumpDialogText: 'Ito ay magpapababa papunta sa salitang iyon sa listahan.',
-        jumpDialogConfirmButton: 'Tumalon',
         backToPassageLabel: 'Bumalik sa Talata',
+        selectedWordsKicker: 'Mga Napiling Salita',
+        selectedWordsEmptyTitle: 'Wala pang napiling salita',
+        selectedWordsEmptyHint: 'Ang mga salitang pinindot mo sa talata ay lalabas dito, ang pinakabago sa itaas.',
+        clearAllLabel: 'I-clear Lahat',
     },
     en: {
         kicker: 'Review',
@@ -100,8 +87,7 @@ export const STRINGS: Record<Lang, {
         pronunciation: 'Pronunciation',
         needsAttention: (n) => `${n} word${n === 1 ? '' : 's'} flagged for attention`,
         allClear: 'No words flagged',
-        tapHint: 'Tap a word in the passage to jump to it in the list.',
-        tapHintSelectMode: 'Select mode is on: tap words in the passage or the list to select them.',
+        tapHint: 'Tap a word in the passage to add it here.',
         legendCorrect: 'Correct',
         legendMiscue: 'Miscue',
         legendInserted: 'Inserted word',
@@ -116,20 +102,14 @@ export const STRINGS: Record<Lang, {
         savingDraftLabel: 'Saving…',
         recordingLabel: 'Recording',
         emptyWords: "There's no word-level data for this attempt yet.",
-        selectWordsLabel: 'Select Words',
-        doneLabel: 'Done',
-        selectedCount: (n) => `${n} word${n === 1 ? '' : 's'} selected`,
-        selectNone: 'No words selected — tap words in the passage or the list',
-        setToCorrect: 'Set to Correct',
-        setToMiscue: 'Set to Miscue',
-        clearSelection: 'Clear',
         confirmDialogTitle: 'Submit these results?',
         confirmDialogText: "You're about to confirm this review. This can't be undone.",
         confirmDialogConfirmButton: 'Yes, Confirm',
-        jumpDialogTitle: (word) => `Jump to "${word}"?`,
-        jumpDialogText: 'This scrolls down to that word in the list.',
-        jumpDialogConfirmButton: 'Jump',
         backToPassageLabel: 'Back to Passage',
+        selectedWordsKicker: 'Selected Words',
+        selectedWordsEmptyTitle: 'No words selected yet',
+        selectedWordsEmptyHint: "Words you tap in the passage will stack here, most recent on top.",
+        clearAllLabel: 'Clear All',
     },
 }
 export type AttemptWordReviewStrings = (typeof STRINGS)['en']

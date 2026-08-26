@@ -1,3 +1,4 @@
+// File: WordListCard.tsx
 // File: src/pages/students/review/features/WordListCard.tsx
 //
 // RIGHT card of AttemptWordReview: the detailed per-word list, its own
@@ -19,12 +20,20 @@
 // word with no reference-word slot, so there's nothing to reclassify.
 // Clicking the currently-active type again clears the override back to
 // whatever the system originally detected.
+//
+// READ-ONLY MODE: added for AttemptResults.tsx (the post-confirm results
+// page). Buttons stay on screen — their color still reflects the final
+// teacher_verdict/teacher_manual_flag/teacher_error_type_override, since
+// that's the whole point of a results view — but they're all `disabled`
+// so nothing here is editable, and the row itself no longer toggles
+// selection. onSetVerdict/onToggleManualFlag/onSetErrorType/onRowClick
+// are all optional now since a read-only caller has nothing to wire
+// them to.
 import { Check, Flag, X } from 'lucide-react'
 import type { AttemptWord, Verdict } from '../hooks'
 import type { AttemptWordReviewStrings } from './attemptWordReviewStrings'
 import { effectiveErrorType, ERROR_TYPE_COLOR } from './attemptWordReviewHelpers'
 import { ErrorTypeIcon } from './AttemptWordReviewShared'
-
 type WordListCardProps = {
     words: AttemptWord[]
     verdicts: Record<string, Verdict>
@@ -34,12 +43,12 @@ type WordListCardProps = {
     selectMode: boolean
     highlightedId: string | null
     t: AttemptWordReviewStrings
-    onSetVerdict: (wordId: string, verdict: Verdict) => void
-    onToggleManualFlag: (wordId: string) => void
-    onSetErrorType: (wordId: string, errorType: 'Omission' | 'Mispronunciation') => void
-    onRowClick: (wordId: string) => void
+    readOnly?: boolean
+    onSetVerdict?: (wordId: string, verdict: Verdict) => void
+    onToggleManualFlag?: (wordId: string) => void
+    onSetErrorType?: (wordId: string, errorType: 'Omission' | 'Mispronunciation') => void
+    onRowClick?: (wordId: string) => void
 }
-
 export function WordListCard({
                                  words,
                                  verdicts,
@@ -49,13 +58,13 @@ export function WordListCard({
                                  selectMode,
                                  highlightedId,
                                  t,
+                                 readOnly = false,
                                  onSetVerdict,
                                  onToggleManualFlag,
                                  onSetErrorType,
                                  onRowClick,
                              }: WordListCardProps) {
     const isFlagged = (w: AttemptWord) => w.confidence === 'low' || !!manualFlags[w.id]
-
     return (
         <section className="flex flex-col gap-2 rounded-3xl border-2 border-gray-900/10 bg-gray-50 p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-950 sm:p-5 lg:max-h-[42rem] lg:overflow-y-auto">
             {words.map((w) => {
@@ -69,7 +78,7 @@ export function WordListCard({
                     <div
                         key={w.id}
                         id={`word-row-${w.id}`}
-                        onClick={() => onRowClick(w.id)}
+                        onClick={() => { if (!readOnly) onRowClick?.(w.id) }}
                         className={`flex flex-wrap items-center gap-3 rounded-2xl border-2 bg-white p-3.5 shadow-sm transition-shadow duration-300 dark:bg-gray-900 ${
                             selectMode ? 'cursor-pointer' : ''
                         } ${
@@ -118,9 +127,12 @@ export function WordListCard({
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation()
-                                    onSetVerdict(w.id, 'correct')
+                                    onSetVerdict?.(w.id, 'correct')
                                 }}
+                                disabled={readOnly}
                                 className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-colors duration-150 ${
+                                    readOnly ? 'cursor-default' : ''
+                                } ${
                                     verdict === 'correct'
                                         ? 'bg-green-500 text-white dark:bg-green-600'
                                         : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
@@ -132,9 +144,12 @@ export function WordListCard({
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation()
-                                    onSetVerdict(w.id, 'miscue')
+                                    onSetVerdict?.(w.id, 'miscue')
                                 }}
+                                disabled={readOnly}
                                 className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-colors duration-150 ${
+                                    readOnly ? 'cursor-default' : ''
+                                } ${
                                     verdict === 'miscue'
                                         ? 'bg-rose-500 text-white dark:bg-rose-600'
                                         : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
@@ -146,10 +161,13 @@ export function WordListCard({
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation()
-                                    onToggleManualFlag(w.id)
+                                    onToggleManualFlag?.(w.id)
                                 }}
+                                disabled={readOnly}
                                 title={t.legendLowConfidence}
                                 className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold transition-colors duration-150 ${
+                                    readOnly ? 'cursor-default' : ''
+                                } ${
                                     manualFlags[w.id]
                                         ? 'bg-amber-500 text-white dark:bg-amber-500'
                                         : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
@@ -167,9 +185,12 @@ export function WordListCard({
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation()
-                                        onSetErrorType(w.id, 'Omission')
+                                        onSetErrorType?.(w.id, 'Omission')
                                     }}
+                                    disabled={readOnly}
                                     className={`rounded-full px-2.5 py-1 text-xs font-bold transition-colors duration-150 ${
+                                        readOnly ? 'cursor-default' : ''
+                                    } ${
                                         errorType === 'Omission'
                                             ? 'bg-rose-500 text-white dark:bg-rose-600'
                                             : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
@@ -180,9 +201,12 @@ export function WordListCard({
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation()
-                                        onSetErrorType(w.id, 'Mispronunciation')
+                                        onSetErrorType?.(w.id, 'Mispronunciation')
                                     }}
+                                    disabled={readOnly}
                                     className={`rounded-full px-2.5 py-1 text-xs font-bold transition-colors duration-150 ${
+                                        readOnly ? 'cursor-default' : ''
+                                    } ${
                                         errorType === 'Mispronunciation'
                                             ? 'bg-orange-500 text-white dark:bg-orange-600'
                                             : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'

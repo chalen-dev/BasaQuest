@@ -1,3 +1,4 @@
+// File: TeacherReviewAttempt.tsx
 // File: src/pages/students/review/TeacherReviewAttempt.tsx
 //
 // Detail page for reviewing a single "Send"-mode attempt. Routed at
@@ -8,8 +9,8 @@
 // CONTAINER WIDTH: widens to max-w-[1350px] only for the actual review
 // step (showingWordReview) — AttemptWordReview's two-panel layout needs
 // real width or both panels get crushed. Every other state here
-// (loading/failed/already-reviewed/not-found) is just a centered message
-// card, so those stay at the narrower max-w-3xl.
+// (loading/failed/not-found) is just a centered message card, so those
+// stay at the narrower max-w-3xl.
 //
 // The old small "{for} {studentName}" line only renders when NOT showing
 // the word-review step — once AttemptWordReview is on screen it displays
@@ -24,11 +25,20 @@
 // own local state. "Save & Leave" calls into that state via reviewRef
 // (the same saveDraftNow() escape hatch AssessmentSessionHeader.tsx uses
 // for its own Exit button — see AttemptWordReview.tsx's own comment).
-// Every OTHER state on this page (loading, scoring, failed, already-
-// reviewed, not-found) has nothing to save, so Back just navigates
-// immediately there, same as before.
+// Every OTHER state on this page (loading, scoring, failed, not-found)
+// has nothing to save, so Back just navigates immediately there, same
+// as before.
+//
+// CONFIRM DESTINATION / ALREADY-REVIEWED: confirming a review now routes
+// to AttemptResults.tsx (/students/review/:attemptId/results) instead of
+// straight back to the review inbox — see that file's own comment for
+// why. The old `attempt.reviewed_at` branch, which used to render a bare
+// "Already Confirmed" placeholder card with no actual scores in it, now
+// just redirects to that same results page instead — so opening an
+// already-reviewed attempt (e.g. from a stale link, or Dashboard's
+// Recent Activity) lands on the real results, not a dead end.
 import React, { useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useTheme } from '../../../contexts/ThemeContext'
@@ -55,8 +65,6 @@ const STRINGS: Record<Lang, {
     scoringDesc: string
     failedTitle: string
     failedDesc: string
-    alreadyTitle: string
-    alreadyDesc: string
     notFoundTitle: string
     notFoundDesc: string
     confirmedToast: string
@@ -76,8 +84,6 @@ const STRINGS: Record<Lang, {
         scoringDesc: 'Sinusuri pa ng sistema ang pagbasang ito. Maghintay lang ng ilang segundo.',
         failedTitle: 'Hindi Nasuri',
         failedDesc: 'May problema sa pagsusuri sa pagbasang ito. Wala pang paraan para subukan ulit dito.',
-        alreadyTitle: 'Nakumpirma na',
-        alreadyDesc: 'Nasuri na at nakumpirma ang pagbasang ito.',
         notFoundTitle: 'Hindi Nahanap',
         notFoundDesc: 'Hindi na available ang pagbasang ito.',
         confirmedToast: 'Nakumpirma ang resulta.',
@@ -97,8 +103,6 @@ const STRINGS: Record<Lang, {
         scoringDesc: 'This reading is still being scored. This should only take a few seconds.',
         failedTitle: 'Scoring Failed',
         failedDesc: "There was a problem scoring this reading. There's no retry option here yet.",
-        alreadyTitle: 'Already Confirmed',
-        alreadyDesc: 'This reading has already been reviewed and confirmed.',
         notFoundTitle: 'Not Found',
         notFoundDesc: "This reading isn't available anymore.",
         confirmedToast: 'Results confirmed.',
@@ -131,7 +135,7 @@ export const TeacherReviewAttempt: React.FC = () => {
         try {
             await submitReview.mutateAsync({ attemptId, overrides })
             showToast(t.confirmedToast, 'success', theme === 'dark')
-            navigate('/students/review')
+            navigate(`/students/review/${attemptId}/results`)
         } catch (err) {
             console.error('TeacherReviewAttempt: failed to submit review', err)
         }
@@ -232,11 +236,7 @@ export const TeacherReviewAttempt: React.FC = () => {
                     )}
                 </section>
             ) : attempt.reviewed_at ? (
-                <section className="flex flex-col items-center gap-3 rounded-3xl border border-green-500/25 bg-green-500/5 p-8 text-center shadow-sm dark:border-green-400/25 dark:bg-green-400/5">
-                    <Owl mood="greeting" size={64} />
-                    <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.alreadyTitle}</h2>
-                    <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.alreadyDesc}</p>
-                </section>
+                <Navigate to={`/students/review/${attemptId}/results`} replace />
             ) : wordsLoading || !words ? (
                 <div className="flex justify-center py-10">
                     <OwlLoader message={t.loading} />

@@ -1,16 +1,17 @@
 // File: StudentsSubNav.tsx
+// File: StudentsSubNav.tsx
 // File: src/pages/students/components/StudentsSubNav.tsx
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, ClipboardCheck } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardCheck, ListChecks } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { HomeButton } from '../../../components/buttons/HomeButton'
 import { usePendingReviewCountQuery } from '../review/hooks'
-const STRINGS: Record<Lang, { dashboard: string; list: string; review: string }> = {
-    fil: { dashboard: 'Dashboard', list: 'Listahan', review: 'Suriin' },
-    en: { dashboard: 'Dashboard', list: 'Student List', review: 'Review' },
+const STRINGS: Record<Lang, { dashboard: string; list: string; review: string; results: string }> = {
+    fil: { dashboard: 'Dashboard', list: 'Listahan', review: 'Suriin', results: 'Resulta' },
+    en: { dashboard: 'Dashboard', list: 'Student List', review: 'Review', results: 'Results' },
 }
 export const StudentsSubNav: React.FC = () => {
     const { lang } = useLang()
@@ -61,6 +62,13 @@ export const StudentsSubNav: React.FC = () => {
                     </span>
                 )}
             </div>
+            {/* Results — the counterpart to Review: everything a teacher
+                has ALREADY confirmed, browsable after the fact. No badge
+                here (nothing is "pending" about a finished result). */}
+            <NavLink to="/students/results" className={tabClass}>
+                <ListChecks size={15} />
+                {t.results}
+            </NavLink>
         </nav>
     )
 }

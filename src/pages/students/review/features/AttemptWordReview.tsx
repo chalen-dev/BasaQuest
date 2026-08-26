@@ -1,16 +1,53 @@
+// File: AttemptWordReview.tsx
+// File: AttemptWordReview.tsx
 // File: src/pages/students/review/features/AttemptWordReview.tsx
 //
 // Orchestrator for the shared word-by-word review UI — used both
 // inline, right after a "Now" mode session (from AssessmentSession.tsx),
 // and standalone on the "Send"-mode review page (TeacherReviewAttempt.tsx).
 // Holds all the local state (verdicts, manual flags, manual error-type
-// overrides, select mode, selection, jump-highlight, passage visibility)
-// and hands it down to PassageCard (left) and WordListCard (right),
-// which do the actual rendering — including the Confirm Results and
-// Save Draft buttons, which live inside PassageCard now (below its
-// select/action bar) rather than floating outside both cards. Kept as
-// one component tree specifically so both flows produce identical
-// review data instead of two implementations quietly drifting apart.
+// overrides, the stack of tapped words, passage visibility) and hands it
+// down to four independent panels — ResultsSummaryCard, PassageCard,
+// SelectedWordsCard, and its own Save Draft/Confirm Results buttons
+// container — arranged by the responsive grid below. Kept as one
+// component tree specifically so both flows produce identical review
+// data instead of two implementations quietly drifting apart.
+//
+// LAYOUT (mobile, below lg): plain stacked grid, one column — order is
+// summary+passage ("left"), buttons, then the selected-words stack
+// ("wordselect") — unbounded height, the page just flows and grows
+// normally, same as any other page.
+//
+// LAYOUT (lg and up): a HEIGHT-BOUNDED two-column grid —
+// height: calc(100vh - 200px) — with "left" (summary+passage) spanning
+// both rows in column 1, "wordselect" in column 1 of row 1... sorry,
+// column 2 row 1, and "buttons" in column 2 row 2, sized to its own
+// content (grid-template-rows: minmax(0,1fr) auto). Both "left" and
+// "wordselect" get their own lg:overflow-y-auto so a long passage or a
+// long selected-words stack scrolls WITHIN its own column, instead of
+// growing the whole layout taller than its bounded height.
+//
+// WHY BOUNDED AT ALL: ProtectedLayout.tsx's <main> is `overflow-hidden`
+// and effectively pinned to viewport height (fixed header, flex-1 in a
+// min-h-screen column) — there is NO page-level scrollbar anywhere in
+// this app shell. Anything taller than <main>'s box doesn't scroll, it
+// just gets silently clipped and becomes unreachable. That's exactly
+// what was happening to the Save Draft/Confirm Results buttons once the
+// passage or the selected-words stack got tall enough. The 200px in the
+// calc() above is the exact sum of every fixed vertical space this page
+// spends before AttemptWordReview even starts rendering: <main>'s own
+// lg:pt-20 (80px) + its p-4-derived bottom padding (16px) +
+// TeacherReviewAttempt's wrapper pt-2/pb-12 (8px + 48px) + its back
+// button's own height plus mb-4 (48px) = 200px. If any of those
+// classNames change on TeacherReviewAttempt.tsx or its back button, this
+// number needs to change with them — it is NOT a guess, it's a direct
+// sum of those exact Tailwind values, so keep it in sync rather than
+// re-guessing it.
+//
+// This fix is intentionally scoped to THIS page only — ProtectedLayout's
+// shared <main> was left untouched (it affects every page in the app),
+// per explicit decision to avoid touching shared layout for a problem
+// that, so far, has only been reported here.
 //
 // Every word starts defaulted to whatever's already been PERSISTED for
 // it — teacher_verdict/teacher_manual_flag/teacher_error_type_override
@@ -25,7 +62,7 @@
 // "Needs Attention" button on any word).
 //
 // manualErrorType lets a teacher reclassify a MISCUE word's error type
-// (Omission vs. Mispronunciation) via WordListCard's type picker.
+// (Omission vs. Mispronunciation) via SelectedWordsCard's type picker.
 //
 // SAVE DRAFT vs CONFIRM RESULTS: both build the exact same
 // WordReviewOverride[] payload (verdict + manual flag + error-type
@@ -48,66 +85,53 @@
 // TeacherReviewAttempt.tsx (the other consumer) never passes a ref,
 // which is fine — forwardRef makes the ref entirely optional.
 //
-// SELECT MODE: off by default. PassageCard's bar starts as a single
-// "Select Words" button; turning it on changes what a click does in
-// both cards at once — passage words toggle selection instead of
-// jumping to the list, list rows become clickable (not just their
-// checkbox) to toggle selection, and the bar itself becomes the bulk
-// Correct/Miscue/Clear/Done controls. See PassageCard.tsx and
-// WordListCard.tsx for the click-handling details.
-//
-// JUMP CONFIRMATION: outside select mode, tapping a passage word jumps/
-// scrolls to its row in the list. On a STACKED layout (below the `lg`
-// breakpoint — the same 1024px cutoff the two-column grid below already
-// switches on) the list sits below the passage, so jumping yanks the
-// passage off-screen with no warning — that's when this asks first (the
-// same showConfirmation swal used for Confirm Results), only jumping if
-// confirmed. On a desktop/two-column layout both panels are already on
-// screen at once, so jumping is just a scroll-into-view within the
-// visible list — no disorientation, so it jumps immediately with no
-// dialog. isDesktopLayout tracks that breakpoint live via matchMedia so
-// it updates on resize/rotation, not just on initial mount.
-// Select-mode's tap-to-select behavior is untouched either way, since
-// that's a deliberate rapid-fire action, not a one-off navigation.
+// SELECTED-WORDS STACK: there's no separate "select mode" toggle.
+// Tapping any word in the passage adds it to selectedWordIds (most-
+// recently-tapped first) and smooth-scrolls SelectedWordsCard into
+// view; tapping a word that's already in the stack just moves it back
+// to the top instead of adding a duplicate. Each stacked word gets its
+// own full Correct/Miscue/Needs-Attention controls right there in the
+// card. Clearing the stack (SelectedWordsCard's Clear All button) only
+// clears which words are being actively worked on — it does NOT touch
+// any verdict/flag/override already set on them.
 //
 // BACK TO PASSAGE: an IntersectionObserver watches the passage card
 // (#passage-card, set in PassageCard.tsx). Once it scrolls out of view —
-// which happens easily on a phone, since jumping into a long list can
-// leave the passage far above the fold — a floating button appears to
-// scroll back up to it. Re-attached whenever the attempt changes, since
-// a different attempt's word count can change the page's scroll height.
+// which happens easily on a phone, since the passage itself can be long —
+// a floating button appears to scroll back up to it. MOBILE-ONLY
+// (lg:hidden below) — on desktop the passage panel scrolls within its
+// own bounded column instead of the page moving it out of view, so the
+// button would just be dead UI there. Re-attached whenever the attempt
+// changes, since a different attempt's word count can change the
+// page's scroll height.
 //
 // AUDIO PLAYBACK: fetched here (useAttemptAudioUrlQuery, keyed off
-// attempt.audio_path) and handed down to PassageCard as a plain URL
-// string — PassageCard just renders an <audio> tag, it doesn't know or
-// care that the URL is a signed Supabase Storage URL underneath.
+// attempt.audio_path) and handed down to ResultsSummaryCard as a plain
+// URL string — that card just renders an <audio> tag, it doesn't know
+// or care that the URL is a signed Supabase Storage URL underneath.
 //
-// Tapping "Confirm Results" fires the same swal confirmation before
-// actually submitting, regardless of layout — this action can't be
-// undone (it flips the attempt to reviewed and writes a teacher_verdict
-// for every word), so it's always worth a pause, desktop or not.
+// Tapping "Confirm Results" fires a swal confirmation before actually
+// submitting — this action can't be undone (it flips the attempt to
+// reviewed and writes a teacher_verdict for every word), so it's always
+// worth a pause.
 //
 // onConfirm/onSaveDraft both hand back an override for EVERY word, not
 // just the changed ones — see useSubmitReviewMutation's own comment for
 // why that matters (Cohen's kappa agreement-rate tracking needs
-// agreement recorded too, not only disagreement). Select-mode/selection
-// state is NOT part of that payload — it's a reviewing aid only,
+// agreement recorded too, not only disagreement). The selected-words
+// stack is NOT part of that payload — it's a reviewing aid only,
 // nothing to persist.
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { ArrowUp } from 'lucide-react'
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { ArrowUp, Save, Send } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext'
 import { useTheme } from '../../../../contexts/ThemeContext'
 import { showConfirmation } from '../../../../helpers/swalHelpers'
 import type { AttemptDetail, AttemptWord, Verdict, WordReviewOverride } from '../hooks'
 import { useAttemptAudioUrlQuery } from '../hooks'
 import { STRINGS } from './attemptWordReviewStrings'
+import { ResultsSummaryCard } from './ResultsSummaryCard'
 import { PassageCard } from './PassageCard'
-import { WordListCard } from './WordListCard'
-// Same cutoff as the `lg:` breakpoint on the two-column grid below
-// (Tailwind's default `lg` is 1024px) — kept as its own constant so the
-// media query and the grid class can't silently drift out of sync if
-// one gets tweaked and not the other.
-const DESKTOP_LAYOUT_QUERY = '(min-width: 1024px)'
+import { SelectedWordsCard } from './SelectedWordsCard'
 // What AssessmentSessionHeader.tsx's Exit button calls (via a ref)
 // during an active review, instead of showing its usual confirm dialog.
 export type AttemptWordReviewHandle = {
@@ -137,38 +161,19 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
     const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({})
     const [manualFlags, setManualFlags] = useState<Record<string, boolean>>({})
     const [manualErrorType, setManualErrorType] = useState<Record<string, AttemptWord['error_type']>>({})
-    const [selectMode, setSelectMode] = useState(false)
-    const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({})
-    const [highlightedId, setHighlightedId] = useState<string | null>(null)
+    // Words currently stacked in SelectedWordsCard, most-recently-tapped
+    // first. See handleWordClick below for the add/move-to-top logic.
+    const [selectedWordIds, setSelectedWordIds] = useState<string[]>([])
     const [passageVisible, setPassageVisible] = useState(true)
-    // Initialized straight from matchMedia (not a default + effect) so
-    // the very first render already knows the real layout instead of
-    // guessing desktop and flickering into mobile behavior a tick later.
-    const [isDesktopLayout, setIsDesktopLayout] = useState(
-        () => typeof window !== 'undefined' && window.matchMedia(DESKTOP_LAYOUT_QUERY).matches
-    )
-    const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const audioUrlQuery = useAttemptAudioUrlQuery(attempt.audio_path)
-    // Keeps isDesktopLayout live across resizes/rotation — a teacher
-    // resizing a browser window or rotating a tablet mid-review should
-    // immediately get the right jump behavior, not whatever was true at
-    // mount. The listener callback runs outside React's render/effect
-    // cycle (it's a DOM event, not a synchronous effect body), so this
-    // setState doesn't need the set-state-in-effect suppression comment.
-    useEffect(() => {
-        const mql = window.matchMedia(DESKTOP_LAYOUT_QUERY)
-        const handleChange = (e: MediaQueryListEvent) => setIsDesktopLayout(e.matches)
-        mql.addEventListener('change', handleChange)
-        return () => mql.removeEventListener('change', handleChange)
-    }, [])
     // Seeds every word from whatever's already been PERSISTED
     // (teacher_verdict/teacher_manual_flag/teacher_error_type_override,
     // written by a prior Save Draft or a completed review), falling back
     // to the system's own defaults when nothing's been saved yet — and
-    // clears select mode + the selection, since those never persist.
+    // clears the selected-words stack, since that never persists.
     // Re-keyed off attempt.id so switching to a different attempt (the
     // review list flow) resets local state instead of carrying over a
-    // previous attempt's edits/flags/overrides/selection.
+    // previous attempt's edits/flags/overrides/stack.
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setVerdicts(Object.fromEntries(words.map((w) => [w.id, w.teacher_verdict ?? w.system_verdict])))
@@ -183,15 +188,8 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
             )
         )
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectMode(false)
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectedIds({})
+        setSelectedWordIds([])
     }, [attempt.id, words])
-    useEffect(() => {
-        return () => {
-            if (highlightTimeoutRef.current != null) clearTimeout(highlightTimeoutRef.current)
-        }
-    }, [])
     // Watches the passage card's visibility so the "Back to Passage"
     // floating button only shows once it's actually scrolled off-screen.
     // Re-attached per attempt.id — a fresh AttemptWordReview mount (a
@@ -226,69 +224,16 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
             return next
         })
     }
-    const toggleSelect = (wordId: string) => {
-        setSelectedIds((prev) => ({ ...prev, [wordId]: !prev[wordId] }))
+    // Passage-side word click: adds the word to the top of the stack, or
+    // — if it's already stacked — moves it back to the top instead of
+    // duplicating it. Then scrolls SelectedWordsCard into view. No
+    // confirmation dialog: this isn't destructive, just a small card
+    // updating.
+    const handleWordClick = (wordId: string) => {
+        setSelectedWordIds((prev) => [wordId, ...prev.filter((id) => id !== wordId)])
+        document.getElementById('selected-words-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-    const clearSelection = () => setSelectedIds({})
-    const enterSelectMode = () => setSelectMode(true)
-    const exitSelectMode = () => {
-        setSelectMode(false)
-        clearSelection()
-    }
-    // Applies one verdict to every currently-selected word, then clears
-    // the selection so the bar resets and the teacher can immediately
-    // start a fresh selection for the next batch.
-    const bulkSetVerdict = (verdict: Verdict) => {
-        setVerdicts((prev) => {
-            const next = { ...prev }
-            for (const id of Object.keys(selectedIds)) {
-                if (selectedIds[id]) next[id] = verdict
-            }
-            return next
-        })
-        clearSelection()
-    }
-    const jumpToWordRow = (wordId: string) => {
-        if (highlightTimeoutRef.current != null) clearTimeout(highlightTimeoutRef.current)
-        setHighlightedId(wordId)
-        document.getElementById(`word-row-${wordId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        highlightTimeoutRef.current = setTimeout(() => setHighlightedId(null), 1600)
-    }
-    // Passage-side word click: in select mode it only toggles that
-    // word's selection (no confirmation either way — that's a
-    // deliberate rapid-fire action, not a one-off navigation). Outside
-    // select mode, on a DESKTOP/two-column layout both the passage and
-    // the list are already visible at once, so it just jumps straight
-    // there — nothing disorienting to warn about. Only on a STACKED
-    // layout (list below the passage) does it ask for confirmation
-    // first, since that scroll can yank the passage off-screen with no
-    // warning on a small screen.
-    const handleWordClick = async (wordId: string) => {
-        if (selectMode) {
-            toggleSelect(wordId)
-            return
-        }
-        if (isDesktopLayout) {
-            jumpToWordRow(wordId)
-            return
-        }
-        const word = words.find((w) => w.id === wordId)
-        const label = (word ? (word.error_type === 'Insertion' ? word.recognized_word : word.reference_word) : '') ?? ''
-        const confirmed = await showConfirmation(
-            t.jumpDialogTitle(label),
-            t.jumpDialogText,
-            theme === 'dark',
-            'question',
-            t.jumpDialogConfirmButton
-        )
-        if (!confirmed) return
-        jumpToWordRow(wordId)
-    }
-    // List-row click: only active in select mode (WordListCard's row
-    // buttons stopPropagation so clicking them doesn't also toggle it).
-    const handleRowClick = (wordId: string) => {
-        if (selectMode) toggleSelect(wordId)
-    }
+    const clearSelectedWords = () => setSelectedWordIds([])
     const scrollToPassage = () => {
         document.getElementById('passage-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
@@ -331,51 +276,107 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
             await onSaveDraft(buildOverrides())
         },
     }))
+    const hasWords = words.length > 0
     return (
         <div className="flex flex-col gap-6">
-            <div className={words.length > 0 ? 'grid gap-6 lg:grid-cols-[1.3fr_1fr] lg:items-start' : ''}>
-                <PassageCard
-                    attempt={attempt}
-                    studentName={studentName}
-                    words={words}
-                    verdicts={verdicts}
-                    manualFlags={manualFlags}
-                    manualErrorType={manualErrorType}
-                    selectedIds={selectedIds}
-                    selectMode={selectMode}
-                    t={t}
-                    confirming={confirming}
-                    savingDraft={savingDraft}
-                    audioUrl={audioUrlQuery.data ?? null}
-                    onWordClick={handleWordClick}
-                    onEnterSelectMode={enterSelectMode}
-                    onExitSelectMode={exitSelectMode}
-                    onBulkSetVerdict={bulkSetVerdict}
-                    onClearSelection={clearSelection}
-                    onConfirm={handleConfirm}
-                    onSaveDraft={handleSaveDraft}
-                />
-                {words.length > 0 && (
-                    <WordListCard
+            {hasWords && (
+                // Scoped by the unique .attempt-word-review-grid class
+                // name below. See this file's header comment for the
+                // full explanation of the height budget and why each
+                // column needs its own overflow-y-auto.
+                <style>{`
+                    .attempt-word-review-grid {
+                        display: grid;
+                        gap: 1.5rem;
+                        grid-template-areas: "left" "buttons" "wordselect";
+                    }
+                    @media (min-width: 1024px) {
+                        .attempt-word-review-grid {
+                            grid-template-columns: 1.3fr 1fr;
+                            grid-template-rows: minmax(0, 1fr) auto;
+                            align-items: stretch;
+                            grid-template-areas: "left wordselect" "left buttons";
+                            height: calc(100vh - 200px);
+                        }
+                    }
+                `}</style>
+            )}
+            <div className={hasWords ? 'attempt-word-review-grid' : 'flex flex-col gap-6'}>
+                <div
+                    style={{ gridArea: hasWords ? 'left' : undefined }}
+                    className="flex flex-col gap-6 lg:min-h-0 lg:overflow-y-auto lg:pr-1"
+                >
+                    <ResultsSummaryCard
+                        attempt={attempt}
+                        studentName={studentName}
+                        words={words}
+                        manualFlags={manualFlags}
+                        t={t}
+                        audioUrl={audioUrlQuery.data ?? null}
+                    />
+                    <PassageCard
                         words={words}
                         verdicts={verdicts}
                         manualFlags={manualFlags}
                         manualErrorType={manualErrorType}
-                        selectedIds={selectedIds}
-                        selectMode={selectMode}
-                        highlightedId={highlightedId}
+                        selectedWordIds={selectedWordIds}
                         t={t}
-                        onSetVerdict={setVerdict}
-                        onToggleManualFlag={toggleManualFlag}
-                        onSetErrorType={setErrorType}
-                        onRowClick={handleRowClick}
+                        onWordClick={handleWordClick}
                     />
+                </div>
+                {hasWords && (
+                    <div style={{ gridArea: 'wordselect' }} className="lg:min-h-0">
+                        <SelectedWordsCard
+                            words={words}
+                            selectedWordIds={selectedWordIds}
+                            verdicts={verdicts}
+                            manualFlags={manualFlags}
+                            manualErrorType={manualErrorType}
+                            t={t}
+                            onSetVerdict={setVerdict}
+                            onToggleManualFlag={toggleManualFlag}
+                            onSetErrorType={setErrorType}
+                            onClearAll={clearSelectedWords}
+                        />
+                    </div>
                 )}
+                <div style={{ gridArea: hasWords ? 'buttons' : undefined }}>
+                    {/* Its own bordered/shadowed container, distinct from
+                    the other panels, per explicit ask — these two
+                    buttons act on the whole review, not on any one panel
+                    alone. Sized to its own content (grid row is `auto`),
+                    never part of the scrolling 1fr row, so it's always
+                    inside the bounded height above. */}
+                    <div className="flex flex-col gap-2 rounded-3xl border border-gray-900/5 bg-white/60 p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900/40 sm:flex-row">
+                        <button
+                            onClick={handleSaveDraft}
+                            disabled={savingDraft || !hasWords}
+                            className={`flex items-center justify-center gap-2 rounded-full border-2 border-teal-500/40 px-5 py-3 text-sm font-bold text-teal-700 transition-colors duration-150 dark:border-teal-400/30 dark:text-teal-300 ${
+                                savingDraft || !hasWords
+                                    ? 'cursor-not-allowed opacity-50'
+                                    : 'cursor-pointer hover:bg-teal-500/10 dark:hover:bg-teal-400/10'
+                            }`}
+                        >
+                            <Save size={16} />
+                            {savingDraft ? t.savingDraftLabel : t.saveDraftLabel}
+                        </button>
+                        <button
+                            onClick={handleConfirm}
+                            disabled={confirming || !hasWords}
+                            className={`flex flex-1 items-center justify-center gap-2 rounded-full bg-teal-500 px-6 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59] ${
+                                confirming || !hasWords ? 'cursor-not-allowed opacity-50 hover:translate-y-0' : 'cursor-pointer'
+                            }`}
+                        >
+                            <Send size={17} />
+                            {confirming ? t.confirming : t.confirmLabel}
+                        </button>
+                    </div>
+                </div>
             </div>
-            {words.length > 0 && !passageVisible && (
+            {hasWords && !passageVisible && (
                 <button
                     onClick={scrollToPassage}
-                    className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-teal-500 px-4 py-3 text-sm font-bold text-white shadow-lg transition-transform duration-150 hover:-translate-y-0.5 dark:bg-teal-600"
+                    className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-teal-500 px-4 py-3 text-sm font-bold text-white shadow-lg transition-transform duration-150 hover:-translate-y-0.5 dark:bg-teal-600 lg:hidden"
                 >
                     <ArrowUp size={16} />
                     {t.backToPassageLabel}

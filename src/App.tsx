@@ -1,4 +1,4 @@
-// File: App.tsx
+
 // File: src/App.tsx
 import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom"
 import './App.css'
@@ -8,6 +8,8 @@ import { Dashboard } from "./pages/students/dashboard/Dashboard.tsx";
 import { StudentList } from "./pages/students/list/StudentList.tsx";
 import ReviewList from "./pages/students/review/ReviewList.tsx";
 import TeacherReviewAttempt from "./pages/students/review/TeacherReviewAttempt.tsx";
+import AttemptResults from "./pages/students/results/AttemptResults.tsx";
+import ResultsList from "./pages/students/results/ResultsList.tsx";
 import Register from "./pages/auth/Register.tsx";
 import {Home} from "./pages/home/Home.tsx";
 import ProtectedLayout from "./pages/_layouts/ProtectedLayout.tsx";
@@ -67,9 +69,17 @@ function App() {
                             session screen itself instead — see
                             AssessmentSession.tsx — so they normally never
                             need to be reached from here, but nothing stops
-                            one from showing up if a teacher exits early. */}
+                            one from showing up if a teacher exits early.
+                            /results is the read-only post-confirm page
+                            both flows land on after Confirm Results — see
+                            AttemptResults.tsx's own comment. /students/results
+                            (ResultsList) is the browsable list of every
+                            already-confirmed attempt, the counterpart to
+                            /students/review. */}
                             <Route path="/students/review" element={<ReviewList />}/>
                             <Route path="/students/review/:attemptId" element={<TeacherReviewAttempt />}/>
+                            <Route path="/students/review/:attemptId/results" element={<AttemptResults />}/>
+                            <Route path="/students/results" element={<ResultsList />}/>
                             <Route path="/home" element={<Home />}/>
                             <Route path="/reading/proficiency" element={<MaterialSelection />}/>
                             <Route path="/reading/proficiency/assessment" element={<ProficiencyAssessmentSelectStudent />}/>

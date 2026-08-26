@@ -58,6 +58,25 @@ export type PendingReviewAttempt = {
     scored_at: string | null
     student: { full_name: string | null; username: string | null; grade_level: number | null } | null
 }
+// Counterpart to PendingReviewAttempt, for the Results tab
+// (ResultsList.tsx) — same shape plus reviewed_at, which is always set
+// for anything this list returns (see useReviewedAttemptsQuery's own
+// `.not('reviewed_at', 'is', null)` filter).
+export type ReviewedAttempt = {
+    id: string
+    student_id: string
+    language: 'en' | 'fil'
+    passage_title: string | null
+    grade_level: string | null
+    status: AttemptStatus
+    accuracy_score: number | null
+    fluency_score: number | null
+    pron_score: number | null
+    created_at: string
+    scored_at: string | null
+    reviewed_at: string
+    student: { full_name: string | null; username: string | null; grade_level: number | null } | null
+}
 export type AttemptDetail = {
     id: string
     student_id: string
@@ -120,6 +139,7 @@ export type ReviewStudentProfile = {
 export const REVIEW_PAGE_SIZE = 8
 const pendingReviewCountKey = (teacherId: string | undefined) => ['pending-review-count', teacherId] as const
 const pendingReviewAttemptsKey = (teacherId: string | undefined) => ['pending-review-attempts', teacherId] as const
+const reviewedAttemptsKey = (teacherId: string | undefined) => ['reviewed-attempts', teacherId] as const
 const attemptKey = (attemptId: string | null | undefined) => ['attempt', attemptId] as const
 const attemptWordsKey = (attemptId: string | null | undefined) => ['attempt-words', attemptId] as const
 // Shared by the ProtectedHeader "Students" pill badge and the Dashboard
@@ -179,6 +199,49 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
             }
             const withStudent: PendingReviewAttempt[] = (attempts ?? []).map((a) => ({
                 ...a,
+                student: studentsById.get(a.student_id) ?? null,
+            }))
+            return { attempts: withStudent, total: count ?? 0 }
+        },
+        enabled: !!teacherId,
+        placeholderData: (prev) => prev,
+    })
+}
+type ReviewedAttemptsArgs = { teacherId: string | undefined; page: number }
+// Confirmed attempts — the counterpart to usePendingReviewAttemptsQuery,
+// feeding the Results tab (ResultsList.tsx) where a teacher can browse
+// back through readings they've already reviewed. Ordered by
+// reviewed_at descending (most recently confirmed first) rather than
+// created_at — unlike the pending queue (a FIFO worklist to clear),
+// browsing past results is naturally "what did I just finish", not
+// "what's oldest".
+export function useReviewedAttemptsQuery({ teacherId, page }: ReviewedAttemptsArgs) {
+    return useQuery({
+        queryKey: [...reviewedAttemptsKey(teacherId), page],
+        queryFn: async () => {
+            const from = page * REVIEW_PAGE_SIZE
+            const to = from + REVIEW_PAGE_SIZE - 1
+            const { data: attempts, error, count } = await supabase
+                .from('assessment_attempts')
+                .select('id, student_id, language, passage_title, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, reviewed_at', { count: 'exact' })
+                .eq('teacher_id', teacherId as string)
+                .not('reviewed_at', 'is', null)
+                .order('reviewed_at', { ascending: false })
+                .range(from, to)
+            if (error) throw error
+            const studentIds = Array.from(new Set((attempts ?? []).map((a) => a.student_id)))
+            let studentsById = new Map<string, { full_name: string | null; username: string | null; grade_level: number | null }>()
+            if (studentIds.length > 0) {
+                const { data: students, error: studentsError } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, username, grade_level')
+                    .in('id', studentIds)
+                if (studentsError) throw studentsError
+                studentsById = new Map((students ?? []).map((s) => [s.id, { full_name: s.full_name, username: s.username, grade_level: s.grade_level }]))
+            }
+            const withStudent: ReviewedAttempt[] = (attempts ?? []).map((a) => ({
+                ...a,
+                reviewed_at: a.reviewed_at as string,
                 student: studentsById.get(a.student_id) ?? null,
             }))
             return { attempts: withStudent, total: count ?? 0 }
@@ -297,7 +360,8 @@ export function useSaveDraftMutation(teacherId: string | undefined) {
 // Writes a teacher_verdict (plus manual flag / error-type override) for
 // EVERY word, then marks the attempt itself reviewed — this is the
 // terminal action; unlike useSaveDraftMutation, it also clears the
-// attempt off the pending-review list.
+// attempt off the pending-review list (and onto the Results list — see
+// reviewedAttemptsKey below).
 export function useSubmitReviewMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -314,6 +378,7 @@ export function useSubmitReviewMutation(teacherId: string | undefined) {
         onSuccess: (_data, { attemptId }) => {
             queryClient.invalidateQueries({ queryKey: pendingReviewCountKey(teacherId) })
             queryClient.invalidateQueries({ queryKey: pendingReviewAttemptsKey(teacherId) })
+            queryClient.invalidateQueries({ queryKey: reviewedAttemptsKey(teacherId) })
             queryClient.invalidateQueries({ queryKey: attemptKey(attemptId) })
             queryClient.invalidateQueries({ queryKey: attemptWordsKey(attemptId) })
         },
