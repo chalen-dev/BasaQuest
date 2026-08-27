@@ -1,5 +1,7 @@
 // File: AttemptWordReview.tsx
 // File: AttemptWordReview.tsx
+// File: AttemptWordReview.tsx
+// File: AttemptWordReview.tsx
 // File: src/pages/students/review/features/AttemptWordReview.tsx
 //
 // Orchestrator for the shared word-by-word review UI — used both
@@ -8,8 +10,8 @@
 // Holds all the local state (verdicts, manual flags, manual error-type
 // overrides, the stack of tapped words, passage visibility) and hands it
 // down to four independent panels — ResultsSummaryCard, PassageCard,
-// SelectedWordsCard, and its own Save Draft/Confirm Results buttons
-// container — arranged by the responsive grid below. Kept as one
+// SelectedWordsCard, and its own Save Draft/Discard/Confirm Results
+// buttons container — arranged by the responsive grid below. Kept as one
 // component tree specifically so both flows produce identical review
 // data instead of two implementations quietly drifting apart.
 //
@@ -18,8 +20,8 @@
 // with grid-template-areas: "left" "buttons" "wordselect", and
 // overflow-y: auto on the GRID ITSELF (not a per-column scroll — there's
 // only one column here, so the whole stack — summary, passage, the
-// Save Draft/Confirm Results buttons, AND the selected-words card —
-// scrolls together as one unit).
+// buttons row, AND the selected-words card — scrolls together as one
+// unit).
 //
 // LAYOUT (lg and up): a HEIGHT-BOUNDED two-column grid —
 // height: calc(100vh - heightBudget.lg px) — with "left" (summary+
@@ -65,11 +67,10 @@
 // there is no page-level scroll to flow into, so on a narrow viewport a
 // long passage (or a long selected-words stack) got hard-clipped by
 // <main>'s overflow-hidden with no way to reach the rest of it or even
-// the Save Draft/Confirm Results buttons below it. Fixed by giving the
-// below-lg case the same bounded-height-plus-overflow-y-auto treatment
-// lg already had, just scoped to the whole grid as one scrollable unit
-// (since mobile has only one column, there's no per-panel split to
-// make).
+// the buttons row below it. Fixed by giving the below-lg case the same
+// bounded-height-plus-overflow-y-auto treatment lg already had, just
+// scoped to the whole grid as one scrollable unit (since mobile has
+// only one column, there's no per-panel split to make).
 //
 // VISIBLE SCROLLBAR (.review-scroll): every scrollable region here used
 // to rely on the OS/browser's own overflow-y-auto scrollbar, which on
@@ -123,19 +124,87 @@
 // (confidence === 'low') and MANUALLY flagged (a teacher tapping the
 // "Needs Attention" button on any word).
 //
+// CORRECT CLEARS THE MANUAL FLAG + TYPE OVERRIDE (see setVerdict below):
+// manualFlags/manualErrorType used to be entirely independent of
+// verdict, which meant a word could get marked Correct and STILL show
+// the amber "Needs Attention" styling from a stale manual flag, or
+// still carry a stale Omission/Mispronunciation type override that just
+// silently stopped being SHOWN (the type picker only renders for
+// verdict === 'miscue') without actually being cleared — so it would
+// reappear if the teacher flipped back to Miscue, and worse, would
+// still get sent to the backend via buildOverrides() even while the
+// word was marked Correct. setVerdict now clears both whenever the new
+// verdict is 'correct'. Switching to Miscue leaves both untouched, since
+// a miscue can independently be flagged or (re)typed.
+//
 // manualErrorType lets a teacher reclassify a MISCUE word's error type
 // (Omission vs. Mispronunciation) via SelectedWordsCard's type picker.
 //
-// SAVE DRAFT vs CONFIRM RESULTS: both build the exact same
-// WordReviewOverride[] payload (verdict + manual flag + error-type
-// override for every word — see buildOverrides below) and hand it to
-// their respective callback prop. The only difference is what the
-// PARENT does with it: useSaveDraftMutation just writes the per-word
-// columns and leaves the attempt as still-pending-review;
-// useSubmitReviewMutation does the same write and then also marks the
-// attempt reviewed. Save Draft skips the "are you sure" confirmation —
-// it's non-destructive and meant to be tapped freely while working,
-// unlike Confirm Results which is a one-way door.
+// SAVE DRAFT vs CONFIRM RESULTS vs DISCARD: Save Draft and Confirm
+// Results both build the exact same WordReviewOverride[] payload
+// (verdict + manual flag + error-type override for every word — see
+// buildOverrides below) and hand it to their respective callback prop —
+// the only difference is what the PARENT does with it (useSaveDraftMutation
+// just writes the per-word columns and leaves the attempt as still-
+// pending-review; useSubmitReviewMutation does the same write and then
+// also marks the attempt reviewed). DISCARD is a different shape of
+// action entirely — it doesn't send any word-level data up, because
+// there's nothing to persist: the whole point is the attempt (and every
+// word row, and the recording) gets permanently deleted (see
+// useDiscardAttemptMutation in hooks.ts). onDiscard is called with no
+// arguments. Save Draft has no confirmation (non-destructive); Confirm
+// Results and Discard both confirm first, but Discard's confirmation
+// copy is deliberately more severe (t.discardDialogText) since, unlike
+// Confirm, there's no way back from it at all.
+//
+// CTRL+S / CMD+S SAVE SHORTCUT: a global keydown listener triggers the
+// exact same handleSaveDraft a mouse-click on the button would, with
+// preventDefault() to stop the browser's own "Save Page As" dialog from
+// popping up. No confirmation needed — same as a manual click, this is
+// non-destructive. Disabled under the same conditions the button itself
+// is (no words yet, or a save already in flight). This effect
+// intentionally has NO dependency array — it re-subscribes after every
+// render so the handler always closes over the CURRENT verdicts/
+// manualFlags/manualErrorType (via the freshly-recreated
+// buildOverrides/handleSaveDraft each render) rather than a stale one
+// from whenever the effect first ran; cheap enough not to bother
+// memoizing away.
+//
+// UNSAVED-CHANGES REMINDER TOAST: nothing here auto-saves, so a long
+// review session that ends without an explicit Save Draft or Confirm
+// (browser closed, tab wandered off) could silently lose every edit.
+// hasUnsavedChangesRef flips true on any verdict/flag/type edit and back
+// to false whenever a save actually happens (draft or confirm) or a
+// different attempt loads. Every REMINDER_INTERVAL_MS a timer checks
+// that ref and — only if it's still true — fires a toast nudging the
+// teacher to save. Picked at 4 minutes: long enough to not nag during
+// normal back-and-forth clicking through words, short enough that a
+// teacher who gets pulled away mid-review still gets nudged well before
+// losing a large chunk of work. A plain ref (not state) is used for the
+// flag itself since nothing here needs to re-render off of it — it only
+// ever gets read inside the interval's own closure.
+//
+// LAST SAVED LABEL: a small caption right above the buttons row — the
+// one place a teacher's eye already goes to check "did that save," so
+// the answer lives right next to the button rather than in the page's
+// global header (which is shared app chrome, not something specific to
+// this review screen) or up in ResultsSummaryCard (already a dense
+// strip of scores, and further from the actual save action). Seeded on
+// load from the words' own PERSISTED teacher_reviewed_at —
+// writeWordReviewOverrides in hooks.ts stamps every word with the same
+// nowIso on every save (draft OR confirm, since both share that
+// function), so the max teacher_reviewed_at across all words already IS
+// an accurate "when was this attempt last saved" marker with no
+// separate column needed. Shows t.lastSavedNever before any word has
+// ever been saved. Updated to "now" the moment a save actually happens
+// (Save Draft click, Ctrl+S, Confirm, or the exit-triggered
+// saveDraftNow), same optimistic timing as hasUnsavedChangesRef's own
+// reset. lastSavedTick just forces a re-render every 20s so the
+// relative-time string ("2m ago" → "3m ago") keeps advancing on its own
+// without needing any state change to lastSavedAt itself. Discarding
+// doesn't touch lastSavedAt at all — the component (and its parent
+// page) is about to navigate away regardless, so there's nothing left
+// to show a "last saved" label for.
 //
 // IMPERATIVE HANDLE (forwardRef): AssessmentSession.tsx needs to trigger
 // a draft save from OUTSIDE this component tree — specifically from
@@ -177,25 +246,20 @@
 // URL string — that card just renders an <audio> tag, it doesn't know
 // or care that the URL is a signed Supabase Storage URL underneath.
 //
-// Tapping "Confirm Results" fires a swal confirmation before actually
-// submitting — this action can't be undone (it flips the attempt to
-// reviewed and writes a teacher_verdict for every word), so it's always
-// worth a pause.
-//
 // onConfirm/onSaveDraft both hand back an override for EVERY word, not
 // just the changed ones — see useSubmitReviewMutation's own comment for
 // why that matters (Cohen's kappa agreement-rate tracking needs
 // agreement recorded too, not only disagreement). The selected-words
 // stack is NOT part of that payload — it's a reviewing aid only,
 // nothing to persist.
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
-import { ArrowUp, Save, Send } from 'lucide-react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { ArrowUp, Save, Send, Trash2 } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext'
 import { useTheme } from '../../../../contexts/ThemeContext'
-import { showConfirmation } from '../../../../helpers/swalHelpers'
+import { showConfirmation, showToast } from '../../../../helpers/swalHelpers'
 import type { AttemptDetail, AttemptWord, Verdict, WordReviewOverride } from '../hooks'
 import { useAttemptAudioUrlQuery } from '../hooks'
-import { STRINGS } from './attemptWordReviewStrings'
+import { STRINGS, type AttemptWordReviewStrings } from './attemptWordReviewStrings'
 import { ResultsSummaryCard } from './ResultsSummaryCard'
 import { PassageCard } from './PassageCard'
 import { SelectedWordsCard } from './SelectedWordsCard'
@@ -217,6 +281,39 @@ export type AttemptWordReviewHeightBudget = {
 // file's header comment) — kept as the default so that caller works
 // even without explicitly passing the prop, though it passes it anyway.
 const DEFAULT_HEIGHT_BUDGET: AttemptWordReviewHeightBudget = { base: 232, lg: 200 }
+// See this file's UNSAVED-CHANGES REMINDER TOAST comment above.
+const REMINDER_INTERVAL_MS = 4 * 60 * 1000
+// See this file's LAST SAVED LABEL comment above — just how often the
+// relative-time caption re-renders to advance ("2m ago" → "3m ago").
+const LAST_SAVED_TICK_MS = 20 * 1000
+// Cheap platform sniff just for which shortcut label to print on the
+// Save Draft button (⌘S vs Ctrl+S) — purely cosmetic, doesn't affect
+// which key combo actually triggers the save (the keydown handler below
+// treats ctrlKey and metaKey as equivalent either way, so this never
+// gates functionality, only the label).
+const isMacPlatform = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform)
+// Derives the "last saved" marker straight from the words themselves —
+// see this file's LAST SAVED LABEL comment for why no separate column
+// is needed. null when no word has ever had teacher_reviewed_at set.
+function latestTeacherReviewedAt(words: AttemptWord[]): Date | null {
+    let latest: Date | null = null
+    for (const w of words) {
+        if (!w.teacher_reviewed_at) continue
+        const d = new Date(w.teacher_reviewed_at)
+        if (!latest || d > latest) latest = d
+    }
+    return latest
+}
+// Formats lastSavedAt relative to "now" — just now / Nm ago / Nh ago —
+// falling back to lastSavedNever when there's nothing to show yet.
+function formatLastSaved(lastSavedAt: Date | null, nowMs: number, t: AttemptWordReviewStrings): string {
+    if (!lastSavedAt) return t.lastSavedNever
+    const diffMs = nowMs - lastSavedAt.getTime()
+    const diffMinutes = Math.floor(diffMs / 60000)
+    if (diffMinutes < 1) return t.lastSavedJustNow
+    if (diffMinutes < 60) return t.lastSavedMinutesAgo(diffMinutes)
+    return t.lastSavedHoursAgo(Math.floor(diffMinutes / 60))
+}
 type AttemptWordReviewProps = {
     attempt: AttemptDetail
     words: AttemptWord[]
@@ -229,11 +326,18 @@ type AttemptWordReviewProps = {
     // page navigates away.
     onSaveDraft: (overrides: WordReviewOverride[]) => void | Promise<void>
     savingDraft: boolean
+    // See this file's SAVE DRAFT vs CONFIRM RESULTS vs DISCARD comment
+    // above — unlike onConfirm/onSaveDraft, this takes no payload at
+    // all: discarding deletes the whole attempt rather than persisting
+    // anything about it. The caller is expected to navigate away once
+    // this resolves (both current callers do).
+    onDiscard: () => void | Promise<void>
+    discarding: boolean
     studentName?: string | null
     heightBudget?: AttemptWordReviewHeightBudget
 }
 export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWordReviewProps>(function AttemptWordReview(
-    { attempt, words, onConfirm, confirming, onSaveDraft, savingDraft, studentName, heightBudget = DEFAULT_HEIGHT_BUDGET },
+    { attempt, words, onConfirm, confirming, onSaveDraft, savingDraft, onDiscard, discarding, studentName, heightBudget = DEFAULT_HEIGHT_BUDGET },
     ref
 ) {
     const { lang } = useLang()
@@ -246,6 +350,13 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
     // first. See handleWordClick below for the add/remove toggle logic.
     const [selectedWordIds, setSelectedWordIds] = useState<string[]>([])
     const [passageVisible, setPassageVisible] = useState(true)
+    // See this file's UNSAVED-CHANGES REMINDER TOAST comment above — a
+    // plain ref rather than state, since nothing here needs to re-render
+    // off of it.
+    const hasUnsavedChangesRef = useRef(false)
+    // See this file's LAST SAVED LABEL comment above.
+    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+    const [lastSavedTick, setLastSavedTick] = useState(0)
     const audioUrlQuery = useAttemptAudioUrlQuery(attempt.audio_path)
     // Seeds every word from whatever's already been PERSISTED
     // (teacher_verdict/teacher_manual_flag/teacher_error_type_override,
@@ -254,7 +365,11 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
     // clears the selected-words stack, since that never persists.
     // Re-keyed off attempt.id so switching to a different attempt (the
     // review list flow) resets local state instead of carrying over a
-    // previous attempt's edits/flags/overrides/stack.
+    // previous attempt's edits/flags/overrides/stack. Also resets the
+    // unsaved-changes flag and re-seeds lastSavedAt from the words'
+    // persisted teacher_reviewed_at — a freshly (re)loaded attempt has
+    // nothing unsaved yet, and its "last saved" marker (if any) belongs
+    // to a real prior save, not the previous attempt's.
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setVerdicts(Object.fromEntries(words.map((w) => [w.id, w.teacher_verdict ?? w.system_verdict])))
@@ -270,6 +385,9 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
         )
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedWordIds([])
+        hasUnsavedChangesRef.current = false
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setLastSavedAt(latestTeacherReviewedAt(words))
     }, [attempt.id, words])
     // Watches the passage card's visibility so the "Back to Passage"
     // floating button only shows once it's actually scrolled off-screen.
@@ -286,11 +404,54 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
         observer.observe(el)
         return () => observer.disconnect()
     }, [attempt.id])
+    // Periodic "you have unsaved changes" nudge — see this file's
+    // UNSAVED-CHANGES REMINDER TOAST comment above. Re-armed per
+    // attempt.id so switching attempts doesn't leave a stale timer
+    // nagging about a different attempt's edits.
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!hasUnsavedChangesRef.current) return
+            showToast(t.unsavedReminderToast, 'info', theme === 'dark', { timer: 5000 })
+        }, REMINDER_INTERVAL_MS)
+        return () => clearInterval(interval)
+    }, [attempt.id, t, theme])
+    // Just forces a re-render every LAST_SAVED_TICK_MS so the relative-
+    // time caption ("2m ago") keeps advancing without lastSavedAt itself
+    // needing to change — see this file's LAST SAVED LABEL comment.
+    useEffect(() => {
+        const interval = setInterval(() => setLastSavedTick((n) => n + 1), LAST_SAVED_TICK_MS)
+        return () => clearInterval(interval)
+    }, [])
+    // Marking a word Correct also clears its manual "Needs Attention"
+    // flag AND any manual error-type override (Omission/Mispronunciation)
+    // — see this file's header comment. A Correct word has no error
+    // type, so leaving a stale override in state was both a UI glitch
+    // (it silently reappeared if you flipped back to Miscue) and a
+    // correctness bug (buildOverrides() would still send that stale
+    // errorTypeOverride to the backend even though the word is Correct).
+    // Marking it Miscue leaves both manualFlags and manualErrorType
+    // untouched, since a miscue can independently be flagged or typed.
     const setVerdict = (wordId: string, verdict: Verdict) => {
         setVerdicts((prev) => ({ ...prev, [wordId]: verdict }))
+        hasUnsavedChangesRef.current = true
+        if (verdict === 'correct') {
+            setManualFlags((prev) => {
+                if (!prev[wordId]) return prev
+                const next = { ...prev }
+                delete next[wordId]
+                return next
+            })
+            setManualErrorType((prev) => {
+                if (!(wordId in prev)) return prev
+                const next = { ...prev }
+                delete next[wordId]
+                return next
+            })
+        }
     }
     const toggleManualFlag = (wordId: string) => {
         setManualFlags((prev) => ({ ...prev, [wordId]: !prev[wordId] }))
+        hasUnsavedChangesRef.current = true
     }
     // Toggle behavior: clicking the currently-active type again clears
     // the override (reverts the word to whatever the system detected).
@@ -304,6 +465,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
             }
             return next
         })
+        hasUnsavedChangesRef.current = true
     }
     // Passage-side word click: TOGGLES the word in the stack. Already
     // stacked (checked against the current selectedWordIds before the
@@ -312,7 +474,8 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
     // stacked → added to the top, then SelectedWordsCard is scrolled
     // into view so the newly-added card is visible. No confirmation
     // dialog either way: this isn't destructive, just a small card
-    // appearing/disappearing.
+    // appearing/disappearing. Not itself a review edit (nothing here
+    // gets persisted), so it does NOT touch hasUnsavedChangesRef.
     const handleWordClick = (wordId: string) => {
         const alreadySelected = selectedWordIds.includes(wordId)
         setSelectedWordIds((prev) =>
@@ -349,23 +512,78 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
             t.confirmDialogConfirmButton
         )
         if (!confirmed) return
+        hasUnsavedChangesRef.current = false
+        setLastSavedAt(new Date())
         onConfirm(buildOverrides())
     }
     // No confirmation dialog — Save Draft is non-destructive (it never
     // marks the attempt reviewed) and meant to be tapped freely while
-    // still working through a review, unlike Confirm Results.
+    // still working through a review, unlike Confirm Results. Clears
+    // hasUnsavedChangesRef and bumps lastSavedAt optimistically on click
+    // (same moment the button's own "Saving…" label kicks in) rather
+    // than waiting on onSaveDraft's promise to settle — matches how the
+    // rest of this component already treats Save Draft as fire-and-
+    // forget from here.
     const handleSaveDraft = () => {
         onSaveDraft(buildOverrides())
+        hasUnsavedChangesRef.current = false
+        setLastSavedAt(new Date())
     }
+    // Permanently deletes the attempt — see this file's SAVE DRAFT vs
+    // CONFIRM RESULTS vs DISCARD comment above. Fires a swal confirmation
+    // first, same shape as Confirm Results' own dialog but with more
+    // severe copy (t.discardDialogText), since unlike Confirm there's no
+    // way back from this at all. No local state to clear afterward
+    // (unlike handleConfirm/handleSaveDraft) — the caller navigates away
+    // once onDiscard resolves, so there's nothing left for this
+    // component to keep track of.
+    const handleDiscard = async () => {
+        const confirmed = await showConfirmation(
+            t.discardDialogTitle,
+            t.discardDialogText,
+            theme === 'dark',
+            'warning',
+            t.discardDialogConfirmButton
+        )
+        if (!confirmed) return
+        await onDiscard()
+    }
+    // CTRL+S / CMD+S → same action as clicking Save Draft. See this
+    // file's own CTRL+S / CMD+S SAVE SHORTCUT comment above for why this
+    // effect has no dependency array.
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const isSaveShortcut = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'
+            if (!isSaveShortcut) return
+            e.preventDefault()
+            if (!hasWords || savingDraft) return
+            handleSaveDraft()
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    })
     // The escape hatch AssessmentSessionHeader.tsx's Exit button uses
     // (via a ref held by AssessmentSession.tsx) to save the in-progress
     // review before navigating away — see this file's header comment.
     useImperativeHandle(ref, () => ({
         saveDraftNow: async () => {
+            hasUnsavedChangesRef.current = false
+            setLastSavedAt(new Date())
             await onSaveDraft(buildOverrides())
         },
     }))
     const hasWords = words.length > 0
+    // lastSavedTick is read here (even though it does nothing but force
+    // this component to re-render) purely so formatLastSaved's relative
+    // string recomputes against a fresh "now" every LAST_SAVED_TICK_MS —
+    // see this file's LAST SAVED LABEL comment.
+    const lastSavedLabel = formatLastSaved(lastSavedAt, Date.now() + lastSavedTick * 0, t)
+    // Discard is intentionally NOT gated on hasWords — discarding a
+    // wordless attempt is exactly as valid as discarding one with words,
+    // unlike Save Draft/Confirm Results which have nothing to persist
+    // without word data. It IS gated on the other three in-flight
+    // actions, so a teacher can't fire two conflicting mutations at once.
+    const anyActionInFlight = savingDraft || confirming || discarding
     return (
         <div className="flex flex-col gap-6">
             {hasWords && (
@@ -498,33 +716,69 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
                         />
                     </div>
                 )}
-                <div style={{ gridArea: hasWords ? 'buttons' : undefined }}>
+                <div style={{ gridArea: hasWords ? 'buttons' : undefined }} className="flex flex-col gap-1.5">
+                    {/* LAST SAVED LABEL — see this file's own comment.
+                    Centered on mobile (buttons stack full-width there),
+                    left-aligned once the buttons sit side-by-side at sm
+                    and up, so it reads as attached to the Save Draft
+                    button specifically rather than floating in the
+                    middle. */}
+                    <p className="px-1 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 sm:text-left">
+                        {lastSavedLabel}
+                    </p>
                     {/* Its own bordered/shadowed container, distinct from
-                    the other panels, per explicit ask — these two
-                    buttons act on the whole review, not on any one panel
-                    alone. Sized to its own content (grid row is `auto`),
-                    never part of the scrolling 1fr row at lg, and — post
+                    the other panels, per explicit ask — these buttons
+                    act on the whole review, not on any one panel alone.
+                    Sized to its own content (grid row is `auto`), never
+                    part of the scrolling 1fr row at lg, and — post
                     MOBILE SCROLL FIX — reachable below lg by scrolling
                     the whole grid down to it, instead of being
-                    unreachable past whatever got clipped above it. */}
+                    unreachable past whatever got clipped above it.
+                    Discard sits first/leftmost — furthest from Confirm
+                    Results, the primary action — styled distinctly in
+                    rose to read as destructive at a glance, same visual
+                    language SelectedWordsCard's Miscue button and
+                    showSaveOnLeaveConfirmation's own discard option
+                    already use elsewhere in this review UI. */}
                     <div className="flex flex-col gap-2 rounded-3xl border border-gray-900/5 bg-white/60 p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900/40 sm:flex-row">
                         <button
+                            onClick={handleDiscard}
+                            disabled={anyActionInFlight}
+                            className={`flex items-center justify-center gap-2 rounded-full border-2 border-rose-500/40 px-5 py-3 text-sm font-bold text-rose-600 transition-colors duration-150 dark:border-rose-400/30 dark:text-rose-400 ${
+                                anyActionInFlight
+                                    ? 'cursor-not-allowed opacity-50'
+                                    : 'cursor-pointer hover:bg-rose-500/10 dark:hover:bg-rose-400/10'
+                            }`}
+                        >
+                            <Trash2 size={16} />
+                            {discarding ? t.discarding : t.discardLabel}
+                        </button>
+                        <button
                             onClick={handleSaveDraft}
-                            disabled={savingDraft || !hasWords}
+                            disabled={anyActionInFlight || !hasWords}
                             className={`flex items-center justify-center gap-2 rounded-full border-2 border-teal-500/40 px-5 py-3 text-sm font-bold text-teal-700 transition-colors duration-150 dark:border-teal-400/30 dark:text-teal-300 ${
-                                savingDraft || !hasWords
+                                anyActionInFlight || !hasWords
                                     ? 'cursor-not-allowed opacity-50'
                                     : 'cursor-pointer hover:bg-teal-500/10 dark:hover:bg-teal-400/10'
                             }`}
                         >
                             <Save size={16} />
                             {savingDraft ? t.savingDraftLabel : t.saveDraftLabel}
+                            {/* Shortcut hint, hidden on the smallest
+                            screens where Ctrl/Cmd+S isn't a realistic
+                            gesture anyway (no physical keyboard). Purely
+                            cosmetic — see isMacPlatform's own comment. */}
+                            {!savingDraft && (
+                                <kbd className="hidden rounded-md border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-teal-700 dark:border-teal-400/30 dark:bg-teal-400/10 dark:text-teal-300 sm:inline-block">
+                                    {isMacPlatform ? '⌘S' : 'Ctrl+S'}
+                                </kbd>
+                            )}
                         </button>
                         <button
                             onClick={handleConfirm}
-                            disabled={confirming || !hasWords}
+                            disabled={anyActionInFlight || !hasWords}
                             className={`flex flex-1 items-center justify-center gap-2 rounded-full bg-teal-500 px-6 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59] ${
-                                confirming || !hasWords ? 'cursor-not-allowed opacity-50 hover:translate-y-0' : 'cursor-pointer'
+                                anyActionInFlight || !hasWords ? 'cursor-not-allowed opacity-50 hover:translate-y-0' : 'cursor-pointer'
                             }`}
                         >
                             <Send size={17} />

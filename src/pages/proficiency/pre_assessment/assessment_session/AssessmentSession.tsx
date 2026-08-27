@@ -1,4 +1,5 @@
 // File: AssessmentSession.tsx
+// File: AssessmentSession.tsx
 // File: src/pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx
 // The actual reading check-in session — reached either after a language
 // has been picked in PreAssessment.tsx (student's own flow, or a
@@ -61,7 +62,15 @@
 // AssessmentSessionHeader's own Exit-button routing for assisted sessions.
 // Save Draft (useSaveDraftMutation) works the same way but stays on this
 // screen — it doesn't navigate anywhere, since the point is to let the
-// teacher keep going rather than treat it as a finish line.
+// teacher keep going rather than treat it as a finish line. DISCARD
+// (useDiscardAttemptMutation) permanently deletes the attempt instead —
+// see handleDiscardReview below — and, per how AttemptWordReview.tsx's
+// Discard button behaves everywhere it's used, navigates to the Pending
+// Review list once done rather than staying on this screen or going back
+// to the student picker. If the discard mutation throws (e.g. an RLS
+// policy gap on the Supabase side rejecting the delete), an error toast
+// is shown and the teacher stays right here instead of being silently
+// left with no feedback at all — previously this was a console.error only.
 //
 // SCORING FAILURE HANDLING: if scoring never reaches 'scored' because
 // something actually failed (see useSubmitAttempt.ts's runScoring /
@@ -125,6 +134,7 @@ import type { AssessmentSessionOutletContext } from './layouts/AssessmentSession
 import {
     useAttemptQuery,
     useAttemptWordsQuery,
+    useDiscardAttemptMutation,
     useSaveDraftMutation,
     useSubmitReviewMutation,
     type WordReviewOverride,
@@ -163,6 +173,7 @@ export const AssessmentSession: React.FC = () => {
     const wordsQuery = useAttemptWordsQuery(attemptId, showInlineReview && attemptQuery.data?.status === 'scored')
     const submitReview = useSubmitReviewMutation(ownProfile?.id)
     const saveDraft = useSaveDraftMutation(ownProfile?.id)
+    const discardAttempt = useDiscardAttemptMutation(ownProfile?.id)
     // True only once the actual AttemptWordReview UI is on screen (not
     // just "submitted and waiting on scoring") — matches the render
     // condition below exactly, since that's the only window where
@@ -291,6 +302,35 @@ export const AssessmentSession: React.FC = () => {
             console.error('AssessmentSession: failed to save draft', err)
         }
     }
+    // Permanently deletes this attempt — see useDiscardAttemptMutation in
+    // hooks.ts for exactly what gets removed (word rows, the recording,
+    // the attempt row itself). Uses an inline bilingual string, same
+    // reasoning as handleSaveDraft above. Navigates to the Pending Review
+    // list once done, matching TeacherReviewAttempt.tsx's own Discard
+    // destination — NOT back to the student picker, even though this is
+    // the "Now" mode flow, since that's the consistent behavior asked for
+    // regardless of which screen Discard is triggered from. On failure
+    // (e.g. an RLS policy gap rejecting the delete server-side), shows an
+    // error toast and stays right here — previously this was a
+    // console.error only, so a failed discard looked identical to nothing
+    // happening at all.
+    const handleDiscardReview = async () => {
+        if (!attemptId || !attemptQuery.data) return
+        try {
+            await discardAttempt.mutateAsync({ attemptId, audioPath: attemptQuery.data.audio_path })
+            showToast(uiLang === 'fil' ? 'Itinapon ang pagbasang ito.' : 'This reading was discarded.', 'success', theme === 'dark')
+            navigate('/students/review')
+        } catch (err) {
+            console.error('AssessmentSession: failed to discard attempt', err)
+            showToast(
+                uiLang === 'fil'
+                    ? 'Hindi na-itapon ang pagbasang ito. Pakisubukang muli.'
+                    : "Couldn't discard this reading. Please try again.",
+                'error',
+                theme === 'dark'
+            )
+        }
+    }
     // Re-runs scoring on the SAME attempt (see useSubmitAttempt.ts's
     // useRetryScoring) after a scoring failure — no re-upload, no new
     // recording. attemptQuery.refetch() is called afterward regardless of
@@ -411,6 +451,8 @@ export const AssessmentSession: React.FC = () => {
                         confirming={submitReview.isPending}
                         onSaveDraft={handleSaveDraft}
                         savingDraft={saveDraft.isPending}
+                        onDiscard={handleDiscardReview}
+                        discarding={discardAttempt.isPending}
                         studentName={studentNameParam}
                         heightBudget={{ base: 144, lg: 128 }}
                     />

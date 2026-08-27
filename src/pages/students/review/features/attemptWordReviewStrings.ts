@@ -1,4 +1,5 @@
 // File: attemptWordReviewStrings.ts
+// File: attemptWordReviewStrings.ts
 // File: src/pages/students/review/features/attemptWordReviewStrings.ts
 //
 // Bilingual copy for AttemptWordReview and its two sub-cards
@@ -30,6 +31,27 @@ export const STRINGS: Record<Lang, {
     confirming: string
     saveDraftLabel: string
     savingDraftLabel: string
+    // Discard button (see AttemptWordReview.tsx's own comment) — a
+    // permanent, one-way delete of the whole attempt. The confirmation
+    // dialog copy below is deliberately more severe than
+    // confirmDialogTitle/Text (Confirm Results is a one-way door too,
+    // but it still leaves the attempt's data around; this erases it).
+    discardLabel: string
+    discarding: string
+    discardDialogTitle: string
+    discardDialogText: string
+    discardDialogConfirmButton: string
+    // Shown as a periodic toast (see AttemptWordReview.tsx's REMINDER
+    // INTERVAL comment) only while there are unsaved verdict/flag/type
+    // edits sitting in local state — not shown at all once the teacher
+    // has saved (draft or confirm) or made no edits yet.
+    unsavedReminderToast: string
+    // LAST SAVED LABEL (see AttemptWordReview.tsx's own comment) — the
+    // small caption above the Save Draft/Confirm Results buttons.
+    lastSavedNever: string
+    lastSavedJustNow: string
+    lastSavedMinutesAgo: (n: number) => string
+    lastSavedHoursAgo: (n: number) => string
     recordingLabel: string
     emptyWords: string
     confirmDialogTitle: string
@@ -65,6 +87,16 @@ export const STRINGS: Record<Lang, {
         confirming: 'Isinusumite…',
         saveDraftLabel: 'I-save ang Draft',
         savingDraftLabel: 'Sine-save…',
+        discardLabel: 'Itapon',
+        discarding: 'Itinatapon…',
+        discardDialogTitle: 'Itapon ang pagbasang ito?',
+        discardDialogText: 'Permanenteng buburahin nito ang pagbasang ito kasama ang lahat ng datos nito — ang rekording, at bawat salita. Hindi na ito maaaring bawiin.',
+        discardDialogConfirmButton: 'Oo, Itapon',
+        unsavedReminderToast: 'May mga hindi pa na-save na pagbabago — huwag kalimutang i-save ang draft.',
+        lastSavedNever: 'Wala pang na-save',
+        lastSavedJustNow: 'Na-save ngayon lang',
+        lastSavedMinutesAgo: (n) => `Na-save ${n} minuto ang nakalipas`,
+        lastSavedHoursAgo: (n) => `Na-save ${n} oras ang nakalipas`,
         recordingLabel: 'Rekording',
         emptyWords: 'Wala pang word-level na datos para sa pagsusuring ito.',
         confirmDialogTitle: 'Isumite ang mga resultang ito?',
@@ -100,6 +132,16 @@ export const STRINGS: Record<Lang, {
         confirming: 'Submitting…',
         saveDraftLabel: 'Save Draft',
         savingDraftLabel: 'Saving…',
+        discardLabel: 'Discard',
+        discarding: 'Discarding…',
+        discardDialogTitle: 'Discard this reading?',
+        discardDialogText: "This permanently deletes this attempt and everything tied to it — the recording and every word. This can't be undone.",
+        discardDialogConfirmButton: 'Yes, Discard',
+        unsavedReminderToast: "You've got unsaved changes — don't forget to save your draft.",
+        lastSavedNever: 'Not saved yet',
+        lastSavedJustNow: 'Saved just now',
+        lastSavedMinutesAgo: (n) => `Saved ${n}m ago`,
+        lastSavedHoursAgo: (n) => `Saved ${n}h ago`,
         recordingLabel: 'Recording',
         emptyWords: "There's no word-level data for this attempt yet.",
         confirmDialogTitle: 'Submit these results?',

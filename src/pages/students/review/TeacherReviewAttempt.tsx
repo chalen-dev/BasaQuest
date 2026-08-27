@@ -1,3 +1,5 @@
+// File: TeacherReviewAttempt.tsx
+// File: TeacherReviewAttempt.tsx
 // File: src/pages/students/review/TeacherReviewAttempt.tsx
 //
 // Detail page for reviewing a single "Send"-mode attempt. Routed at
@@ -26,7 +28,11 @@
 // for its own Exit button — see AttemptWordReview.tsx's own comment).
 // Every OTHER state on this page (loading, scoring, failed, not-found)
 // has nothing to save, so Back just navigates immediately there, same
-// as before.
+// as before. NOTE: this three-way "Discard & Leave" choice is a
+// DIFFERENT, older concept than AttemptWordReview.tsx's own Discard
+// button below — this one just discards unsaved EDITS on an attempt
+// that still exists, while the new Discard button deletes the whole
+// ATTEMPT permanently. They happen to share a word but not a mechanism.
 //
 // CONFIRM DESTINATION / ALREADY-REVIEWED: confirming a review now routes
 // to AttemptResults.tsx (/students/review/:attemptId/results) instead of
@@ -34,6 +40,17 @@
 // why. An already-reviewed attempt landing here (a stale link, a
 // bookmark, Dashboard's Recent Activity) redirects straight to that same
 // results page instead of rendering anything editable.
+//
+// DISCARD (permanent delete): handleDiscard below is what
+// AttemptWordReview.tsx's own Discard button calls, via the onDiscard
+// prop — see useDiscardAttemptMutation in hooks.ts for what actually
+// gets deleted (word rows, the recording, the attempt row itself). Once
+// it resolves, this page just navigates back to the Pending Review list
+// — there's nothing left on screen to show, since the attempt this page
+// was displaying no longer exists. If the mutation throws (e.g. an RLS
+// policy gap on the Supabase side rejecting the delete), we now show an
+// error toast instead of silently leaving the teacher stuck on this
+// screen with no feedback — previously this was a console.error only.
 //
 // RE-EDITING A CONFIRMED ATTEMPT: this page no longer has any special
 // handling for that case — AttemptResults.tsx's "Edit Results" button
@@ -60,6 +77,7 @@ import type { Lang } from '../../../components/buttons/LangToggle'
 import {
     useAttemptQuery,
     useAttemptWordsQuery,
+    useDiscardAttemptMutation,
     useSaveDraftMutation,
     useStudentProfileQuery,
     useSubmitReviewMutation,
@@ -79,6 +97,8 @@ const STRINGS: Record<Lang, {
     notFoundDesc: string
     confirmedToast: string
     draftSavedToast: string
+    discardedToast: string
+    discardFailedToast: string
     leaveDialogTitle: string
     leaveDialogText: string
     leaveDialogSaveButton: string
@@ -98,6 +118,8 @@ const STRINGS: Record<Lang, {
         notFoundDesc: 'Hindi na available ang pagbasang ito.',
         confirmedToast: 'Nakumpirma ang resulta.',
         draftSavedToast: 'Na-save ang draft.',
+        discardedToast: 'Itinapon ang pagbasang ito.',
+        discardFailedToast: 'Hindi na-itapon ang pagbasang ito. Pakisubukang muli.',
         leaveDialogTitle: 'Lumabas sa pagsusuring ito?',
         leaveDialogText: 'May mga pagbabagong hindi pa na-save. I-save muna bilang draft bago umalis, o i-discard na lang?',
         leaveDialogSaveButton: 'I-save at Umalis',
@@ -117,6 +139,8 @@ const STRINGS: Record<Lang, {
         notFoundDesc: "This reading isn't available anymore.",
         confirmedToast: 'Results confirmed.',
         draftSavedToast: 'Draft saved.',
+        discardedToast: 'This reading was discarded.',
+        discardFailedToast: "Couldn't discard this reading. Please try again.",
         leaveDialogTitle: 'Leave this review?',
         leaveDialogText: 'You have unsaved changes. Save them as a draft before leaving, or discard them?',
         leaveDialogSaveButton: 'Save & Leave',
@@ -136,6 +160,7 @@ export const TeacherReviewAttempt: React.FC = () => {
     const { data: student } = useStudentProfileQuery(attempt?.student_id)
     const submitReview = useSubmitReviewMutation(profile?.id)
     const saveDraft = useSaveDraftMutation(profile?.id)
+    const discardAttempt = useDiscardAttemptMutation(profile?.id)
     const reviewRef = useRef<AttemptWordReviewHandle>(null)
     const showingWordReview = !attemptLoading && !attemptError && !!attempt
         && attempt.status !== 'pending' && attempt.status !== 'processing' && attempt.status !== 'failed'
@@ -161,6 +186,24 @@ export const TeacherReviewAttempt: React.FC = () => {
             showToast(t.draftSavedToast, 'success', theme === 'dark')
         } catch (err) {
             console.error('TeacherReviewAttempt: failed to save draft', err)
+        }
+    }
+    // Permanently deletes this attempt — see this file's header comment
+    // and useDiscardAttemptMutation in hooks.ts. Navigates back to the
+    // Pending Review list once done, since the attempt this page was
+    // showing no longer exists. On failure (e.g. an RLS policy gap
+    // rejecting the delete server-side), shows an error toast and stays
+    // put — previously this just logged to the console, leaving the
+    // teacher with no visible sign anything went wrong.
+    const handleDiscard = async () => {
+        if (!attemptId || !attempt) return
+        try {
+            await discardAttempt.mutateAsync({ attemptId, audioPath: attempt.audio_path })
+            showToast(t.discardedToast, 'success', theme === 'dark')
+            navigate('/students/review')
+        } catch (err) {
+            console.error('TeacherReviewAttempt: failed to discard attempt', err)
+            showToast(t.discardFailedToast, 'error', theme === 'dark')
         }
     }
     // Only asks (and only bothers saving) while the actual review UI is
@@ -260,6 +303,8 @@ export const TeacherReviewAttempt: React.FC = () => {
                     confirming={submitReview.isPending}
                     onSaveDraft={handleSaveDraft}
                     savingDraft={saveDraft.isPending}
+                    onDiscard={handleDiscard}
+                    discarding={discardAttempt.isPending}
                     studentName={studentName}
                     heightBudget={{ base: 232, lg: 200 }}
                 />

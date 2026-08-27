@@ -1,3 +1,4 @@
+// File: hooks.ts
 // File: src/pages/students/review/hooks.ts
 //
 // Data layer for the teacher-review feature — shared by both review
@@ -415,6 +416,58 @@ export function useReopenAttemptMutation(teacherId: string | undefined) {
                 .update({ reviewed_at: null, reviewed_by: null })
                 .eq('id', attemptId)
             if (error) throw error
+            return { attemptId }
+        },
+        onSuccess: ({ attemptId }) => {
+            queryClient.invalidateQueries({ queryKey: pendingReviewCountKey(teacherId) })
+            queryClient.invalidateQueries({ queryKey: pendingReviewAttemptsKey(teacherId) })
+            queryClient.invalidateQueries({ queryKey: reviewedAttemptsKey(teacherId) })
+            queryClient.invalidateQueries({ queryKey: attemptKey(attemptId) })
+            queryClient.invalidateQueries({ queryKey: attemptWordsKey(attemptId) })
+        },
+    })
+}
+// PERMANENTLY deletes an attempt — used by AttemptWordReview.tsx's
+// Discard button. Unlike useReopenAttemptMutation (which just flips
+// reviewed_at back to null and is fully reversible), this is a genuine
+// one-way door: the word rows, the recording in storage, and the
+// assessment_attempts row itself are all actually removed. There is no
+// "undiscard".
+//
+// Word rows are deleted FIRST, explicitly, rather than assuming
+// assessment_attempt_words has an ON DELETE CASCADE foreign key back to
+// assessment_attempts — this way the delete works correctly whether or
+// not that cascade actually exists in the schema (deleting an
+// already-empty set of word rows is just a harmless no-op if it does).
+//
+// The storage removal is best-effort: audioPath can be null (an older
+// attempt, or a simulated take with no real recording — see
+// useRecorder.ts's `simulate`), and even when it's present a storage
+// error is only logged rather than aborting the rest of the discard —
+// a leftover orphaned recording file is a far smaller problem than a
+// teacher being unable to discard a bad attempt at all.
+export function useDiscardAttemptMutation(teacherId: string | undefined) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ attemptId, audioPath }: { attemptId: string; audioPath: string | null }) => {
+            const { error: wordsError } = await supabase
+                .from('assessment_attempt_words')
+                .delete()
+                .eq('attempt_id', attemptId)
+            if (wordsError) throw wordsError
+            if (audioPath) {
+                const { error: storageError } = await supabase.storage
+                    .from(RECORDINGS_BUCKET)
+                    .remove([audioPath])
+                if (storageError) {
+                    console.error('useDiscardAttemptMutation: failed to remove recording from storage', storageError)
+                }
+            }
+            const { error: attemptError } = await supabase
+                .from('assessment_attempts')
+                .delete()
+                .eq('id', attemptId)
+            if (attemptError) throw attemptError
             return { attemptId }
         },
         onSuccess: ({ attemptId }) => {
