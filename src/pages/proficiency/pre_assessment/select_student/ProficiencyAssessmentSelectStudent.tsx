@@ -25,11 +25,16 @@
 // retired in favor of "Now" — it opened a second isolated-session tab
 // that could get clobbered on reload since both tabs shared the same
 // browser. "Now" avoids that entirely by never creating a second session.
+//
+// LOADING STATE (student list): skeleton rows (see
+// components/ui/Skeleton.tsx) matching studentRow's own shape (name +
+// badge row on the left, two action-button-shaped blocks on the right)
+// instead of a centered OwlLoader spinner.
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Languages, Play, Send, WifiOff, Wifi, X } from 'lucide-react'
 import { Owl } from '../../../../components/ui/Owl.tsx'
-import { OwlLoader } from '../../../../components/ui/OwlLoader.tsx'
+import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import { Pagination } from '../../../../components/ui/Pagination.tsx'
 import { SearchInput } from '../../../../components/input/SearchInput.tsx'
 import { Select } from '../../../../components/input/Select.tsx'
@@ -183,11 +188,11 @@ const STRINGS: Record<Lang, {
         assignConfirmTitle: (name) => `Send the check-in to ${name}?`,
         assignConfirmText: "This will open automatically on the student's account the next time they log in.",
         assignConfirmButton: 'Yes, send it',
-        assignSuccessToast: (name) => `Sent to ${name}!`,
         cancelConfirmTitle: 'Cancel the pending check-in?',
         cancelConfirmText: "It won't open automatically for the student anymore.",
         cancelConfirmButton: 'Yes, cancel',
         cancelSuccessToast: 'Cancelled.',
+        assignSuccessToast: (name) => `Sent to ${name}!`,
         startNowConfirmTitle: (name) => `Start the check-in for ${name} now?`,
         startNowConfirmText: 'Make sure this student is actually with you on this device before continuing.',
         startNowConfirmButton: 'Yes, start it',
@@ -565,8 +570,25 @@ export const ProficiencyAssessmentSelectStudent: React.FC = () => {
                                 className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1 [scrollbar-color:theme(colors.gray.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-gray-500 [&::-webkit-scrollbar-track]:bg-transparent dark:[&::-webkit-scrollbar-thumb]:bg-gray-500/70 dark:[&::-webkit-scrollbar-thumb:hover]:bg-gray-400"
                             >
                                 {studentsLoading ? (
-                                    <div className="flex justify-center py-6">
-                                        <OwlLoader message="…" />
+                                    <div role="status" aria-busy="true" className="flex flex-col gap-2.5">
+                                        <span className="sr-only">Loading…</span>
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                            <div
+                                                key={i}
+                                                className="flex items-center justify-between gap-3 rounded-2xl border-2 border-gray-900/5 bg-white p-3.5 dark:border-gray-100/10 dark:bg-gray-900"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <Skeleton className="h-3.5 w-28 rounded-full" />
+                                                        <Skeleton className="h-3 w-12 rounded-full" />
+                                                    </div>
+                                                </div>
+                                                <div className="flex shrink-0 items-center gap-2">
+                                                    <Skeleton className="h-7 w-16 rounded-full" />
+                                                    <Skeleton className="h-7 w-16 rounded-full" />
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 ) : students.length === 0 ? (
                                     <p className="rounded-2xl border border-dashed border-gray-900/15 px-4 py-3 text-sm font-semibold text-gray-500 dark:border-gray-100/15 dark:text-gray-400">

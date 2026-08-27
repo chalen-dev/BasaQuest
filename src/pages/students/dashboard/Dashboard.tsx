@@ -1,5 +1,6 @@
 // File: Dashboard.tsx
 // File: Dashboard.tsx
+// File: Dashboard.tsx
 // File: src/pages/students/dashboard/Dashboard.tsx
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -8,6 +9,7 @@ import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { StudentsSubNav } from '../components/StudentsSubNav'
+import { Skeleton } from '../../../components/ui/Skeleton'
 import { usePendingReviewCountQuery } from '../review/hooks'
 import { useDashboardStatsQuery, useRecentAttemptsQuery } from './hooks'
 type StatColor = 'teal' | 'orange' | 'sky' | 'slate'
@@ -90,9 +92,10 @@ export const Dashboard: React.FC = () => {
     const { profile } = useProfile()
     const navigate = useNavigate()
     const t = STRINGS[lang]
-    const { data: dashboardStats } = useDashboardStatsQuery(profile?.id)
-    const { data: pendingCount } = usePendingReviewCountQuery(profile?.id)
-    const { data: recentAttempts } = useRecentAttemptsQuery(profile?.id)
+    const { data: dashboardStats, isLoading: statsLoading } = useDashboardStatsQuery(profile?.id)
+    const { data: pendingCount, isLoading: pendingLoading } = usePendingReviewCountQuery(profile?.id)
+    const { data: recentAttempts, isLoading: attemptsLoading } = useRecentAttemptsQuery(profile?.id)
+    const statsLoadingCombined = statsLoading || pendingLoading
     const stats: { label: string; value: string; icon: typeof Users; color: StatColor }[] = [
         { label: t.statTotal, value: dashboardStats ? String(dashboardStats.totalStudents) : '—', icon: Users, color: 'teal' },
         { label: t.statPending, value: pendingCount != null ? String(pendingCount) : '—', icon: Clock, color: 'orange' },
@@ -130,26 +133,58 @@ export const Dashboard: React.FC = () => {
                 </div>
             </section>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat) => {
-                    const Icon = stat.icon
-                    const colors = STAT_COLOR_CLASSES[stat.color]
-                    return (
+                {statsLoadingCombined ? (
+                    Array.from({ length: 4 }).map((_, i) => (
                         <div
-                            key={stat.label}
+                            key={i}
+                            role="status"
+                            aria-busy="true"
                             className="rounded-2xl border-2 border-gray-900/5 bg-white p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
                         >
-                            <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors.bg} ${colors.icon}`}>
-                                <Icon size={18} />
-                            </span>
-                            <div className="mt-3 text-2xl font-extrabold text-gray-900 dark:text-gray-50">{stat.value}</div>
-                            <div className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{stat.label}</div>
+                            <Skeleton className="h-10 w-10 rounded-xl" />
+                            <Skeleton className="mt-3 h-7 w-16" />
+                            <Skeleton className="mt-2 h-3 w-24" />
                         </div>
-                    )
-                })}
+                    ))
+                ) : (
+                    stats.map((stat) => {
+                        const Icon = stat.icon
+                        const colors = STAT_COLOR_CLASSES[stat.color]
+                        return (
+                            <div
+                                key={stat.label}
+                                className="rounded-2xl border-2 border-gray-900/5 bg-white p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
+                            >
+                                <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors.bg} ${colors.icon}`}>
+                                    <Icon size={18} />
+                                </span>
+                                <div className="mt-3 text-2xl font-extrabold text-gray-900 dark:text-gray-50">{stat.value}</div>
+                                <div className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{stat.label}</div>
+                            </div>
+                        )
+                    })
+                )}
             </div>
             <h2 className="mb-1 mt-8 text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.activityTitle}</h2>
             <p className="mb-4 text-sm font-medium text-gray-500 dark:text-gray-400">{t.activitySubtitle}</p>
-            {!recentAttempts || recentAttempts.length === 0 ? (
+            {attemptsLoading ? (
+                <div className="flex flex-col gap-3" role="status" aria-busy="true">
+                    <span className="sr-only">{t.activityTitle}</span>
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div
+                            key={i}
+                            className="flex w-full items-center gap-4 rounded-2xl border-2 border-gray-900/5 bg-white p-4 dark:border-gray-100/10 dark:bg-gray-900"
+                        >
+                            <Skeleton className="h-11 w-11 shrink-0 rounded-2xl" />
+                            <div className="min-w-0 flex-1">
+                                <Skeleton className="h-4 w-40" />
+                                <Skeleton className="mt-2 h-3 w-14" />
+                            </div>
+                            <Skeleton className="h-3 w-16 shrink-0" />
+                        </div>
+                    ))}
+                </div>
+            ) : !recentAttempts || recentAttempts.length === 0 ? (
                 <p className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-6 text-center text-sm font-semibold text-gray-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-400">
                     {t.emptyActivity}
                 </p>

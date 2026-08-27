@@ -17,6 +17,43 @@
 // the bilingual copy lives in assessmentSessionStrings.ts, so this file
 // doesn't balloon into one giant component.
 //
+// PASSAGE CACHING (sessionStorage): a generated passage now survives a
+// browser reload — previously, refreshing this page always dropped
+// straight back to the 'intro' step, and clicking Start again called
+// generatePassage() from scratch, spending another round of AI credits
+// (real Gemini credits when USE_PLACEHOLDER_PASSAGE is off in devFlags.ts)
+// on a passage that had already been generated moments earlier. Now every
+// successfully generated passage is stashed in sessionStorage under a key
+// scoped to (language, which student this session is for) via
+// writeCachedPassage() below, and on mount — see the assessmentLang effect
+// — readCachedPassage() is checked FIRST; a hit skips straight to the
+// 'passage' step with the cached text instead of showing 'intro' at all.
+// generatePassage() itself also checks the cache before calling the real
+// API, so even an explicit Start click after a lost cache-miss reload
+// won't double-spend credits if a cached passage is still there.
+// sessionStorage (not localStorage) is deliberate — it survives a reload/
+// refresh (the actual complaint) but clears once the tab is closed, so
+// nobody ends up permanently stuck re-reading a months-old passage.
+// The cache is cleared the moment a take is actually submitted (see
+// handleSubmit) — once a reading has been turned in, the NEXT check-in
+// for this student+language should get a genuinely fresh passage, not
+// keep replaying the one that was just recorded against.
+//
+// LOADING STATES → SKELETONS (see components/ui/Skeleton.tsx): all three
+// OwlLoader spinners on this page now show placeholder shapes instead:
+//   - profileLoading: a skeleton of the 'intro' card itself (owl circle,
+//     kicker/title/desc lines, badge pills, start-button pill).
+//   - step === 'loading' (passage generation): a skeleton of the actual
+//     two-panel passage/recorder grid — same grid classes as the real
+//     'passage' step (see the container className below, which now also
+//     widens for this step) so there's no layout jump once the real
+//     passage lands.
+//   - the inline-review "still scoring" branch: keeps its explanatory
+//     text (this is a genuinely indeterminate wait on the external
+//     scoring service, not "content about to pop in", so the copy stays)
+//     but the spinner icon is replaced with a skeleton preview of the
+//     two-panel AttemptWordReview layout that's about to load in.
+//
 // The passage step is deliberately built to require NO page scrolling,
 // regardless of passage length — generate-passage's per-grade spec ranges
 // from ~40 words (Grade 1) to ~240 words (Grade 6), and a scrollbar on a
@@ -98,9 +135,13 @@
 // saveDraftNow() rather than duplicating that state up into this file.
 //
 // CONTAINER WIDTH: the outer container widens to the same max-w-[1350px]
-// used for the passage/recorder grid whenever showInlineReview is true —
-// AttemptWordReview's two-panel layout (passage left, word list right)
-// needs real width or both panels get crushed into a phone-width column.
+// used for the passage/recorder grid whenever showPassageStep,
+// showInlineReview, or step === 'loading' is true (the last one added so
+// the new passage/recorder skeleton grid gets the same width the real
+// grid will occupy an instant later, instead of squeezing a wide skeleton
+// into the narrower intro-card container) — AttemptWordReview's two-panel
+// layout (passage left, word list right) needs real width or both panels
+// get crushed into a phone-width column.
 //
 // The old "Acting as: {name}" banner only renders for the intro/passage/
 // recording steps now (!showInlineReview) — once the review step is
@@ -111,7 +152,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { BookOpenCheck, RefreshCw, UserRound } from 'lucide-react'
 import { Owl } from '../../../../components/ui/Owl.tsx'
-import { OwlLoader } from '../../../../components/ui/OwlLoader.tsx'
+import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useTheme } from '../../../../contexts/ThemeContext.tsx'
@@ -140,6 +181,47 @@ import {
     type WordReviewOverride,
 } from '../../../students/review/hooks.ts'
 import { AttemptWordReview, type AttemptWordReviewHandle } from '../../../students/review/features/AttemptWordReview.tsx'
+// See this file's PASSAGE CACHING header comment above. `studentKey` is
+// the assisted session's studentId param, or the literal string 'self'
+// for a student's own non-assisted session — using a fixed 'self' rather
+// than the pupil's own profile id sidesteps a timing issue (ownProfile
+// hasn't necessarily loaded yet the moment this file first mounts) and is
+// safe in practice since a non-assisted session is always one pupil on
+// their own login in their own tab.
+const PASSAGE_CACHE_PREFIX = 'bq_passage_cache:'
+function passageCacheKey(lang: Lang, studentKey: string): string {
+    return `${PASSAGE_CACHE_PREFIX}${lang}:${studentKey}`
+}
+function readCachedPassage(lang: Lang, studentKey: string): Passage | null {
+    try {
+        const raw = sessionStorage.getItem(passageCacheKey(lang, studentKey))
+        if (!raw) return null
+        const parsed = JSON.parse(raw) as Partial<Passage>
+        if (typeof parsed?.title === 'string' && typeof parsed?.passage === 'string') {
+            return { title: parsed.title, passage: parsed.passage }
+        }
+        return null
+    } catch {
+        // Malformed JSON, or sessionStorage unavailable (private
+        // browsing edge cases) — just treat it as a cache miss.
+        return null
+    }
+}
+function writeCachedPassage(lang: Lang, studentKey: string, passage: Passage): void {
+    try {
+        sessionStorage.setItem(passageCacheKey(lang, studentKey), JSON.stringify(passage))
+    } catch {
+        // Storage full or unavailable — the passage still works for this
+        // session, it just won't survive a reload. Not worth surfacing.
+    }
+}
+function clearCachedPassage(lang: Lang, studentKey: string): void {
+    try {
+        sessionStorage.removeItem(passageCacheKey(lang, studentKey))
+    } catch {
+        // see writeCachedPassage
+    }
+}
 export const AssessmentSession: React.FC = () => {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
@@ -149,6 +231,7 @@ export const AssessmentSession: React.FC = () => {
     const studentIdParam = searchParams.get('studentId')
     const studentNameParam = searchParams.get('studentName')
     const isAssisted = !!studentIdParam
+    const passageCacheStudentKey = isAssisted ? (studentIdParam as string) : 'self'
     const { profile: ownProfile, loading: ownProfileLoading } = useProfile()
     const { profile: assistedProfile, loading: assistedProfileLoading } = useAssistedStudentProfile(studentIdParam)
     const activeProfile = isAssisted ? assistedProfile : ownProfile
@@ -181,10 +264,21 @@ export const AssessmentSession: React.FC = () => {
     const reviewReady = showInlineReview && attemptQuery.data?.status === 'scored' && !!wordsQuery.data
     const generatePassage = async () => {
         if (!assessmentLang) return
+        // Cache check first — a Start click after a reload wiped local
+        // state (but not sessionStorage) should never re-spend credits
+        // on a passage that already exists. See PASSAGE CACHING comment.
+        const cached = readCachedPassage(assessmentLang, passageCacheStudentKey)
+        if (cached) {
+            setPassage(cached)
+            setStep('passage')
+            return
+        }
         setStep('loading')
         if (USE_PLACEHOLDER_PASSAGE) {
             await new Promise((resolve) => setTimeout(resolve, 400))
-            setPassage(PLACEHOLDER_PASSAGES[assessmentLang])
+            const placeholder = PLACEHOLDER_PASSAGES[assessmentLang]
+            setPassage(placeholder)
+            writeCachedPassage(assessmentLang, passageCacheStudentKey, placeholder)
             setStep('passage')
             return
         }
@@ -196,17 +290,37 @@ export const AssessmentSession: React.FC = () => {
                 throw error ?? new Error('Malformed response')
             }
             setPassage(data)
+            writeCachedPassage(assessmentLang, passageCacheStudentKey, data)
             setStep('passage')
         } catch (err) {
             console.error('AssessmentSession: failed to generate passage', err)
             setStep('error')
         }
     }
+    // On mount, and whenever the language/assisted-student identity
+    // changes, check for a cached passage FIRST (see PASSAGE CACHING
+    // header comment) — a hit restores straight to the 'passage' step
+    // with no API call at all, which is what makes a plain browser
+    // reload no longer waste a fresh generation. A miss falls back to
+    // the original behavior of resetting to 'intro'.
     useEffect(() => {
+        if (!assessmentLang) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setStep('intro')
+            setPassage(null)
+            return
+        }
+        const cached = readCachedPassage(assessmentLang, passageCacheStudentKey)
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setStep('intro')
-        setPassage(null)
-    }, [assessmentLang])
+        if (cached) {
+            setPassage(cached)
+            setStep('passage')
+        } else {
+            setPassage(null)
+            setStep('intro')
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [assessmentLang, passageCacheStudentKey])
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSubmitted(false)
@@ -241,7 +355,11 @@ export const AssessmentSession: React.FC = () => {
     // take). On failure, just logs and leaves the UI in the pre-submit
     // state so the pupil/teacher can hit Submit again — matching how
     // handleAssign/handleCancel elsewhere in this app handle failures
-    // (console.error only, no failure toast).
+    // (console.error only, no failure toast). On success, also clears
+    // this passage out of the cache (see PASSAGE CACHING comment) — once
+    // a reading has actually been turned in, the next check-in for this
+    // student+language should get a genuinely fresh passage rather than
+    // keep serving the one just recorded against.
     const handleSubmit = async () => {
         if (!passage) return
         if (!rec.blob) {
@@ -267,6 +385,7 @@ export const AssessmentSession: React.FC = () => {
             })
             setAttemptId(result.attemptId)
             setSubmitted(true)
+            clearCachedPassage(assessmentLang, passageCacheStudentKey)
         } catch (err) {
             console.error('AssessmentSession: failed to submit attempt', err)
         }
@@ -352,7 +471,7 @@ export const AssessmentSession: React.FC = () => {
     return (
         <div
             className={
-                showPassageStep || showInlineReview
+                showPassageStep || showInlineReview || step === 'loading'
                     ? 'mx-auto w-full max-w-[1350px] px-6 pb-6 pt-2 sm:px-10'
                     : 'mx-auto max-w-3xl px-4 pb-12 pt-2'
             }
@@ -364,8 +483,26 @@ export const AssessmentSession: React.FC = () => {
                 </div>
             )}
             {profileLoading && (
-                <section className="flex min-h-[240px] items-center justify-center rounded-3xl border border-gray-900/5 shadow-sm dark:border-gray-100/10">
-                    <OwlLoader message="…" />
+                <section
+                    role="status"
+                    aria-busy="true"
+                    className="relative overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8"
+                >
+                    <span className="sr-only">…</span>
+                    <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
+                        <Skeleton className="h-16 w-16 shrink-0 rounded-full" />
+                        <div className="flex-1">
+                            <Skeleton className="mx-auto h-3 w-24 rounded-full sm:mx-0" />
+                            <Skeleton className="mx-auto mt-2 h-7 w-2/3 rounded-lg sm:mx-0" />
+                            <Skeleton className="mt-3 h-3 w-full rounded-full" />
+                            <Skeleton className="mt-2 h-3 w-4/5 rounded-full" />
+                            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                                <Skeleton className="h-6 w-20 rounded-full" />
+                                <Skeleton className="h-6 w-16 rounded-full" />
+                            </div>
+                        </div>
+                    </div>
+                    <Skeleton className="mx-auto mt-5 h-11 w-40 rounded-full sm:mx-0" />
                 </section>
             )}
             {!profileLoading && isNonReader && step === 'intro' && (
@@ -417,9 +554,36 @@ export const AssessmentSession: React.FC = () => {
                 </section>
             )}
             {step === 'loading' && (
-                <section className="flex min-h-[320px] items-center justify-center rounded-3xl border border-gray-900/5 shadow-sm dark:border-gray-100/10">
-                    <OwlLoader message={t.loadingMessage} />
-                </section>
+                <div className="grid gap-6 lg:h-[calc(100vh-14rem)] lg:grid-cols-[1.6fr_1fr]">
+                    <section
+                        role="status"
+                        aria-busy="true"
+                        className="flex h-full flex-col overflow-hidden rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10"
+                    >
+                        <span className="sr-only">{t.loadingMessage}</span>
+                        <div className="flex items-center gap-2">
+                            <Skeleton className="h-4 w-16 rounded-full" />
+                            <Skeleton className="h-4 w-14 rounded-full" />
+                        </div>
+                        <Skeleton className="mt-4 h-8 w-2/3 rounded-lg" />
+                        <div className="mt-6 flex flex-1 flex-col gap-3">
+                            {Array.from({ length: 8 }).map((_, i) => (
+                                <Skeleton key={i} className={`h-4 rounded-full ${i % 4 === 3 ? 'w-2/3' : 'w-full'}`} />
+                            ))}
+                        </div>
+                    </section>
+                    <section
+                        role="status"
+                        aria-busy="true"
+                        className="flex h-full flex-col items-center justify-center gap-6 rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10"
+                    >
+                        <Skeleton className="h-4 w-24 rounded-full" />
+                        <Skeleton className="h-12 w-32 rounded-lg" />
+                        <Skeleton className="h-20 w-full max-w-xs rounded-2xl" />
+                        <Skeleton className="h-36 w-36 rounded-full" />
+                        <Skeleton className="h-11 w-full rounded-full" />
+                    </section>
+                </div>
             )}
             {step === 'error' && (
                 <section className="flex flex-col items-center gap-4 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">
@@ -473,11 +637,31 @@ export const AssessmentSession: React.FC = () => {
                         </button>
                     </section>
                 ) : (
-                    <section className="flex flex-col items-center gap-4 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-8 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
-                        <OwlLoader message="…" />
-                        <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.scoringTitle}</h2>
-                        <p className="max-w-md text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringDesc}</p>
-                    </section>
+                    <div className="flex flex-col gap-4">
+                        <section className="flex flex-col items-center gap-2 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-6 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
+                            <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.scoringTitle}</h2>
+                            <p className="max-w-md text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringDesc}</p>
+                        </section>
+                        <div role="status" aria-busy="true" className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+                            <span className="sr-only">{t.scoringTitle}</span>
+                            <div className="rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900">
+                                <Skeleton className="h-3 w-24 rounded-full" />
+                                <div className="mt-5 flex flex-col gap-2.5">
+                                    {Array.from({ length: 6 }).map((_, i) => (
+                                        <Skeleton key={i} className={`h-3.5 rounded-full ${i === 5 ? 'w-2/3' : 'w-full'}`} />
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="rounded-3xl border border-gray-900/5 bg-white p-6 shadow-sm dark:border-gray-100/10 dark:bg-gray-900">
+                                <Skeleton className="h-3 w-28 rounded-full" />
+                                <div className="mt-4 flex flex-col gap-3">
+                                    {Array.from({ length: 4 }).map((_, i) => (
+                                        <Skeleton key={i} className="h-14 w-full rounded-2xl" />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 )
             )}
         </div>

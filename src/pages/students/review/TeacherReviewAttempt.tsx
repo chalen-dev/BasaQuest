@@ -52,6 +52,14 @@
 // error toast instead of silently leaving the teacher stuck on this
 // screen with no feedback — previously this was a console.error only.
 //
+// LOADING STATE: both the initial attempt-fetch and the words-fetch
+// (attemptLoading / wordsLoading) now render reviewLoadingSkeleton (see
+// components/ui/Skeleton.tsx) instead of a centered OwlLoader spinner —
+// a rough placeholder of the score-pills-and-passage shape the real
+// content will take, since either phase resolves into the same eventual
+// screen and the container itself stays at max-w-3xl until then anyway
+// (showingWordReview, which is what widens it, requires both to be done).
+//
 // RE-EDITING A CONFIRMED ATTEMPT: this page no longer has any special
 // handling for that case — AttemptResults.tsx's "Edit Results" button
 // now genuinely clears reviewed_at/reviewed_by on the attempt itself
@@ -71,6 +79,7 @@ import { useLang } from '../../../contexts/LangContext'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { OwlLoader } from '../../../components/ui/OwlLoader'
+import { Skeleton } from '../../../components/ui/Skeleton'
 import { Owl } from '../../../components/ui/Owl'
 import { showSaveOnLeaveConfirmation, showToast } from '../../../helpers/swalHelpers'
 import type { Lang } from '../../../components/buttons/LangToggle'
@@ -148,6 +157,35 @@ const STRINGS: Record<Lang, {
         leaveDialogCancelButton: 'Stay',
     },
 }
+// Shared between the attemptLoading and wordsLoading branches below —
+// both resolve into the same eventual screen, and the container stays
+// narrow (max-w-3xl) either way until showingWordReview flips true, so
+// one skeleton shape covers both waits. Loosely mirrors a score-pill row
+// (ResultsSummaryCard's shape) over a paragraph-of-lines card
+// (PassageCard's shape), since that's what's about to load in.
+const reviewLoadingSkeleton = (
+    <div role="status" aria-busy="true" className="flex flex-col gap-4 py-2">
+        <span className="sr-only">Loading…</span>
+        <div className="rounded-3xl border border-gray-900/5 p-6 shadow-sm dark:border-gray-100/10 sm:p-8">
+            <Skeleton className="h-3 w-20 rounded-full" />
+            <Skeleton className="mt-3 h-6 w-1/2 rounded-lg" />
+            <div className="mt-5 flex flex-wrap gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-9 w-24 rounded-full" />
+                ))}
+            </div>
+        </div>
+        <div className="rounded-3xl border border-gray-900/5 p-6 shadow-sm dark:border-gray-100/10 sm:p-8">
+            <Skeleton className="h-3 w-24 rounded-full" />
+            <div className="mt-4 flex flex-col gap-2.5">
+                <Skeleton className="h-3.5 w-full rounded-full" />
+                <Skeleton className="h-3.5 w-full rounded-full" />
+                <Skeleton className="h-3.5 w-11/12 rounded-full" />
+                <Skeleton className="h-3.5 w-4/5 rounded-full" />
+            </div>
+        </div>
+    </div>
+)
 export const TeacherReviewAttempt: React.FC = () => {
     const { attemptId } = useParams<{ attemptId: string }>()
     const navigate = useNavigate()
@@ -246,9 +284,7 @@ export const TeacherReviewAttempt: React.FC = () => {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
                 {backLink}
-                <div className="flex justify-center py-10">
-                    <OwlLoader message={t.loading} />
-                </div>
+                {reviewLoadingSkeleton}
             </div>
         )
     }
@@ -291,9 +327,7 @@ export const TeacherReviewAttempt: React.FC = () => {
             ) : attempt.reviewed_at ? (
                 <Navigate to={`/students/review/${attemptId}/results`} replace />
             ) : wordsLoading || !words ? (
-                <div className="flex justify-center py-10">
-                    <OwlLoader message={t.loading} />
-                </div>
+                reviewLoadingSkeleton
             ) : (
                 <AttemptWordReview
                     ref={reviewRef}

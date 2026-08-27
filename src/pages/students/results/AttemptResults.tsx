@@ -1,3 +1,4 @@
+// File: AttemptResults.tsx
 // File: src/pages/students/results/AttemptResults.tsx
 //
 // Read-only "here's how it went" page for a CONFIRMED attempt — reached
@@ -17,24 +18,56 @@
 // component, since this file needs it to decide what to render below;
 // the subnav is just a controlled view over it.
 //
-// LAYOUT (Review tab): ResultsSummaryCard (showScores={false}) directly
-// above PassageCard in one shared left column, with SelectedWordsCard
-// (in readOnly mode — see that file's own comment) as the right column.
+// DEFAULT TAB: starts on 'results', not 'review'. Landing here always
+// means an attempt was JUST confirmed (or a teacher is revisiting an
+// already-confirmed one from ResultsList.tsx) — either way, the scores
+// themselves are what they came to see first. The word-by-word Review
+// tab is still one click away for anyone who wants to dig into the
+// passage/word detail, but it's no longer the first thing shown.
 //
-// RIGHT COLUMN HEIGHT: SelectedWordsCard.tsx's own outer <section> is
-// `lg:h-full lg:min-h-0` — it only actually caps at a fixed height when
-// its parent hands it one (that's what AttemptWordReview.tsx's
-// height-bounded grid does). This page has no such bound elsewhere, so
-// the right column here is instead its OWN small fixed-height flex
-// column (lg:h-[42rem]) — SelectedWordsCard sits in a lg:flex-1
-// lg:min-h-0 wrapper so it fills whatever's left inside that budget and
-// scrolls internally once the stack grows past it, and the Edit Results
-// bar below it is lg:shrink-0 so it's never squeezed or pushed
-// off-screen no matter how many words are stacked. 42rem is a plain
-// fixed choice (not derived from any surrounding chrome, unlike
-// AttemptWordReview.tsx's calc(100vh - 200px) — this page isn't fighting
-// ProtectedLayout's clipped <main>, it just doesn't want this one card
-// to grow unbounded).
+// LAYOUT (Review tab, THIS PASS): rebuilt to match AttemptWordReview.tsx's
+// own bounded-height grid + fixed-header/scrollable-body pattern instead
+// of a plain flex/grid stack that just flowed with the page. Previously
+// this tab's whole left column (ResultsSummaryCard + PassageCard) and
+// right column (SelectedWordsCard) grew to their natural content height
+// and relied on the PAGE scrolling — which technically worked here (this
+// page isn't hosted inside AttemptWordReview.tsx's own height-bounded
+// wrapper), but reads inconsistently against the editable review screen
+// a teacher was just looking at seconds earlier, where the passage
+// scrolls in its own fixed-height panel and the summary card never moves.
+// Per explicit ask, this tab now reuses the SAME CSS (.attempt-word-
+// review-grid / .review-scroll, copied verbatim from AttemptWordReview.tsx
+// — these are plain global class names, not scoped/exported from that
+// file, so duplicating the rule here is the straightforward way to reuse
+// it without a shared component refactor) with its own height budget (see
+// REVIEW_HEIGHT_BUDGET below): ResultsSummaryCard is the shrink-0 fixed
+// block up top, PassageCard scrolls internally within its own bounded
+// column (via its own internal header/body split — see that file's own
+// comment), and SelectedWordsCard scrolls in the second column. The
+// editBar (Edit Results button) now occupies the "buttons" grid area,
+// same position Save Draft/Confirm Results occupy on the editable page,
+// instead of trailing below SelectedWordsCard as a separate block.
+//
+// REVIEW_HEIGHT_BUDGET: this page's own fixed chrome above the grid is
+// AttemptResultsSubNav (mb-6, a ~40px pill row) versus TeacherReviewAttempt.tsx's
+// plain back button (mb-4, ~36px) — close enough to TeacherReviewAttempt's
+// own { base: 232, lg: 200 } that the same two numbers are reused
+// directly rather than inventing new ones off a guess; ProtectedLayout.tsx's
+// <main> padding (pt-28/lg:pt-20) is identical for both pages since both
+// render under the same ProtectedLayout. If this ever reads as slightly
+// too tall/short in practice, nudge these two numbers — they're a
+// deliberately-reused approximation, not derived from a pixel-exact
+// measurement of AttemptResultsSubNav specifically.
+//
+// wordList.length === 0 still falls back to the old plain flex-column
+// stack (no grid, no bounded height) — there's no passage/word data to
+// scroll through in that case, so the bounded-grid machinery would just
+// add complexity for a single short card + the edit button.
+//
+// RIGHT COLUMN HEIGHT: no longer a separate lg:h-[42rem] fixed value —
+// SelectedWordsCard now fills whatever the shared grid's "wordselect"
+// area hands it (lg:h-full lg:min-h-0, same as the editable flow), and
+// the grid itself is what's height-bounded via REVIEW_HEIGHT_BUDGET.
 //
 // EDIT RESULTS: NOT a plain link anymore. Clicking it fires a swal
 // confirmation first (this is a real, meaningful state change — the
@@ -98,6 +131,12 @@
 // Each Word" (attemptWordReviewStrings.ts's kicker/title) even on this
 // page's own "Results" tab, since it hasn't been given separate
 // results-mode copy yet — a known simplification, not an oversight.
+//
+// LOADING STATE: the initial attemptLoading/wordsLoading wait now shows
+// a skeleton (see components/ui/Skeleton.tsx) shaped like a score-pill
+// row over a paragraph-of-lines card — the same shape TeacherReviewAttempt.tsx
+// uses for its own equivalent wait — instead of a centered OwlLoader
+// spinner.
 import React, { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Ear, Gauge, MessageSquareText, MinusCircle, Pencil, ThumbsUp } from 'lucide-react'
@@ -105,7 +144,7 @@ import { useLang } from '../../../contexts/LangContext'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { showConfirmation } from '../../../helpers/swalHelpers'
-import { OwlLoader } from '../../../components/ui/OwlLoader'
+import { Skeleton } from '../../../components/ui/Skeleton'
 import { Owl } from '../../../components/ui/Owl'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import type { AttemptWord } from '../review/hooks'
@@ -123,6 +162,11 @@ import { PassageCard } from '../review/features/PassageCard'
 import { SelectedWordsCard } from '../review/features/SelectedWordsCard'
 import { ScorePill } from '../review/features/AttemptWordReviewShared'
 import { AttemptResultsSubNav, type AttemptResultsTab } from './AttemptResultsSubNav'
+// See this file's REVIEW_HEIGHT_BUDGET header comment above — reused
+// directly from TeacherReviewAttempt.tsx's own AttemptWordReview
+// heightBudget prop, since both pages share the same ProtectedLayout
+// chrome and a near-identical amount of fixed content above the grid.
+const REVIEW_HEIGHT_BUDGET = { base: 232, lg: 200 }
 const STRINGS: Record<Lang, {
     loading: string
     notFoundTitle: string
@@ -252,7 +296,8 @@ export const AttemptResults: React.FC = () => {
     const { data: student } = useStudentProfileQuery(attempt?.student_id)
     const audioUrlQuery = useAttemptAudioUrlQuery(attempt?.audio_path)
     const reopenAttempt = useReopenAttemptMutation(profile?.id)
-    const [tab, setTab] = useState<AttemptResultsTab>('review')
+    // Starts on 'results' — see this file's header comment. Was 'review'.
+    const [tab, setTab] = useState<AttemptResultsTab>('results')
     // Same tap-to-stack behavior as AttemptWordReview.tsx's own
     // selectedWordIds/handleWordClick — most-recently-tapped first,
     // re-tapping an already-stacked word moves it back to the top
@@ -288,8 +333,26 @@ export const AttemptResults: React.FC = () => {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
                 <AttemptResultsSubNav />
-                <div className="flex justify-center py-10">
-                    <OwlLoader message={t.loading} />
+                <div role="status" aria-busy="true" className="flex flex-col gap-4 py-2">
+                    <span className="sr-only">{t.loading}</span>
+                    <div className="rounded-3xl border border-gray-900/5 p-6 shadow-sm dark:border-gray-100/10 sm:p-8">
+                        <Skeleton className="h-3 w-20 rounded-full" />
+                        <Skeleton className="mt-3 h-6 w-1/2 rounded-lg" />
+                        <div className="mt-5 flex flex-wrap gap-3">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <Skeleton key={i} className="h-9 w-20 rounded-full" />
+                            ))}
+                        </div>
+                    </div>
+                    <div className="rounded-3xl border border-gray-900/5 p-6 shadow-sm dark:border-gray-100/10 sm:p-8">
+                        <Skeleton className="h-3 w-24 rounded-full" />
+                        <div className="mt-4 flex flex-col gap-2.5">
+                            <Skeleton className="h-3.5 w-full rounded-full" />
+                            <Skeleton className="h-3.5 w-full rounded-full" />
+                            <Skeleton className="h-3.5 w-11/12 rounded-full" />
+                            <Skeleton className="h-3.5 w-4/5 rounded-full" />
+                        </div>
+                    </div>
                 </div>
             </div>
         )
@@ -365,15 +428,14 @@ export const AttemptResults: React.FC = () => {
         summarySentences.push(t.summaryAgreement(agreementCount, systemFlaggedWords.length))
     }
     const insightSummary = summarySentences.join(' ')
-    // Same bordered/shadowed container + solid-teal button styling as
-    // AttemptWordReview.tsx's own Save Draft/Confirm Results bar — see
-    // this file's header comment. lg:shrink-0 so it never gets squeezed
-    // by SelectedWordsCard's flex-1 sibling above it in the bounded
-    // right column below. A <button> now, not a <Link> — see
-    // handleEditResults above for why it needs to confirm and write
-    // before navigating anywhere.
+    // The "Edit Results" bar. Occupies the shared grid's "buttons" area
+    // when wordList.length > 0 (same position Save Draft/Confirm Results
+    // hold on the editable page) — otherwise just a plain block under
+    // the single-column fallback. No lg:shrink-0 needed here now that
+    // it lives in the grid's own auto-sized "buttons" row rather than as
+    // a flex sibling inside a manually-sized column.
     const editBar = (
-        <div className="flex flex-col gap-2 rounded-3xl border border-gray-900/5 bg-white/60 p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900/40 lg:shrink-0">
+        <div className="flex flex-col gap-2 rounded-3xl border border-gray-900/5 bg-white/60 p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900/40">
             <button
                 onClick={handleEditResults}
                 disabled={reopenAttempt.isPending}
@@ -401,11 +463,119 @@ export const AttemptResults: React.FC = () => {
         </div>
     )
     const hasAnyInsight = dominantWeakness != null || wcpm != null || systemFlaggedWords.length > 0
+    const hasWords = wordList.length > 0
     return (
-        <div className={wordList.length > 0 ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
+        <div className={hasWords ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
             <AttemptResultsSubNav tab={tab} onTabChange={setTab} />
             {tab === 'review' ? (
-                <div className={wordList.length > 0 ? 'flex flex-col gap-6 lg:grid lg:grid-cols-[1.3fr_1fr] lg:items-start' : 'flex flex-col gap-6'}>
+                hasWords ? (
+                    // Same CSS as AttemptWordReview.tsx's own grid — see
+                    // this file's LAYOUT header comment for why it's
+                    // duplicated here rather than shared, and
+                    // REVIEW_HEIGHT_BUDGET for where these two numbers
+                    // come from.
+                    <>
+                        <style>{`
+                            .attempt-word-review-grid {
+                                display: grid;
+                                gap: 1.5rem;
+                                grid-template-areas: "left" "buttons" "wordselect";
+                            }
+                            @media (max-width: 1023px) {
+                                .attempt-word-review-grid {
+                                    height: calc(100vh - ${REVIEW_HEIGHT_BUDGET.base}px);
+                                    overflow-y: auto;
+                                }
+                            }
+                            @media (min-width: 1024px) {
+                                .attempt-word-review-grid {
+                                    grid-template-columns: 1.3fr 1fr;
+                                    grid-template-rows: minmax(0, 1fr) auto;
+                                    align-items: stretch;
+                                    grid-template-areas: "left wordselect" "left buttons";
+                                    height: calc(100vh - ${REVIEW_HEIGHT_BUDGET.lg}px);
+                                }
+                                .attempt-word-review-left {
+                                    height: calc(100vh - ${REVIEW_HEIGHT_BUDGET.lg}px);
+                                }
+                            }
+                            .review-scroll {
+                                scrollbar-width: thin;
+                                scrollbar-color: rgba(20, 184, 166, 0.55) transparent;
+                            }
+                            .review-scroll::-webkit-scrollbar {
+                                width: 8px;
+                            }
+                            .review-scroll::-webkit-scrollbar-track {
+                                background: transparent;
+                            }
+                            .review-scroll::-webkit-scrollbar-thumb {
+                                background-color: rgba(20, 184, 166, 0.55);
+                                border-radius: 9999px;
+                            }
+                            .review-scroll::-webkit-scrollbar-thumb:hover {
+                                background-color: rgba(20, 184, 166, 0.8);
+                            }
+                            .dark .review-scroll {
+                                scrollbar-color: rgba(45, 212, 191, 0.55) transparent;
+                            }
+                            .dark .review-scroll::-webkit-scrollbar-thumb {
+                                background-color: rgba(45, 212, 191, 0.55);
+                            }
+                            .dark .review-scroll::-webkit-scrollbar-thumb:hover {
+                                background-color: rgba(45, 212, 191, 0.8);
+                            }
+                        `}</style>
+                        <div className="attempt-word-review-grid review-scroll">
+                            <div style={{ gridArea: 'left' }} className="attempt-word-review-left flex flex-col gap-6 lg:min-h-0">
+                                {/* shrink-0 — never compressible, same
+                                reasoning as AttemptWordReview.tsx's own
+                                summary wrapper: this is what stops the
+                                audio player from being squeezed. */}
+                                <div className="shrink-0">
+                                    <ResultsSummaryCard
+                                        attempt={attempt}
+                                        studentName={studentName}
+                                        words={wordList}
+                                        manualFlags={manualFlags}
+                                        t={reviewT}
+                                        audioUrl={audioUrlQuery.data ?? null}
+                                        showScores={false}
+                                    />
+                                </div>
+                                {/* Just sizing here — PassageCard owns
+                                its own internal header/scroll split
+                                (see that file's own comment). */}
+                                <div className="lg:min-h-0 lg:flex-1">
+                                    <PassageCard
+                                        words={wordList}
+                                        verdicts={verdicts}
+                                        manualFlags={manualFlags}
+                                        manualErrorType={manualErrorType}
+                                        selectedWordIds={selectedWordIds}
+                                        t={reviewT}
+                                        onWordClick={handleWordClick}
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ gridArea: 'wordselect' }} className="review-scroll lg:min-h-0 lg:overflow-y-auto">
+                                <SelectedWordsCard
+                                    words={wordList}
+                                    selectedWordIds={selectedWordIds}
+                                    verdicts={verdicts}
+                                    manualFlags={manualFlags}
+                                    manualErrorType={manualErrorType}
+                                    t={reviewT}
+                                    onClearAll={clearSelectedWords}
+                                    readOnly
+                                />
+                            </div>
+                            <div style={{ gridArea: 'buttons' }}>
+                                {editBar}
+                            </div>
+                        </div>
+                    </>
+                ) : (
                     <div className="flex flex-col gap-6">
                         <ResultsSummaryCard
                             attempt={attempt}
@@ -425,26 +595,9 @@ export const AttemptResults: React.FC = () => {
                             t={reviewT}
                             onWordClick={handleWordClick}
                         />
-                        {wordList.length === 0 && editBar}
+                        {editBar}
                     </div>
-                    {wordList.length > 0 && (
-                        <div className="flex flex-col gap-4 lg:h-[42rem]">
-                            <div className="lg:min-h-0 lg:flex-1">
-                                <SelectedWordsCard
-                                    words={wordList}
-                                    selectedWordIds={selectedWordIds}
-                                    verdicts={verdicts}
-                                    manualFlags={manualFlags}
-                                    manualErrorType={manualErrorType}
-                                    t={reviewT}
-                                    onClearAll={clearSelectedWords}
-                                    readOnly
-                                />
-                            </div>
-                            {editBar}
-                        </div>
-                    )}
-                </div>
+                )
             ) : (
                 <section className="relative overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
                     <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }} />

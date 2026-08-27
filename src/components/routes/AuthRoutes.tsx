@@ -1,3 +1,5 @@
+// File: AuthRoutes.tsx
+// File: src/components/routes/AuthRoutes.tsx
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useProfile } from '../../hooks/useProfile'

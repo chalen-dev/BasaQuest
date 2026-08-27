@@ -1,5 +1,6 @@
 // File: PassageCard.tsx
 // File: PassageCard.tsx
+// File: PassageCard.tsx
 // File: src/pages/students/review/features/PassageCard.tsx
 //
 // Passage-text-only panel of AttemptWordReview — just the color legend,
@@ -57,12 +58,26 @@
 // explicit z-index — without one, a neighboring word's background
 // (later in the DOM, tightly packed inline) painted over it.
 //
-// Verdict backgrounds use the -600 shade (not -500) and stay fully
-// OPAQUE — an earlier version tried a translucent /70 background to
-// look "less vibrant", but the page background bled through it and
-// washed out the white text's contrast. -600 solid reads as calmer
-// than the neon -500 while keeping the white text crisp regardless of
-// what's behind the card.
+// VERDICT BACKGROUNDS — CORRECT LIGHTENED, MISCUE UNCHANGED (this pass,
+// THIRD iteration): per explicit ask, Correct words should read as
+// quietly "fine" while Miscue stays the sharp, attention-grabbing
+// signal. Two earlier attempts missed the mark: first just a darker
+// shade of the same vivid green (still read as "strong green," just
+// dimmer); second swapped to a custom desaturated sage/olive tone,
+// which read as flat GRAY rather than green at all — over-corrected.
+// This pass goes the other direction: a light, PASTEL green background
+// (Tailwind's green-100/green-200, not a custom muted hex) with dark
+// green TEXT instead of white — this is what actually reads as "soft
+// green" rather than either "bold green" or "gray," since lightness
+// (not desaturation) is what makes a color feel calm while staying
+// unambiguously green. Dark mode mirrors the same idea inverted: a low-
+// opacity dark green background (green-900/40) with a light green text
+// color, so it stays soft/quiet against the dark card without washing
+// out — opacity is fine here specifically because the background this
+// sits on (PassageCard's own dark gradient) is a known, controlled
+// color, unlike the earlier translucent-on-page-background problem this
+// file's history warns about. Miscue stays exactly rose-600/rose-700
+// (hover), completely untouched — it's the one that should still pop.
 //
 // The error-type corner icon reflects the EFFECTIVE type (system
 // detection, or a teacher's manual Omission/Mispronunciation override
@@ -169,7 +184,7 @@ export function PassageCard({
                                                 title={wordTooltip(w, t, errorType)}
                                                 className={`cursor-pointer rounded-[4px] px-1 py-0.5 font-bold transition-colors duration-150 ${
                                                     verdict === 'correct'
-                                                        ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600'
+                                                        ? 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-300 dark:hover:bg-green-900/60'
                                                         : 'bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600'
                                                 } ${isInsertion ? 'border-b-2 border-dashed border-amber-500 dark:border-amber-300' : ''} ${
                                                     flagged ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:ring-amber-300 dark:ring-offset-gray-900' : ''

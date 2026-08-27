@@ -17,13 +17,19 @@
 // what timezone a teacher's device happens to be set to, so a fixed
 // timeZone in the Intl.DateTimeFormat call is deliberate — NOT a bug to
 // "fix" by dropping it and letting the browser localize automatically.
+//
+// LOADING STATE: skeleton rows (see components/ui/Skeleton.tsx) instead
+// of a centered OwlLoader spinner — 5 placeholder rows shaped like the
+// real ones below (icon chip, name+badge line, subtitle line, timestamp
+// line, trailing arrow) so the list's eventual shape is visible while
+// it's still fetching, rather than an unrelated spinner card.
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mic, ArrowRight, Clock } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { Pagination } from '../../../components/ui/Pagination'
-import { OwlLoader } from '../../../components/ui/OwlLoader'
+import { Skeleton } from '../../../components/ui/Skeleton'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { StudentsSubNav } from '../components/StudentsSubNav'
 import { REVIEW_PAGE_SIZE, usePendingReviewAttemptsQuery } from './hooks'
@@ -111,8 +117,25 @@ export const ReviewList: React.FC = () => {
                 </div>
             </section>
             {isLoading ? (
-                <div className="flex justify-center py-10">
-                    <OwlLoader message={t.loading} />
+                <div role="status" aria-busy="true" className="flex flex-col gap-3">
+                    <span className="sr-only">{t.loading}</span>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div
+                            key={i}
+                            className="flex items-center gap-4 rounded-2xl border-2 border-gray-900/5 bg-white p-4 dark:border-gray-100/10 dark:bg-gray-900"
+                        >
+                            <Skeleton className="h-11 w-11 shrink-0 rounded-2xl" />
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    <Skeleton className="h-3.5 w-32 rounded-full" />
+                                    <Skeleton className="h-3 w-14 rounded-full" />
+                                </div>
+                                <Skeleton className="mt-2 h-3 w-40 rounded-full" />
+                                <Skeleton className="mt-2 h-2.5 w-24 rounded-full" />
+                            </div>
+                            <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+                        </div>
+                    ))}
                 </div>
             ) : error ? (
                 <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-6 text-sm font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">

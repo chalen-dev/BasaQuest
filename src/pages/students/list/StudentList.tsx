@@ -1,3 +1,4 @@
+// File: StudentList.tsx
 // File: src/pages/students/list/StudentList.tsx
 import React, { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
@@ -6,6 +7,7 @@ import { useTheme } from '../../../contexts/ThemeContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { useTeacherPresence } from '../../../hooks/useTeacherPresence'
 import { Pagination } from '../../../components/ui/Pagination'
+import { Skeleton } from '../../../components/ui/Skeleton'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { StudentsSubNav } from '../components/StudentsSubNav'
@@ -560,8 +562,31 @@ export const StudentList: React.FC = () => {
                 drawer instead of a permanently-docked side column. */}
             <div>
                 {isLoading ? (
-                    <div className="rounded-2xl border-2 border-gray-900/5 bg-white p-10 text-center text-sm font-bold text-gray-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-400">
-                        {t.loading}
+                    <div className="flex flex-col gap-3" role="status" aria-busy="true">
+                        <span className="sr-only">{t.loading}</span>
+                        {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                            <div
+                                key={i}
+                                style={{ borderLeftColor: 'rgba(148,163,184,0.4)', borderLeftWidth: 6 }}
+                                className="flex w-full items-center gap-4 rounded-2xl border-2 border-gray-900/5 bg-white p-4 dark:border-gray-100/10 dark:bg-gray-900"
+                            >
+                                <Skeleton className="h-11 w-11 shrink-0 rounded-2xl" />
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <Skeleton className="h-4 w-32" />
+                                        <Skeleton className="h-4 w-16 rounded-full" />
+                                        <Skeleton className="h-4 w-14 rounded-full" />
+                                    </div>
+                                    <Skeleton className="mt-2 h-3 w-40" />
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                    <Skeleton className="h-9 w-9 rounded-xl" />
+                                    <Skeleton className="h-9 w-9 rounded-xl" />
+                                    <Skeleton className="h-9 w-9 rounded-xl" />
+                                    <Skeleton className="h-9 w-9 rounded-xl" />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ) : error ? (
                     <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-6 text-sm font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">

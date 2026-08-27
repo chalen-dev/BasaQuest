@@ -17,7 +17,7 @@
 // Calls the real generate-passage Supabase Edge Function (Gemini)
 // instead of using PLACEHOLDER_PASSAGES from assessmentSessionStrings.ts.
 // Spends Gemini credits on every passage generated.
-export const USE_PLACEHOLDER_PASSAGE = true
+export const USE_PLACEHOLDER_PASSAGE = false
 
 // Calls the real basaquest-scoring service (Azure Pronunciation
 // Assessment) instead of fabricating scored data via

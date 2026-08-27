@@ -1,4 +1,5 @@
 // File: AttemptResultsSubNav.tsx
+// File: AttemptResultsSubNav.tsx
 // File: src/pages/students/results/AttemptResultsSubNav.tsx
 //
 // Sub-nav for a single confirmed attempt's results page — styled and
@@ -20,6 +21,12 @@
 // not-found states render this with neither, showing just the back
 // button — a Review/Results tab switch doesn't mean anything before
 // there's actual attempt data to switch between.
+//
+// TAB ORDER: Results renders before Review (both here and in the
+// underlying AttemptResultsTab type's declaration order) — matches
+// AttemptResults.tsx defaulting to the 'results' tab on load, so the
+// pill that's already active on arrival is also the leftmost one
+// rather than looking out of place next to an inactive first pill.
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ClipboardList, ListChecks } from 'lucide-react'
@@ -61,13 +68,13 @@ export const AttemptResultsSubNav: React.FC<AttemptResultsSubNavProps> = ({ tab,
             {showTabs && (
                 <>
                     <span className="h-5 w-px bg-gray-900/10 dark:bg-gray-100/10" aria-hidden="true" />
-                    <button type="button" onClick={() => onTabChange('review')} className={tabPillClass(tab === 'review')}>
-                        <ClipboardList size={15} />
-                        {t.reviewTab}
-                    </button>
                     <button type="button" onClick={() => onTabChange('results')} className={tabPillClass(tab === 'results')}>
                         <ListChecks size={15} />
                         {t.resultsTab}
+                    </button>
+                    <button type="button" onClick={() => onTabChange('review')} className={tabPillClass(tab === 'review')}>
+                        <ClipboardList size={15} />
+                        {t.reviewTab}
                     </button>
                 </>
             )}
