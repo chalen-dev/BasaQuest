@@ -14,14 +14,14 @@
 // file list of project"). If this file is ever moved or renamed, update
 // that include entry too.
 
-// Skips the generate-passage Supabase Edge Function (Gemini) and uses
-// PLACEHOLDER_PASSAGES from assessmentSessionStrings.ts instead. No
-// Gemini credits spent.
+// Calls the real generate-passage Supabase Edge Function (Gemini)
+// instead of using PLACEHOLDER_PASSAGES from assessmentSessionStrings.ts.
+// Spends Gemini credits on every passage generated.
 export const USE_PLACEHOLDER_PASSAGE = true
 
-// Skips the POST to the basaquest-scoring service (Azure Pronunciation
-// Assessment) and fabricates plausible scored data directly via
-// applyPlaceholderScoring() (features/placeholderScoring.ts) instead. No
-// Azure credits spent, and basaquest-scoring doesn't even need to be
-// running.
+// Calls the real basaquest-scoring service (Azure Pronunciation
+// Assessment) instead of fabricating scored data via
+// applyPlaceholderScoring() (features/placeholderScoring.ts). Spends
+// Azure credits, and requires basaquest-scoring to actually be
+// running and reachable at VITE_SCORING_SERVICE_URL.
 export const USE_PLACEHOLDER_SCORING = true

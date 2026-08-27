@@ -1,3 +1,4 @@
+// File: AssessmentSession.tsx
 // File: src/pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx
 // The actual reading check-in session — reached either after a language
 // has been picked in PreAssessment.tsx (student's own flow, or a
@@ -62,6 +63,20 @@
 // screen — it doesn't navigate anywhere, since the point is to let the
 // teacher keep going rather than treat it as a finish line.
 //
+// SCORING FAILURE HANDLING: if scoring never reaches 'scored' because
+// something actually failed (see useSubmitAttempt.ts's runScoring /
+// markAttemptFailed), the attempt lands on status: 'failed' instead of
+// sitting at 'pending'/'processing' forever. The inline review branch
+// below has a dedicated 'failed' case for that — an error card with a
+// "Try Again" button wired to useRetryScoring, which re-runs scoring on
+// the SAME attemptId (clearing any partial word rows first) rather than
+// forcing the teacher to redo the whole recording. After the retry
+// mutation settles, attemptQuery.refetch() is called directly (rather
+// than relying on refetchInterval, which had already stopped polling
+// once the query saw status: 'failed') so the UI picks up whatever the
+// retry actually produced — including immediately going back to
+// 'failed' again if the retry also fails.
+//
 // EXIT-DURING-REVIEW: registers a save handler with
 // AssessmentSessionLayout.tsx (via useOutletContext, see that file's own
 // comment for the full wiring) for exactly as long as the actual review
@@ -95,7 +110,7 @@ import { supabase } from '../../../../lib/supabaseClient.ts'
 import { showToast } from '../../../../helpers/swalHelpers.ts'
 import { useAssistedStudentProfile } from '../hooks.ts'
 import { useRecorder } from './features/useRecorder.ts'
-import { useSubmitAttempt } from './features/useSubmitAttempt.ts'
+import { useSubmitAttempt, useRetryScoring } from './features/useSubmitAttempt.ts'
 import { PassagePanel } from './features/PassagePanel.tsx'
 import { RecorderPanel } from './features/RecorderPanel.tsx'
 import {
@@ -138,6 +153,7 @@ export const AssessmentSession: React.FC = () => {
     const [attemptId, setAttemptId] = useState<string | null>(null)
     const rec = useRecorder()
     const submitAttempt = useSubmitAttempt()
+    const retryScoring = useRetryScoring()
     const reviewRef = useRef<AttemptWordReviewHandle>(null)
     const showPassageStep = step === 'passage' && !!passage
     // Only ever polled for an assisted session that's actually been
@@ -275,6 +291,24 @@ export const AssessmentSession: React.FC = () => {
             console.error('AssessmentSession: failed to save draft', err)
         }
     }
+    // Re-runs scoring on the SAME attempt (see useSubmitAttempt.ts's
+    // useRetryScoring) after a scoring failure — no re-upload, no new
+    // recording. attemptQuery.refetch() is called afterward regardless of
+    // outcome because refetchInterval had already stopped polling once it
+    // saw status: 'failed' (see hooks.ts's useAttemptQuery); a plain
+    // refetch is what picks the UI back up, whether the retry landed on
+    // 'processing' (real service, still working), 'scored' (placeholder,
+    // already done by the time mutateAsync resolves), or 'failed' again.
+    const handleRetryScoring = async () => {
+        if (!attemptId || !passage) return
+        try {
+            await retryScoring.mutateAsync({ attemptId, language: assessmentLang, passageText: passage.passage })
+        } catch (err) {
+            console.error('AssessmentSession: failed to retry scoring', err)
+        } finally {
+            attemptQuery.refetch()
+        }
+    }
     return (
         <div
             className={
@@ -378,7 +412,24 @@ export const AssessmentSession: React.FC = () => {
                         onSaveDraft={handleSaveDraft}
                         savingDraft={saveDraft.isPending}
                         studentName={studentNameParam}
+                        heightBudget={{ base: 144, lg: 128 }}
                     />
+                ) : attemptQuery.data?.status === 'failed' ? (
+                    <section className="flex flex-col items-center gap-4 rounded-3xl border border-red-500/25 bg-red-500/5 p-8 text-center shadow-sm dark:border-red-400/25 dark:bg-red-400/5">
+                        <Owl mood="greeting" size={72} />
+                        <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.scoringFailedTitle}</h2>
+                        <p className="max-w-md text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringFailedDesc}</p>
+                        <button
+                            onClick={handleRetryScoring}
+                            disabled={retryScoring.isPending}
+                            className={`flex items-center gap-2 rounded-full bg-teal-500 px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59] ${
+                                retryScoring.isPending ? 'cursor-not-allowed opacity-50 hover:translate-y-0' : 'cursor-pointer'
+                            }`}
+                        >
+                            <RefreshCw size={16} />
+                            {retryScoring.isPending ? t.retryingScoringLabel : t.retryScoringLabel}
+                        </button>
+                    </section>
                 ) : (
                     <section className="flex flex-col items-center gap-4 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-8 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
                         <OwlLoader message="…" />

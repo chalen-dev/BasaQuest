@@ -1,4 +1,3 @@
-// File: TeacherReviewAttempt.tsx
 // File: src/pages/students/review/TeacherReviewAttempt.tsx
 //
 // Detail page for reviewing a single "Send"-mode attempt. Routed at
@@ -32,11 +31,22 @@
 // CONFIRM DESTINATION / ALREADY-REVIEWED: confirming a review now routes
 // to AttemptResults.tsx (/students/review/:attemptId/results) instead of
 // straight back to the review inbox — see that file's own comment for
-// why. The old `attempt.reviewed_at` branch, which used to render a bare
-// "Already Confirmed" placeholder card with no actual scores in it, now
-// just redirects to that same results page instead — so opening an
-// already-reviewed attempt (e.g. from a stale link, or Dashboard's
-// Recent Activity) lands on the real results, not a dead end.
+// why. An already-reviewed attempt landing here (a stale link, a
+// bookmark, Dashboard's Recent Activity) redirects straight to that same
+// results page instead of rendering anything editable.
+//
+// RE-EDITING A CONFIRMED ATTEMPT: this page no longer has any special
+// handling for that case — AttemptResults.tsx's "Edit Results" button
+// now genuinely clears reviewed_at/reviewed_by on the attempt itself
+// (via useReopenAttemptMutation in hooks.ts) before ever navigating
+// here, and then sends the teacher to the Pending Review list rather
+// than straight into this page. So by the time this page is opened from
+// that list, the attempt is honestly unreviewed again, and the normal
+// branch below handles it with no special-casing needed. An earlier
+// version of this file supported an explicit "?edit=1" query param to
+// bypass the reviewed_at redirect without changing the database — that
+// was removed once reopening started actually updating reviewed_at,
+// since it made the bypass redundant.
 import React, { useRef } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -251,6 +261,7 @@ export const TeacherReviewAttempt: React.FC = () => {
                     onSaveDraft={handleSaveDraft}
                     savingDraft={saveDraft.isPending}
                     studentName={studentName}
+                    heightBudget={{ base: 232, lg: 200 }}
                 />
             )}
         </div>

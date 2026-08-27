@@ -3,16 +3,28 @@
 // File: SelectedWordsCard.tsx
 // File: src/pages/students/review/features/SelectedWordsCard.tsx
 //
-// RIGHT card of AttemptWordReview during the EDITABLE review flow.
-// Supersedes both the old scrollable full-word list (WordListCard.tsx —
-// still used as-is by the read-only AttemptResults.tsx page, unchanged)
-// AND the single-word inspector from an earlier iteration (deleted).
-// Every word a teacher taps in the passage gets ADDED to a stack here
-// (most recently tapped on top), each with its own full Correct/
-// Miscue/Needs-Attention controls and type picker.
+// RIGHT card of AttemptWordReview during the EDITABLE review flow, AND
+// (as of this pass) the read-only AttemptResults.tsx page too — see the
+// `readOnly` prop below. Supersedes both the old scrollable full-word
+// list (WordListCard.tsx — no longer used by AttemptResults.tsx either,
+// now that this replaces it there) AND the single-word inspector from an
+// earlier iteration (deleted). Every word tapped in the passage gets
+// ADDED to a stack here (most recently tapped on top).
 //
-// id="selected-words-card" is the scroll target AttemptWordReview.tsx's
-// handleWordClick smooth-scrolls to on each tap.
+// READ-ONLY MODE: AttemptResults.tsx shows already-CONFIRMED attempts —
+// nothing on that page can change a verdict, so passing readOnly hides
+// the Correct/Miscue/Needs Attention buttons and the type picker
+// entirely, leaving just the word, its (final, persisted) verdict badge,
+// error-type badge, and score visible. Tapping words to stack them up
+// and Clear All both still work in read-only mode — neither one
+// mutates any actual review data, they only control what's currently
+// shown in this card, so there's nothing unsafe about leaving them
+// active. onSetVerdict/onToggleManualFlag/onSetErrorType are optional
+// specifically so AttemptResults.tsx doesn't need to pass no-op
+// handlers just to satisfy the type.
+//
+// id="selected-words-card" is the scroll target both consumers'
+// handleWordClick (or equivalent) smooth-scrolls to on each tap.
 //
 // HEADER PLACEMENT: the kicker + Clear All row is a plain (non-sticky,
 // non-positioned) first child, structurally OUTSIDE the scrolling body
@@ -23,17 +35,13 @@
 // true siblings is what actually guarantees it: nothing that scrolls
 // shares a box with it, so nothing can ever render above it.
 //
-// HEIGHT: this card no longer caps itself at a fixed max-height
-// (lg:max-h-[42rem], used in an earlier pass). It now fills whatever
-// height its parent gives it (lg:h-full lg:min-h-0), because
-// AttemptWordReview.tsx's outer layout is itself now height-bounded
-// (calc(100vh - 200px), see that file's comment) to keep the Save
-// Draft/Confirm Results buttons from ever being pushed past the edge of
-// ProtectedLayout's <main>, which clips overflow instead of scrolling
-// it. A fixed 42rem cap here could still be taller than the space
-// actually left for it once that budget is spent elsewhere, which would
-// reproduce the exact clipped-buttons bug this whole change fixes — so
-// the height has to come from the parent, not a constant.
+// HEIGHT: this card fills whatever height its parent gives it
+// (lg:h-full lg:min-h-0) rather than capping itself at a fixed value —
+// on AttemptWordReview.tsx that parent is itself height-bounded (see
+// that file's comment on why), so this card scrolls within a fixed
+// budget there; on AttemptResults.tsx there's no such bound, so this
+// card just sizes to its natural content height there, same as
+// WordListCard did before it.
 //
 // SIZING: text and buttons here are a size up from the rest of the
 // review UI (word title, verdict/flag buttons, Clear All) — this card
@@ -65,10 +73,15 @@ type SelectedWordsCardProps = {
     manualFlags: Record<string, boolean>
     manualErrorType: Record<string, AttemptWord['error_type']>
     t: AttemptWordReviewStrings
-    onSetVerdict: (wordId: string, verdict: Verdict) => void
-    onToggleManualFlag: (wordId: string) => void
-    onSetErrorType: (wordId: string, errorType: 'Omission' | 'Mispronunciation') => void
+    onSetVerdict?: (wordId: string, verdict: Verdict) => void
+    onToggleManualFlag?: (wordId: string) => void
+    onSetErrorType?: (wordId: string, errorType: 'Omission' | 'Mispronunciation') => void
     onClearAll: () => void
+    // When true, hides every verdict/flag/type-changing control — used
+    // by AttemptResults.tsx, where the attempt is already confirmed and
+    // nothing here can actually be edited. Defaults to false so the
+    // editable AttemptWordReview.tsx flow needs no changes.
+    readOnly?: boolean
 }
 export function SelectedWordsCard({
                                       words,
@@ -81,6 +94,7 @@ export function SelectedWordsCard({
                                       onToggleManualFlag,
                                       onSetErrorType,
                                       onClearAll,
+                                      readOnly = false,
                                   }: SelectedWordsCardProps) {
     const wordsById = new Map(words.map((w) => [w.id, w]))
     const stack = selectedWordIds.map((id) => wordsById.get(id)).filter((w): w is AttemptWord => !!w)
@@ -119,7 +133,7 @@ export function SelectedWordsCard({
                         const isInsertion = w.error_type === 'Insertion'
                         const flagged = w.confidence === 'low' || !!manualFlags[w.id]
                         const errorType = effectiveErrorType(w, manualErrorType)
-                        const showTypePicker = verdict === 'miscue' && !isInsertion
+                        const showTypePicker = !readOnly && verdict === 'miscue' && !isInsertion
                         return (
                             <div
                                 key={w.id}
@@ -151,49 +165,51 @@ export function SelectedWordsCard({
                                         <div className="mt-1 text-sm font-medium text-gray-500 dark:text-gray-400">{t.inserted}</div>
                                     )}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <button
-                                        onClick={() => onSetVerdict(w.id, 'correct')}
-                                        className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-150 ${
-                                            verdict === 'correct'
-                                                ? 'bg-green-500 text-white dark:bg-green-600'
-                                                : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
-                                        }`}
-                                    >
-                                        <Check size={16} />
-                                        {t.legendCorrect}
-                                    </button>
-                                    <button
-                                        onClick={() => onSetVerdict(w.id, 'miscue')}
-                                        className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-150 ${
-                                            verdict === 'miscue'
-                                                ? 'bg-rose-500 text-white dark:bg-rose-600'
-                                                : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
-                                        }`}
-                                    >
-                                        <X size={16} />
-                                        {t.legendMiscue}
-                                    </button>
-                                    <button
-                                        onClick={() => onToggleManualFlag(w.id)}
-                                        title={t.legendLowConfidence}
-                                        className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-150 ${
-                                            manualFlags[w.id]
-                                                ? 'bg-amber-500 text-white dark:bg-amber-500'
-                                                : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
-                                        }`}
-                                    >
-                                        <Flag size={16} />
-                                        {t.flagLabel}
-                                    </button>
-                                </div>
+                                {!readOnly && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            onClick={() => onSetVerdict?.(w.id, 'correct')}
+                                            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-150 ${
+                                                verdict === 'correct'
+                                                    ? 'bg-green-500 text-white dark:bg-green-600'
+                                                    : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
+                                            }`}
+                                        >
+                                            <Check size={16} />
+                                            {t.legendCorrect}
+                                        </button>
+                                        <button
+                                            onClick={() => onSetVerdict?.(w.id, 'miscue')}
+                                            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-150 ${
+                                                verdict === 'miscue'
+                                                    ? 'bg-rose-500 text-white dark:bg-rose-600'
+                                                    : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
+                                            }`}
+                                        >
+                                            <X size={16} />
+                                            {t.legendMiscue}
+                                        </button>
+                                        <button
+                                            onClick={() => onToggleManualFlag?.(w.id)}
+                                            title={t.legendLowConfidence}
+                                            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors duration-150 ${
+                                                manualFlags[w.id]
+                                                    ? 'bg-amber-500 text-white dark:bg-amber-500'
+                                                    : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
+                                            }`}
+                                        >
+                                            <Flag size={16} />
+                                            {t.flagLabel}
+                                        </button>
+                                    </div>
+                                )}
                                 {showTypePicker && (
                                     <div className="flex flex-wrap items-center gap-2 border-t border-dashed border-gray-900/10 pt-3 dark:border-gray-100/10">
                                         <span className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             {t.typeLabel}
                                         </span>
                                         <button
-                                            onClick={() => onSetErrorType(w.id, 'Omission')}
+                                            onClick={() => onSetErrorType?.(w.id, 'Omission')}
                                             className={`rounded-full px-3 py-1.5 text-sm font-bold transition-colors duration-150 ${
                                                 errorType === 'Omission'
                                                     ? 'bg-rose-500 text-white dark:bg-rose-600'
@@ -203,7 +219,7 @@ export function SelectedWordsCard({
                                             Omission
                                         </button>
                                         <button
-                                            onClick={() => onSetErrorType(w.id, 'Mispronunciation')}
+                                            onClick={() => onSetErrorType?.(w.id, 'Mispronunciation')}
                                             className={`rounded-full px-3 py-1.5 text-sm font-bold transition-colors duration-150 ${
                                                 errorType === 'Mispronunciation'
                                                     ? 'bg-orange-500 text-white dark:bg-orange-600'

@@ -13,41 +13,103 @@
 // component tree specifically so both flows produce identical review
 // data instead of two implementations quietly drifting apart.
 //
-// LAYOUT (mobile, below lg): plain stacked grid, one column — order is
-// summary+passage ("left"), buttons, then the selected-words stack
-// ("wordselect") — unbounded height, the page just flows and grows
-// normally, same as any other page.
+// LAYOUT (below lg — see MOBILE SCROLL FIX below): a HEIGHT-BOUNDED
+// single-column stack — height: calc(100vh - heightBudget.base px) —
+// with grid-template-areas: "left" "buttons" "wordselect", and
+// overflow-y: auto on the GRID ITSELF (not a per-column scroll — there's
+// only one column here, so the whole stack — summary, passage, the
+// Save Draft/Confirm Results buttons, AND the selected-words card —
+// scrolls together as one unit).
 //
 // LAYOUT (lg and up): a HEIGHT-BOUNDED two-column grid —
-// height: calc(100vh - 200px) — with "left" (summary+passage) spanning
-// both rows in column 1, "wordselect" in column 1 of row 1... sorry,
-// column 2 row 1, and "buttons" in column 2 row 2, sized to its own
-// content (grid-template-rows: minmax(0,1fr) auto). Both "left" and
-// "wordselect" get their own lg:overflow-y-auto so a long passage or a
-// long selected-words stack scrolls WITHIN its own column, instead of
-// growing the whole layout taller than its bounded height.
+// height: calc(100vh - heightBudget.lg px) — with "left" (summary+
+// passage) spanning both rows in column 1, "wordselect" in column 2 row
+// 1, and "buttons" in column 2 row 2, sized to its own content
+// (grid-template-rows: minmax(0,1fr) auto).
 //
-// WHY BOUNDED AT ALL: ProtectedLayout.tsx's <main> is `overflow-hidden`
-// and effectively pinned to viewport height (fixed header, flex-1 in a
-// min-h-screen column) — there is NO page-level scrollbar anywhere in
-// this app shell. Anything taller than <main>'s box doesn't scroll, it
-// just gets silently clipped and becomes unreachable. That's exactly
-// what was happening to the Save Draft/Confirm Results buttons once the
-// passage or the selected-words stack got tall enough. The 200px in the
-// calc() above is the exact sum of every fixed vertical space this page
-// spends before AttemptWordReview even starts rendering: <main>'s own
-// lg:pt-20 (80px) + its p-4-derived bottom padding (16px) +
-// TeacherReviewAttempt's wrapper pt-2/pb-12 (8px + 48px) + its back
-// button's own height plus mb-4 (48px) = 200px. If any of those
-// classNames change on TeacherReviewAttempt.tsx or its back button, this
-// number needs to change with them — it is NOT a guess, it's a direct
-// sum of those exact Tailwind values, so keep it in sync rather than
-// re-guessing it.
+// "LEFT" COLUMN INTERNAL LAYOUT (fixed this round — see below): "left"
+// used to just be `overflow-y-auto` and rely on the grid's row-span
+// math to hand it a bounded height indirectly, with ResultsSummaryCard
+// and PassageCard as two plain flex children inside it. That was
+// fragile in a way that produced exactly the bug reported (audio
+// player squished/cut off, passage text abruptly cut with NO
+// scrollbar): a flex container's children can get shrunk/clipped
+// instead of the container ever actually overflowing, so overflow-y-
+// auto never got a chance to kick in, and the "left" box's real height
+// depended on grid-span inheritance instead of being stated directly.
 //
-// This fix is intentionally scoped to THIS page only — ProtectedLayout's
-// shared <main> was left untouched (it affects every page in the app),
-// per explicit decision to avoid touching shared layout for a problem
-// that, so far, has only been reported here.
+// Fixed by giving "left" an EXPLICIT height of its own at lg (the
+// .attempt-word-review-left rule below, same calc(100vh - heightBudget.lg
+// px) total as the grid), and splitting its two children with the
+// standard fixed-header/scrollable-body flex pattern: the results
+// summary wrapper is `shrink-0` (never compressible — this alone is
+// what stops the audio player from being squeezed), and the passage
+// wrapper is `flex-1 min-h-0 overflow-y-auto` (the one combination that
+// reliably turns overflow into a real, working scrollbar instead of
+// silent clipping). This only changes lg — below lg, "left" has no
+// explicit height of its own and both children just stack normally,
+// since the MOBILE SCROLL FIX below already makes the whole grid one
+// scrollable unit.
+//
+// WHY BOUNDED AT ALL: ProtectedLayout.tsx's <main> (and
+// AssessmentSessionLayout.tsx's own <main>, for the inline "Now" mode
+// host) is `overflow-hidden` and effectively pinned to viewport height
+// (fixed header, flex-1 in a min-h-screen column) — there is NO
+// page-level scrollbar anywhere in this app shell, at ANY viewport
+// width. Anything taller than <main>'s box doesn't scroll, it just gets
+// silently clipped and becomes unreachable.
+//
+// MOBILE SCROLL FIX: this used to be a documented gap — the below-lg
+// layout was "just stacked, unbounded height, the page flows normally
+// like any other page," which is WRONG for this specific app shell:
+// there is no page-level scroll to flow into, so on a narrow viewport a
+// long passage (or a long selected-words stack) got hard-clipped by
+// <main>'s overflow-hidden with no way to reach the rest of it or even
+// the Save Draft/Confirm Results buttons below it. Fixed by giving the
+// below-lg case the same bounded-height-plus-overflow-y-auto treatment
+// lg already had, just scoped to the whole grid as one scrollable unit
+// (since mobile has only one column, there's no per-panel split to
+// make).
+//
+// VISIBLE SCROLLBAR (.review-scroll): every scrollable region here used
+// to rely on the OS/browser's own overflow-y-auto scrollbar, which on
+// several platforms (macOS trackpad settings, Chrome's overlay
+// scrollbars) is invisible until actively scrolling — giving no visual
+// hint there's more content below the fold. .review-scroll forces a
+// thin, always-visible (on hover/scroll — see scrollbar-width: thin)
+// teal-tinted scrollbar via both the standard scrollbar-width/-color
+// properties (Firefox) and the -webkit-scrollbar-* pseudo-elements
+// (Chrome/Edge/Safari). Applied to the mobile whole-grid scroll and
+// "wordselect" below — the passage's own scroll region no longer lives
+// here, it moved INTO PassageCard.tsx itself (still using this same
+// .review-scroll class, since the class is global CSS, not scoped to
+// this file) so its legend could get a fixed header the same way
+// SelectedWordsCard.tsx's does — see PassageCard.tsx's own header
+// comment.
+//
+// THEME-AWARE: the `.dark .review-scroll` overrides below switch the
+// thumb from teal-500 to the lighter teal-400 for contrast against dark
+// backgrounds — same ".dark <descendant>" selector pattern index.css
+// already relies on for the page-level scrollbar (`.dark
+// *::-webkit-scrollbar-thumb`), which works because the 'dark' class
+// sits on <html> and every element in the tree is its descendant. No
+// JS/theme-context wiring needed for this — it's a plain CSS rule that
+// reacts to the same class Tailwind's own dark: variant already reads.
+//
+// HEIGHT BUDGET AS A PROP: the "how much fixed chrome sits above this
+// component" number differs by which page hosts it — TeacherReviewAttempt.tsx
+// (Send mode, via ProtectedLayout) has a back button and different
+// wrapper padding than AssessmentSession.tsx (Now mode, via
+// AssessmentSessionLayout), and each layout's own <main> uses a
+// different pt-* at each breakpoint. A single hardcoded number here
+// used to be calibrated for ONE specific caller (TeacherReviewAttempt.tsx)
+// and silently wrong for the other — heightBudget is now an explicit
+// prop with a { base (below lg), lg } shape so each caller supplies its
+// own real, directly-summed numbers instead of this file guessing.
+// Defaults below match TeacherReviewAttempt.tsx's values exactly, so
+// that caller keeps working even if it forgets to pass the prop — but
+// it passes it explicitly anyway, for the same "don't guess, keep it in
+// sync" reason the original number was a direct sum in the first place.
 //
 // Every word starts defaulted to whatever's already been PERSISTED for
 // it — teacher_verdict/teacher_manual_flag/teacher_error_type_override
@@ -86,14 +148,19 @@
 // which is fine — forwardRef makes the ref entirely optional.
 //
 // SELECTED-WORDS STACK: there's no separate "select mode" toggle.
-// Tapping any word in the passage adds it to selectedWordIds (most-
-// recently-tapped first) and smooth-scrolls SelectedWordsCard into
-// view; tapping a word that's already in the stack just moves it back
-// to the top instead of adding a duplicate. Each stacked word gets its
-// own full Correct/Miscue/Needs-Attention controls right there in the
-// card. Clearing the stack (SelectedWordsCard's Clear All button) only
-// clears which words are being actively worked on — it does NOT touch
-// any verdict/flag/override already set on them.
+// Tapping a word in the passage TOGGLES it: not yet in the stack adds
+// it to the top (most-recently-tapped first) and smooth-scrolls
+// SelectedWordsCard into view; already in the stack removes it instead
+// (deselecting it from the passage ring highlight and pulling its card
+// out of SelectedWordsCard) — see handleWordClick below. This used to
+// just move an already-stacked word back to the top on re-tap instead
+// of removing it; changed per explicit ask, since re-tapping a word you
+// were done with had no way to get it back out of the stack short of
+// Clear All. Each stacked word gets its own full Correct/Miscue/Needs-
+// Attention controls right there in the card. Clearing the stack
+// (SelectedWordsCard's Clear All button) only clears which words are
+// being actively worked on — it does NOT touch any verdict/flag/
+// override already set on them.
 //
 // BACK TO PASSAGE: an IntersectionObserver watches the passage card
 // (#passage-card, set in PassageCard.tsx). Once it scrolls out of view —
@@ -137,6 +204,19 @@ import { SelectedWordsCard } from './SelectedWordsCard'
 export type AttemptWordReviewHandle = {
     saveDraftNow: () => Promise<void>
 }
+// See this file's HEIGHT BUDGET AS A PROP comment above. base = below
+// lg (1024px), lg = at/above lg. Both are the number of PIXELS of fixed
+// chrome the host page renders above this component at that breakpoint
+// — a direct sum of that page's own header/wrapper/back-button
+// dimensions, not a guess.
+export type AttemptWordReviewHeightBudget = {
+    base: number
+    lg: number
+}
+// Matches TeacherReviewAttempt.tsx's own numbers exactly (see this
+// file's header comment) — kept as the default so that caller works
+// even without explicitly passing the prop, though it passes it anyway.
+const DEFAULT_HEIGHT_BUDGET: AttemptWordReviewHeightBudget = { base: 232, lg: 200 }
 type AttemptWordReviewProps = {
     attempt: AttemptDetail
     words: AttemptWord[]
@@ -150,9 +230,10 @@ type AttemptWordReviewProps = {
     onSaveDraft: (overrides: WordReviewOverride[]) => void | Promise<void>
     savingDraft: boolean
     studentName?: string | null
+    heightBudget?: AttemptWordReviewHeightBudget
 }
 export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWordReviewProps>(function AttemptWordReview(
-    { attempt, words, onConfirm, confirming, onSaveDraft, savingDraft, studentName },
+    { attempt, words, onConfirm, confirming, onSaveDraft, savingDraft, studentName, heightBudget = DEFAULT_HEIGHT_BUDGET },
     ref
 ) {
     const { lang } = useLang()
@@ -162,7 +243,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
     const [manualFlags, setManualFlags] = useState<Record<string, boolean>>({})
     const [manualErrorType, setManualErrorType] = useState<Record<string, AttemptWord['error_type']>>({})
     // Words currently stacked in SelectedWordsCard, most-recently-tapped
-    // first. See handleWordClick below for the add/move-to-top logic.
+    // first. See handleWordClick below for the add/remove toggle logic.
     const [selectedWordIds, setSelectedWordIds] = useState<string[]>([])
     const [passageVisible, setPassageVisible] = useState(true)
     const audioUrlQuery = useAttemptAudioUrlQuery(attempt.audio_path)
@@ -224,14 +305,22 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
             return next
         })
     }
-    // Passage-side word click: adds the word to the top of the stack, or
-    // — if it's already stacked — moves it back to the top instead of
-    // duplicating it. Then scrolls SelectedWordsCard into view. No
-    // confirmation dialog: this isn't destructive, just a small card
-    // updating.
+    // Passage-side word click: TOGGLES the word in the stack. Already
+    // stacked (checked against the current selectedWordIds before the
+    // state update, since setSelectedWordIds is async) → removed, and
+    // no scroll happens since there's nothing new to reveal. Not yet
+    // stacked → added to the top, then SelectedWordsCard is scrolled
+    // into view so the newly-added card is visible. No confirmation
+    // dialog either way: this isn't destructive, just a small card
+    // appearing/disappearing.
     const handleWordClick = (wordId: string) => {
-        setSelectedWordIds((prev) => [wordId, ...prev.filter((id) => id !== wordId)])
-        document.getElementById('selected-words-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        const alreadySelected = selectedWordIds.includes(wordId)
+        setSelectedWordIds((prev) =>
+            alreadySelected ? prev.filter((id) => id !== wordId) : [wordId, ...prev]
+        )
+        if (!alreadySelected) {
+            document.getElementById('selected-words-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
     }
     const clearSelectedWords = () => setSelectedWordIds([])
     const scrollToPassage = () => {
@@ -281,14 +370,23 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
         <div className="flex flex-col gap-6">
             {hasWords && (
                 // Scoped by the unique .attempt-word-review-grid class
-                // name below. See this file's header comment for the
-                // full explanation of the height budget and why each
-                // column needs its own overflow-y-auto.
+                // name and .review-scroll class below. See this file's
+                // header comment for the full explanation of the height
+                // budget, why below-lg now also gets a bounded height +
+                // scroll, and why "left" now gets its OWN explicit
+                // height + a fixed-header/scrollable-body flex split
+                // instead of relying on the grid's row-span math.
                 <style>{`
                     .attempt-word-review-grid {
                         display: grid;
                         gap: 1.5rem;
                         grid-template-areas: "left" "buttons" "wordselect";
+                    }
+                    @media (max-width: 1023px) {
+                        .attempt-word-review-grid {
+                            height: calc(100vh - ${heightBudget.base}px);
+                            overflow-y: auto;
+                        }
                     }
                     @media (min-width: 1024px) {
                         .attempt-word-review-grid {
@@ -296,36 +394,96 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
                             grid-template-rows: minmax(0, 1fr) auto;
                             align-items: stretch;
                             grid-template-areas: "left wordselect" "left buttons";
-                            height: calc(100vh - 200px);
+                            height: calc(100vh - ${heightBudget.lg}px);
                         }
+                        .attempt-word-review-left {
+                            height: calc(100vh - ${heightBudget.lg}px);
+                        }
+                    }
+                    .review-scroll {
+                        scrollbar-width: thin;
+                        scrollbar-color: rgba(20, 184, 166, 0.55) transparent;
+                    }
+                    .review-scroll::-webkit-scrollbar {
+                        width: 8px;
+                    }
+                    .review-scroll::-webkit-scrollbar-track {
+                        background: transparent;
+                    }
+                    .review-scroll::-webkit-scrollbar-thumb {
+                        background-color: rgba(20, 184, 166, 0.55);
+                        border-radius: 9999px;
+                    }
+                    .review-scroll::-webkit-scrollbar-thumb:hover {
+                        background-color: rgba(20, 184, 166, 0.8);
+                    }
+                    /* Dark-mode thumb: same ".dark <descendant>" pattern
+                    index.css already uses for the page-level scrollbar
+                    (.dark *::-webkit-scrollbar-thumb) — the 'dark' class
+                    lives on <html>, so every element including this one
+                    is a match for ".dark .review-scroll". Shifted to
+                    teal-400 (lighter/more saturated) instead of teal-500,
+                    for contrast against dark backgrounds. */
+                    .dark .review-scroll {
+                        scrollbar-color: rgba(45, 212, 191, 0.55) transparent;
+                    }
+                    .dark .review-scroll::-webkit-scrollbar-thumb {
+                        background-color: rgba(45, 212, 191, 0.55);
+                    }
+                    .dark .review-scroll::-webkit-scrollbar-thumb:hover {
+                        background-color: rgba(45, 212, 191, 0.8);
                     }
                 `}</style>
             )}
-            <div className={hasWords ? 'attempt-word-review-grid' : 'flex flex-col gap-6'}>
+            <div className={hasWords ? 'attempt-word-review-grid review-scroll' : 'flex flex-col gap-6'}>
                 <div
                     style={{ gridArea: hasWords ? 'left' : undefined }}
-                    className="flex flex-col gap-6 lg:min-h-0 lg:overflow-y-auto lg:pr-1"
+                    className="attempt-word-review-left flex flex-col gap-6 lg:min-h-0"
                 >
-                    <ResultsSummaryCard
-                        attempt={attempt}
-                        studentName={studentName}
-                        words={words}
-                        manualFlags={manualFlags}
-                        t={t}
-                        audioUrl={audioUrlQuery.data ?? null}
-                    />
-                    <PassageCard
-                        words={words}
-                        verdicts={verdicts}
-                        manualFlags={manualFlags}
-                        manualErrorType={manualErrorType}
-                        selectedWordIds={selectedWordIds}
-                        t={t}
-                        onWordClick={handleWordClick}
-                    />
+                    {/* Never compressible — this is what stops the
+                    audio player (inside ResultsSummaryCard) from being
+                    squeezed/cut off. A plain flex child would otherwise
+                    shrink below its natural size to help "left" fit,
+                    instead of the passage wrapper below giving up its
+                    own space first. */}
+                    <div className="shrink-0">
+                        <ResultsSummaryCard
+                            attempt={attempt}
+                            studentName={studentName}
+                            words={words}
+                            manualFlags={manualFlags}
+                            t={t}
+                            audioUrl={audioUrlQuery.data ?? null}
+                        />
+                    </div>
+                    {/* Just sizing here now — flex-1 lets this wrapper
+                    take whatever's left after the results card above,
+                    min-h-0 overrides the default min-height:auto that
+                    would otherwise let it grow past that space. The
+                    ACTUAL scrolling (and its own fixed legend header)
+                    now lives inside PassageCard.tsx itself — see that
+                    file's own header comment — mirroring
+                    SelectedWordsCard.tsx's header/scrolling-body split,
+                    per explicit ask to make the legend behave the same
+                    way. lg-only: below lg the whole grid scrolls as one
+                    unit instead (see MOBILE SCROLL FIX above), so this
+                    stays a plain block there and PassageCard's own
+                    header/body split just lays out normally with no
+                    internal scroll of its own. */}
+                    <div className="lg:min-h-0 lg:flex-1">
+                        <PassageCard
+                            words={words}
+                            verdicts={verdicts}
+                            manualFlags={manualFlags}
+                            manualErrorType={manualErrorType}
+                            selectedWordIds={selectedWordIds}
+                            t={t}
+                            onWordClick={handleWordClick}
+                        />
+                    </div>
                 </div>
                 {hasWords && (
-                    <div style={{ gridArea: 'wordselect' }} className="lg:min-h-0">
+                    <div style={{ gridArea: 'wordselect' }} className="review-scroll lg:min-h-0 lg:overflow-y-auto">
                         <SelectedWordsCard
                             words={words}
                             selectedWordIds={selectedWordIds}
@@ -345,8 +503,10 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
                     the other panels, per explicit ask — these two
                     buttons act on the whole review, not on any one panel
                     alone. Sized to its own content (grid row is `auto`),
-                    never part of the scrolling 1fr row, so it's always
-                    inside the bounded height above. */}
+                    never part of the scrolling 1fr row at lg, and — post
+                    MOBILE SCROLL FIX — reachable below lg by scrolling
+                    the whole grid down to it, instead of being
+                    unreachable past whatever got clipped above it. */}
                     <div className="flex flex-col gap-2 rounded-3xl border border-gray-900/5 bg-white/60 p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900/40 sm:flex-row">
                         <button
                             onClick={handleSaveDraft}

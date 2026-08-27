@@ -1,4 +1,5 @@
 // File: assessmentSessionStrings.ts
+// File: assessmentSessionStrings.ts
 // File: src/pages/proficiency/pre_assessment/assessment_session/assessmentSessionStrings.ts
 // Shared types, copy, and small pure helpers for the reading check-in
 // session screen (AssessmentSession.tsx) — split out so that file only
@@ -23,14 +24,43 @@ export type Step = 'intro' | 'loading' | 'passage' | 'error'
 // placeholder. Revisit once real pricing/limits are known.
 export const MAX_RECORDING_SECONDS = 180
 
+// NOTE: deliberately long (~280-300 words each) so that with
+// USE_PLACEHOLDER_PASSAGE on, the review screens (AttemptWordReview /
+// PassageCard scroll region, and PassagePanel's pagination during
+// recording) get exercised the same way a real long Gemini passage would
+// — without spending any AI credits to generate one. Shorten later if a
+// quicker/shorter placeholder is ever needed for a different test.
+//
+// Template literals (backticks) are used here on purpose, with real
+// line breaks for paragraph spacing, instead of '\n\n' escape sequences
+// inside single-quoted strings — the escaped version is fragile to
+// copy/paste out of chat (a real newline can silently replace the
+// two-character '\n\n', breaking the string literal). Backticks avoid
+// that entirely since a literal newline is valid inside them.
 export const PLACEHOLDER_PASSAGES: Record<Lang, Passage> = {
     fil: {
-        title: '[Placeholder] Ang Munting Ibon',
-        passage: 'Ito ay isang placeholder na talata sa Filipino, hindi galing sa Gemini. Ginagamit ito para subukan ang disenyo ng pahinang ito nang hindi gumagamit ng AI credits. Puwede mo itong basahin nang malakas para makita kung paano lalabas ang buong talata dito.',
+        title: '[Placeholder] Ang Munting Ibon sa Malaking Gubat',
+        passage: `Ito ay isang placeholder na talata sa Filipino, hindi galing sa Gemini. Ginagamit ito para subukan ang disenyo ng pahinang ito nang hindi gumagamit ng AI credits. Puwede mo itong basahin nang malakas para makita kung paano lalabas ang buong talata dito.
+
+Noong unang panahon, sa gitna ng isang malaking gubat, may nakatirang munting ibon na ang pangalan ay Maya. Maliit lamang si Maya kumpara sa ibang ibon, ngunit siya ay may malakas na loob at mabuting puso. Araw-araw, lumilipad si Maya mula sa isang sanga patungo sa iba pang sanga, hinahanap ang pinakamasarap na buto at prutas para sa kanyang pamilya.
+
+Isang araw, habang naglalakbay si Maya patungo sa ilog upang uminom ng tubig, narinig niya ang malakas na iyak. Sinundan niya ang tunog at natagpuan niya ang isang munting kuneho na nasilo ang paa sa gitna ng mga sanga. Hindi umatras si Maya kahit siya ay maliit lamang. Tinawag niya ang kanyang mga kaibigang ibon upang tumulong. Magkasama, tinulungan nila ang kuneho na makalaya mula sa bitag.
+
+Mula noon, naging matalik na magkaibigan sina Maya at ang kuneho. Palagi silang magkasama, naglalaro sa ilalim ng malalaking puno at nagkukuwentuhan tuwing gabi bago sumapit ang dilim. Natutunan ni Maya na ang laki ng katawan ay hindi sukatan ng lakas ng loob — ang tunay na kabayanihan ay nanggagaling sa puso.
+
+Hanggang ngayon, kung babasahin mo ang kuwentong ito nang malakas, maaari mong isipin kung paano lumipad si Maya sa ibabaw ng gubat, malaya at masaya, kasama ang kanyang mga kaibigan.`,
     },
     en: {
-        title: '[Placeholder] The Little Bird',
-        passage: 'This is a placeholder English passage, not from Gemini. It exists so the page layout can be tested — spacing, line length, the title, the badges above it — without spending any AI credits. Feel free to read it aloud just like a real generated passage to see how it looks in place.',
+        title: '[Placeholder] The Little Bird of the Great Forest',
+        passage: `This is a placeholder English passage, not from Gemini. It exists so the page layout can be tested — spacing, line length, the title, the badges above it — without spending any AI credits. Feel free to read it aloud just like a real generated passage to see how it looks in place.
+
+Long ago, deep within a great forest, there lived a small bird named Maya. She was tiny compared to the other birds, but she had a brave heart and a kind spirit. Every day, Maya flew from branch to branch, searching for the sweetest seeds and berries to share with her family.
+
+One morning, while Maya was making her way to the river for a drink of water, she heard a loud cry for help. She followed the sound and found a little rabbit whose paw was caught among some tangled branches. Even though she was small, Maya did not turn away. She called out to her bird friends, and together they worked to free the rabbit from the branches.
+
+From that day on, Maya and the rabbit became the best of friends. They spent their afternoons playing beneath the tall trees and telling each other stories every evening before the sky grew dark. Maya learned an important lesson that day: the size of one's body has nothing to do with the size of one's courage. True bravery comes from the heart.
+
+Even now, if you read this story aloud, you might imagine Maya soaring above the forest, free and joyful, together with all of her friends.`,
     },
 }
 
@@ -90,6 +120,15 @@ export type AssessmentStrings = {
     // for teacher" card, since the teacher IS the one reviewing here.
     scoringTitle: string
     scoringDesc: string
+    // Scoring failure handling — see useSubmitAttempt.ts's runScoring /
+    // markAttemptFailed and AssessmentSession.tsx's 'failed' render
+    // branch. Shown when scoring never reached 'scored' because
+    // something actually failed, with a retry option that re-runs
+    // scoring on the same attempt instead of forcing a new recording.
+    scoringFailedTitle: string
+    scoringFailedDesc: string
+    retryScoringLabel: string
+    retryingScoringLabel: string
     reviewConfirmedToast: string
 }
 
@@ -141,6 +180,10 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         submitHint: 'Tapos ka na? Pindutin dito para ipasa sa iyong guro! ✅',
         scoringTitle: 'Sinusuri ang Pagbasa',
         scoringDesc: 'Ilang segundo lang ito — sinusuri ng sistema ang bawat salita bago mo ito ma-kumpirma.',
+        scoringFailedTitle: 'Nagkaproblema sa Pagsusuri',
+        scoringFailedDesc: 'Hindi nasuri ang pagbasa. Puwede mong subukan ulit nang hindi na kailangang mag-record muli.',
+        retryScoringLabel: 'Subukan Ulit',
+        retryingScoringLabel: 'Sinusubukan Ulit…',
         reviewConfirmedToast: 'Nakumpirma ang resulta.',
     },
     en: {
@@ -190,6 +233,10 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         submitHint: 'All done? Tap here to send it to your teacher! ✅',
         scoringTitle: 'Scoring the Reading',
         scoringDesc: "This only takes a few seconds — the system is scoring each word before you confirm the results.",
+        scoringFailedTitle: 'Scoring Ran Into a Problem',
+        scoringFailedDesc: "The reading couldn't be scored. You can try again without re-recording.",
+        retryScoringLabel: 'Try Again',
+        retryingScoringLabel: 'Retrying…',
         reviewConfirmedToast: 'Results confirmed.',
     },
 }

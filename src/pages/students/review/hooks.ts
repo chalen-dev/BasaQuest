@@ -1,4 +1,3 @@
-// File: hooks.ts
 // File: src/pages/students/review/hooks.ts
 //
 // Data layer for the teacher-review feature — shared by both review
@@ -26,6 +25,12 @@
 // useAssignableStudentsQuery in the sibling proficiency/pre_assessment
 // hooks.ts, rather than relying on guessing this project's auto-generated
 // foreign-key constraint name.
+//
+// duration_seconds (added to AttemptDetail alongside the results-page
+// "Insights" section) is the same column useSubmitAttempt.ts already
+// writes at submit time — it just wasn't part of useAttemptQuery's own
+// select list until AttemptResults.tsx needed it to compute
+// words-correct-per-minute.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient'
 export type AttemptStatus = 'pending' | 'processing' | 'scored' | 'failed'
@@ -93,6 +98,11 @@ export type AttemptDetail = {
     completeness_score: number | null
     pron_score: number | null
     audio_path: string | null
+    // Added for the AttemptResults.tsx "Insights" section's
+    // words-correct-per-minute figure — the column itself has existed
+    // on assessment_attempts since useSubmitAttempt.ts started writing
+    // it at submit time, it just wasn't selected here until now.
+    duration_seconds: number | null
     created_at: string
     scored_at: string | null
     reviewed_at: string | null
@@ -258,7 +268,7 @@ export function useAttemptQuery(attemptId: string | null | undefined) {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('assessment_attempts')
-                .select('id, student_id, teacher_id, language, passage_title, passage_text, grade_level, status, error_message, accuracy_score, fluency_score, prosody_score, completeness_score, pron_score, audio_path, created_at, scored_at, reviewed_at, reviewed_by')
+                .select('id, student_id, teacher_id, language, passage_title, passage_text, grade_level, status, error_message, accuracy_score, fluency_score, prosody_score, completeness_score, pron_score, audio_path, duration_seconds, created_at, scored_at, reviewed_at, reviewed_by')
                 .eq('id', attemptId as string)
                 .single()
             if (error) throw error
@@ -317,8 +327,8 @@ export function useAttemptAudioUrlQuery(audioPath: string | null | undefined) {
 // only thing that differs between them is whether the ATTEMPT itself
 // gets marked reviewed afterward. Every word gets written, not just
 // changed ones — see useSubmitReviewMutation's own comment for why
-// (Cohen's kappa agreement tracking needs agreement recorded too, not
-// only disagreement).
+// (Cohen's kappa agreement-rate tracking needs agreement recorded too,
+// not only disagreement).
 async function writeWordReviewOverrides(overrides: WordReviewOverride[], teacherId: string) {
     const nowIso = new Date().toISOString()
     const results = await Promise.all(
@@ -376,6 +386,38 @@ export function useSubmitReviewMutation(teacherId: string | undefined) {
             if (attemptError) throw attemptError
         },
         onSuccess: (_data, { attemptId }) => {
+            queryClient.invalidateQueries({ queryKey: pendingReviewCountKey(teacherId) })
+            queryClient.invalidateQueries({ queryKey: pendingReviewAttemptsKey(teacherId) })
+            queryClient.invalidateQueries({ queryKey: reviewedAttemptsKey(teacherId) })
+            queryClient.invalidateQueries({ queryKey: attemptKey(attemptId) })
+            queryClient.invalidateQueries({ queryKey: attemptWordsKey(attemptId) })
+        },
+    })
+}
+// The inverse of useSubmitReviewMutation — used by AttemptResults.tsx's
+// "Edit Results" button. Clears reviewed_at/reviewed_by back to null,
+// which genuinely (not just visually) moves the attempt back to
+// pending: ResultsList.tsx's query (.not('reviewed_at', 'is', null))
+// stops returning it, and ReviewList.tsx's query (.is('reviewed_at',
+// null)) starts returning it, exactly like an attempt that was never
+// confirmed in the first place. Word-level data (teacher_verdict,
+// teacher_manual_flag, teacher_error_type_override) is left untouched —
+// reopening for editing should resume from what was last confirmed, not
+// wipe it back to the system's own defaults. Same invalidation set as
+// useSubmitReviewMutation, since this flips the exact same underlying
+// state back the other way.
+export function useReopenAttemptMutation(teacherId: string | undefined) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (attemptId: string) => {
+            const { error } = await supabase
+                .from('assessment_attempts')
+                .update({ reviewed_at: null, reviewed_by: null })
+                .eq('id', attemptId)
+            if (error) throw error
+            return { attemptId }
+        },
+        onSuccess: ({ attemptId }) => {
             queryClient.invalidateQueries({ queryKey: pendingReviewCountKey(teacherId) })
             queryClient.invalidateQueries({ queryKey: pendingReviewAttemptsKey(teacherId) })
             queryClient.invalidateQueries({ queryKey: reviewedAttemptsKey(teacherId) })
