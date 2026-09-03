@@ -149,7 +149,7 @@ export const Home: React.FC = () => {
                     style={{ background: 'radial-gradient(circle at 88% -20%, rgba(45,212,191,0.28), transparent 55%)' }}
                 />
                 <div className="relative flex flex-col items-center gap-5 sm:flex-row">
-                    <Owl mood="greeting" size={100} bob />
+                    <Owl mood="happy" size={100} bob />
                     <div>
                         <span className="mb-2 inline-block rounded-full bg-teal-500/15 px-3 py-1 text-xs font-bold text-teal-700 dark:bg-teal-400/15 dark:text-teal-300">
                             {t.schoolTag}

@@ -153,7 +153,7 @@ export const AuthHeaderBanner: React.FC<AuthHeaderBannerProps> = ({
             {/* content */}
             <div className="relative z-10 flex h-full items-center gap-3 px-6">
                 <div className="flex flex-col items-center self-end pb-2">
-                    <Owl mood="greeting" size={58} bob />
+                    <Owl mood="neutral" size={58} bob />
                     <div className="dark:hidden">
                         <OwlBookStack
                             bottomFill="#8d5524"

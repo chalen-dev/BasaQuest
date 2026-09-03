@@ -118,7 +118,7 @@ export const MaterialSelection: React.FC = () => {
                     style={{ background: 'radial-gradient(circle at 88% -20%, rgba(45,212,191,0.28), transparent 55%)' }}
                 />
                 <div className="relative flex flex-col items-center gap-5 sm:flex-row">
-                    <Owl mood="greeting" size={72} bob />
+                    <Owl mood="happy" size={72} bob />
                     <div>
                         <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50 sm:text-3xl">
                             {t.greetingTitle(username)}

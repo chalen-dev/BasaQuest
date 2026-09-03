@@ -1,7 +1,7 @@
 import React from 'react'
 
 export type OwlMood =
-    | 'greeting'
+    | 'neutral'
     | 'happy'
     | 'proud'
     | 'loading'
@@ -25,7 +25,7 @@ interface OwlProps {
 }
 
 const MOOD_IMAGE: Record<OwlMood, string> = {
-    greeting: '/owl/2-owl-greeting.png',
+    neutral: '/owl/1-owl-neutral.png',
     happy: '/owl/2-owl-greeting.png',
     proud: '/owl/3-owl-proud.png',
     celebrating: '/owl/4-owl-celebrating.png',
@@ -38,7 +38,7 @@ const MOOD_IMAGE: Record<OwlMood, string> = {
 }
 
 const MOOD_ALT: Record<OwlMood, string> = {
-    greeting: 'BasaQuest owl mascot waving hello',
+    neutral: 'BasaQuest owl mascot',
     happy: 'BasaQuest owl mascot smiling happily',
     proud: 'BasaQuest owl mascot looking proud',
     celebrating: 'BasaQuest owl mascot celebrating',
@@ -54,7 +54,7 @@ const MOOD_ALT: Record<OwlMood, string> = {
 export const OWL_NEUTRAL_IMAGE = '/owl/1-owl-neutral.png'
 
 export const Owl: React.FC<OwlProps> = ({
-                                            mood = 'greeting',
+                                            mood = 'neutral',
                                             size = 64,
                                             bob = false,
                                             animated = false,

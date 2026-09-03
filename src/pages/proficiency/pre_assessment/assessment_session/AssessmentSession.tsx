@@ -507,7 +507,7 @@ export const AssessmentSession: React.FC = () => {
             )}
             {!profileLoading && isNonReader && step === 'intro' && (
                 <section className="flex flex-col items-center gap-4 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-8 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
-                    <Owl mood="greeting" size={80} bob />
+                    <Owl mood="neutral" size={80} bob />
                     <span className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                         {t.nonReaderKicker}
                     </span>
@@ -522,7 +522,7 @@ export const AssessmentSession: React.FC = () => {
                     <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }} />
                     <div className="relative flex flex-col gap-5">
                         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
-                            <Owl mood="greeting" size={64} bob />
+                            <Owl mood="neutral" size={64} bob />
                             <div>
                                 <span className="text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
                                     {t.kicker}
@@ -587,7 +587,7 @@ export const AssessmentSession: React.FC = () => {
             )}
             {step === 'error' && (
                 <section className="flex flex-col items-center gap-4 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">
-                    <Owl mood="greeting" size={72} />
+                    <Owl mood="neutral" size={72} />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.errorTitle}</h2>
                     <p className="max-w-md text-sm font-medium text-gray-600 dark:text-gray-400">{t.errorDesc}</p>
                     <button
@@ -622,7 +622,7 @@ export const AssessmentSession: React.FC = () => {
                     />
                 ) : attemptQuery.data?.status === 'failed' ? (
                     <section className="flex flex-col items-center gap-4 rounded-3xl border border-red-500/25 bg-red-500/5 p-8 text-center shadow-sm dark:border-red-400/25 dark:bg-red-400/5">
-                        <Owl mood="greeting" size={72} />
+                        <Owl mood="neutral" size={72} />
                         <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.scoringFailedTitle}</h2>
                         <p className="max-w-md text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringFailedDesc}</p>
                         <button

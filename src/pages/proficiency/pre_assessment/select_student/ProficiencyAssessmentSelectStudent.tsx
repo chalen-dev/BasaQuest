@@ -344,7 +344,7 @@ export const ProficiencyAssessmentSelectStudent: React.FC = () => {
             <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }} />
             <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex shrink-0 items-center gap-3">
-                    <Owl mood="greeting" size={44} />
+                    <Owl mood="confused" size={70} />
                     <div>
                         <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
                             <Languages size={12} />
@@ -413,7 +413,7 @@ export const ProficiencyAssessmentSelectStudent: React.FC = () => {
                     style={{ background: 'radial-gradient(circle at 88% -20%, rgba(45,212,191,0.28), transparent 55%)' }}
                 />
                 <div className="relative flex flex-col items-center gap-5 sm:flex-row">
-                    <Owl mood="greeting" size={88} bob />
+                    <Owl mood="neutral" size={88} bob />
                     <div>
                         <span className="flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300 sm:justify-start">
                             <Languages size={14} />
@@ -517,9 +517,12 @@ export const ProficiencyAssessmentSelectStudent: React.FC = () => {
                     <p className="mt-2 max-w-xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.studentPickerDesc}</p>
                 </div>
                 {!selectedLang ? (
-                    <p className="mt-5 rounded-2xl border border-dashed border-gray-900/15 px-4 py-3 text-sm font-semibold text-gray-500 dark:border-gray-100/15 dark:text-gray-400">
-                        {t.pickLanguageFirst}
-                    </p>
+                    <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dashed border-gray-900/15 px-4 py-3 dark:border-gray-100/15">
+                        <Owl mood="confused" size={36} />
+                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                            {t.pickLanguageFirst}
+                        </p>
+                    </div>
                 ) : (
                     <div className="mt-5 flex flex-1 flex-col gap-6 lg:min-h-0 lg:flex-row">
                         {/* Left column — search + filters, stays put, never scrolls */}

@@ -362,7 +362,7 @@ export const AttemptResults: React.FC = () => {
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
                 <AttemptResultsSubNav />
                 <section className="flex flex-col items-center gap-3 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">
-                    <Owl mood="greeting" size={64} />
+                    <Owl mood="neutral" size={64} />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.notFoundTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.notFoundDesc}</p>
                 </section>
