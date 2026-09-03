@@ -1,54 +1,11 @@
 // File: hooks.ts
 // File: src/pages/students/review/hooks.ts
-//
-// Data layer for the teacher-review feature — shared by both review
-// surfaces: the inline "Now"-mode review step (used from
-// AssessmentSession.tsx) and the "Send"-mode review list/detail pages
-// under this same folder.
-//
-// Scoring happens async on the separate basaquest-scoring service (Azure
-// Pronunciation Assessment) — submitting an attempt just kicks it off,
-// it doesn't wait for it to finish (see useSubmitAttempt.ts). So an
-// attempt sits at status 'pending'/'processing' for a few seconds before
-// flipping to 'scored' (or 'failed'). useAttemptQuery polls while that's
-// true so callers don't have to wire up their own timer.
-//
-// assessment_attempts.teacher_id is always populated correctly at
-// submit time regardless of flow (see AssessmentSession.tsx's
-// handleSubmit: the teacher's own id for "Now" mode, the pupil's own
-// teacher_id for "Send"/self-serve mode) — so every query here filters
-// directly on that indexed column instead of joining through profiles,
-// matching how the existing "Teachers can view their pupils' attempts"
-// RLS policy already allows it.
-//
-// Student names are fetched as a second query and joined in JS, not via
-// a PostgREST embedded-resource select — same pattern already used by
-// useAssignableStudentsQuery in the sibling proficiency/pre_assessment
-// hooks.ts, rather than relying on guessing this project's auto-generated
-// foreign-key constraint name.
-//
-// duration_seconds (added to AttemptDetail alongside the results-page
-// "Insights" section) is the same column useSubmitAttempt.ts already
-// writes at submit time — it just wasn't part of useAttemptQuery's own
-// select list until AttemptResults.tsx needed it to compute
-// words-correct-per-minute.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient'
 export type AttemptStatus = 'pending' | 'processing' | 'scored' | 'failed'
 export type ErrorType = 'None' | 'Omission' | 'Insertion' | 'Mispronunciation'
 export type Verdict = 'correct' | 'miscue'
-// The only two error types the manual type-picker in WordListCard.tsx
-// ever offers — Insertion and None aren't picker options (see the
-// migration's own comment for why), so an override can only ever be one
-// of these two, or null (no override, defer to the system's error_type).
 export type ManualErrorTypeOverride = 'Omission' | 'Mispronunciation' | null
-// Bucket a pupil's recording is uploaded to at submit time — mirrors
-// RECORDINGS_BUCKET in
-// proficiency/pre_assessment/assessment_session/features/useSubmitAttempt.ts.
-// Kept as its own local constant rather than importing across into that
-// unrelated feature folder, same self-containment call already made for
-// useStudentProfileQuery below — but if that bucket name ever changes,
-// it has to change in BOTH places.
 const RECORDINGS_BUCKET = 'assessment-recordings'
 export type PendingReviewAttempt = {
     id: string
@@ -64,10 +21,6 @@ export type PendingReviewAttempt = {
     scored_at: string | null
     student: { full_name: string | null; username: string | null; grade_level: number | null } | null
 }
-// Counterpart to PendingReviewAttempt, for the Results tab
-// (ResultsList.tsx) — same shape plus reviewed_at, which is always set
-// for anything this list returns (see useReviewedAttemptsQuery's own
-// `.not('reviewed_at', 'is', null)` filter).
 export type ReviewedAttempt = {
     id: string
     student_id: string
@@ -99,10 +52,6 @@ export type AttemptDetail = {
     completeness_score: number | null
     pron_score: number | null
     audio_path: string | null
-    // Added for the AttemptResults.tsx "Insights" section's
-    // words-correct-per-minute figure — the column itself has existed
-    // on assessment_attempts since useSubmitAttempt.ts started writing
-    // it at submit time, it just wasn't selected here until now.
     duration_seconds: number | null
     created_at: string
     scored_at: string | null
@@ -122,19 +71,9 @@ export type AttemptWord = {
     teacher_verdict: Verdict | null
     teacher_reviewed_at: string | null
     teacher_reviewed_by: string | null
-    // Both added alongside the "Save Draft" feature — previously these
-    // were local-only component state (manualFlags / manualErrorType in
-    // AttemptWordReview.tsx) with no column at all, so they reset on
-    // reload. See the migration comment for the full rationale.
     teacher_manual_flag: boolean
     teacher_error_type_override: ManualErrorTypeOverride
 }
-// Everything a teacher can edit for one word, bundled together — used by
-// BOTH useSaveDraftMutation and useSubmitReviewMutation, since a final
-// Confirm Results should persist manual flags/overrides just as much as
-// a draft save does. The only difference between draft and final is
-// whether reviewed_at/reviewed_by get set on assessment_attempts
-// afterward.
 export type WordReviewOverride = {
     wordId: string
     verdict: Verdict
@@ -153,11 +92,6 @@ const pendingReviewAttemptsKey = (teacherId: string | undefined) => ['pending-re
 const reviewedAttemptsKey = (teacherId: string | undefined) => ['reviewed-attempts', teacherId] as const
 const attemptKey = (attemptId: string | null | undefined) => ['attempt', attemptId] as const
 const attemptWordsKey = (attemptId: string | null | undefined) => ['attempt-words', attemptId] as const
-// Shared by the ProtectedHeader "Students" pill badge and the Dashboard
-// stat card — one source of truth so the two never drift out of sync.
-// Polled (not realtime) since scoring finishes on a separate service; a
-// teacher sitting on either screen should see the count update within a
-// few seconds of a new attempt landing, not just on next navigation.
 export function usePendingReviewCountQuery(teacherId: string | undefined) {
     return useQuery({
         queryKey: pendingReviewCountKey(teacherId),
@@ -176,13 +110,6 @@ export function usePendingReviewCountQuery(teacherId: string | undefined) {
     })
 }
 type PendingReviewAttemptsArgs = { teacherId: string | undefined; page: number }
-// Ordered by created_at (ascending — oldest submitted reading first, so
-// this behaves as a FIFO review queue) rather than scored_at. Scoring
-// finishes on a separate async service (basaquest-scoring) at a variable
-// delay after submission, so scored_at order could jumble two readings
-// out of the order they actually came in — created_at is the stable,
-// meaningful "when was this actually recorded" timestamp a teacher would
-// expect a queue to be ordered by.
 export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReviewAttemptsArgs) {
     return useQuery({
         queryKey: [...pendingReviewAttemptsKey(teacherId), page],
@@ -219,13 +146,6 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
     })
 }
 type ReviewedAttemptsArgs = { teacherId: string | undefined; page: number }
-// Confirmed attempts — the counterpart to usePendingReviewAttemptsQuery,
-// feeding the Results tab (ResultsList.tsx) where a teacher can browse
-// back through readings they've already reviewed. Ordered by
-// reviewed_at descending (most recently confirmed first) rather than
-// created_at — unlike the pending queue (a FIFO worklist to clear),
-// browsing past results is naturally "what did I just finish", not
-// "what's oldest".
 export function useReviewedAttemptsQuery({ teacherId, page }: ReviewedAttemptsArgs) {
     return useQuery({
         queryKey: [...reviewedAttemptsKey(teacherId), page],
@@ -261,8 +181,6 @@ export function useReviewedAttemptsQuery({ teacherId, page }: ReviewedAttemptsAr
         placeholderData: (prev) => prev,
     })
 }
-// Polls every 3s while the attempt is still pending/processing (scoring
-// in flight on basaquest-scoring), stops once it lands on scored/failed.
 export function useAttemptQuery(attemptId: string | null | undefined) {
     return useQuery({
         queryKey: attemptKey(attemptId),
@@ -282,9 +200,6 @@ export function useAttemptQuery(attemptId: string | null | undefined) {
         },
     })
 }
-// `enabled` is threaded through explicitly (rather than just checking
-// attemptId) so callers can gate this off until the attempt has actually
-// reached 'scored' — there's nothing to fetch before then.
 export function useAttemptWordsQuery(attemptId: string | null | undefined, enabled: boolean) {
     return useQuery({
         queryKey: attemptWordsKey(attemptId),
@@ -300,14 +215,6 @@ export function useAttemptWordsQuery(attemptId: string | null | undefined, enabl
         enabled: !!attemptId && enabled,
     })
 }
-// A pupil's recording lives in a PRIVATE bucket (nothing here is
-// publicly readable — see the bucket's own RLS/storage policies), so
-// playback needs a short-lived signed URL rather than a plain public
-// URL. Re-fetched well before the 1-hour signature actually expires
-// (staleTime below is 50 minutes) so a teacher who leaves the review
-// page open doesn't hit a dead link mid-session. Disabled entirely when
-// the attempt has no audio_path — older attempts predating this column,
-// or anything that failed upload.
 export function useAttemptAudioUrlQuery(audioPath: string | null | undefined) {
     return useQuery({
         queryKey: ['attempt-audio-url', audioPath],
@@ -322,14 +229,6 @@ export function useAttemptAudioUrlQuery(audioPath: string | null | undefined) {
         staleTime: 50 * 60 * 1000,
     })
 }
-// Writes every word's verdict/flag/error-type-override in one go —
-// shared by useSaveDraftMutation and useSubmitReviewMutation so a draft
-// save and a final confirm persist identically at the word level; the
-// only thing that differs between them is whether the ATTEMPT itself
-// gets marked reviewed afterward. Every word gets written, not just
-// changed ones — see useSubmitReviewMutation's own comment for why
-// (Cohen's kappa agreement-rate tracking needs agreement recorded too,
-// not only disagreement).
 async function writeWordReviewOverrides(overrides: WordReviewOverride[], teacherId: string) {
     const nowIso = new Date().toISOString()
     const results = await Promise.all(
@@ -349,12 +248,6 @@ async function writeWordReviewOverrides(overrides: WordReviewOverride[], teacher
     const wordError = results.find((r) => r.error)?.error
     if (wordError) throw wordError
 }
-// Persists the current in-progress review WITHOUT finalizing it — the
-// attempt stays exactly where it was (still shows up in the pending
-// review list, since reviewed_at stays null) but the next time this
-// attempt is opened, AttemptWordReview.tsx can seed its state from
-// teacher_verdict/teacher_manual_flag/teacher_error_type_override
-// instead of starting over from the system's own defaults.
 export function useSaveDraftMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -368,23 +261,47 @@ export function useSaveDraftMutation(teacherId: string | undefined) {
         },
     })
 }
-// Writes a teacher_verdict (plus manual flag / error-type override) for
-// EVERY word, then marks the attempt itself reviewed — this is the
-// terminal action; unlike useSaveDraftMutation, it also clears the
-// attempt off the pending-review list (and onto the Results list — see
-// reviewedAttemptsKey below).
+// Writes every word's teacher verdict, marks the attempt reviewed, then
+// PERMANENTLY removes the recording — both the file in the
+// assessment-recordings bucket AND the audio_path column itself, in the
+// same update() call that sets reviewed_at/reviewed_by. Nulling the
+// column (not just deleting the file) is deliberate, not optional — the
+// app's own privacy commitment is that a recording does not survive
+// past initial review, so audio_path must actually reflect "there is no
+// recording anymore" rather than continuing to point at a file that no
+// longer exists. This is also what ResultsSummaryCard.tsx now keys off
+// of to decide whether to show the audio player or a "no recording
+// stored" message (see that file) — it checks attempt.audio_path, not
+// just whether a signed URL happened to resolve.
+//
+// Order matters: the DB update (reviewed_at/reviewed_by/audio_path) runs
+// FIRST and is allowed to throw normally — that's the actual "is this
+// attempt reviewed" state and must succeed. The storage removal runs
+// AFTER, and failures there are only logged (matching
+// useDiscardAttemptMutation's own best-effort pattern) — a storage
+// hiccup should never leave a teacher stuck unable to confirm a review,
+// worst case is a leftover orphaned file in the bucket that audio_path
+// no longer points to anyway.
 export function useSubmitReviewMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async ({ attemptId, overrides }: { attemptId: string; overrides: WordReviewOverride[] }) => {
+        mutationFn: async ({ attemptId, overrides, audioPath }: { attemptId: string; overrides: WordReviewOverride[]; audioPath: string | null }) => {
             if (!teacherId) throw new Error('Missing teacher id')
             await writeWordReviewOverrides(overrides, teacherId)
             const nowIso = new Date().toISOString()
             const { error: attemptError } = await supabase
                 .from('assessment_attempts')
-                .update({ reviewed_at: nowIso, reviewed_by: teacherId })
+                .update({ reviewed_at: nowIso, reviewed_by: teacherId, audio_path: null })
                 .eq('id', attemptId)
             if (attemptError) throw attemptError
+            if (audioPath) {
+                const { error: storageError } = await supabase.storage
+                    .from(RECORDINGS_BUCKET)
+                    .remove([audioPath])
+                if (storageError) {
+                    console.error('useSubmitReviewMutation: failed to remove recording from storage', storageError)
+                }
+            }
         },
         onSuccess: (_data, { attemptId }) => {
             queryClient.invalidateQueries({ queryKey: pendingReviewCountKey(teacherId) })
@@ -395,18 +312,6 @@ export function useSubmitReviewMutation(teacherId: string | undefined) {
         },
     })
 }
-// The inverse of useSubmitReviewMutation — used by AttemptResults.tsx's
-// "Edit Results" button. Clears reviewed_at/reviewed_by back to null,
-// which genuinely (not just visually) moves the attempt back to
-// pending: ResultsList.tsx's query (.not('reviewed_at', 'is', null))
-// stops returning it, and ReviewList.tsx's query (.is('reviewed_at',
-// null)) starts returning it, exactly like an attempt that was never
-// confirmed in the first place. Word-level data (teacher_verdict,
-// teacher_manual_flag, teacher_error_type_override) is left untouched —
-// reopening for editing should resume from what was last confirmed, not
-// wipe it back to the system's own defaults. Same invalidation set as
-// useSubmitReviewMutation, since this flips the exact same underlying
-// state back the other way.
 export function useReopenAttemptMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -427,25 +332,6 @@ export function useReopenAttemptMutation(teacherId: string | undefined) {
         },
     })
 }
-// PERMANENTLY deletes an attempt — used by AttemptWordReview.tsx's
-// Discard button. Unlike useReopenAttemptMutation (which just flips
-// reviewed_at back to null and is fully reversible), this is a genuine
-// one-way door: the word rows, the recording in storage, and the
-// assessment_attempts row itself are all actually removed. There is no
-// "undiscard".
-//
-// Word rows are deleted FIRST, explicitly, rather than assuming
-// assessment_attempt_words has an ON DELETE CASCADE foreign key back to
-// assessment_attempts — this way the delete works correctly whether or
-// not that cascade actually exists in the schema (deleting an
-// already-empty set of word rows is just a harmless no-op if it does).
-//
-// The storage removal is best-effort: audioPath can be null (an older
-// attempt, or a simulated take with no real recording — see
-// useRecorder.ts's `simulate`), and even when it's present a storage
-// error is only logged rather than aborting the rest of the discard —
-// a leftover orphaned recording file is a far smaller problem than a
-// teacher being unable to discard a bad attempt at all.
 export function useDiscardAttemptMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -479,11 +365,6 @@ export function useDiscardAttemptMutation(teacherId: string | undefined) {
         },
     })
 }
-// Used by TeacherReviewAttempt.tsx to show whose reading this is — a
-// small standalone lookup rather than reusing
-// proficiency/pre_assessment/hooks.ts's useAssistedStudentProfile, to
-// keep the review feature's data layer self-contained in this folder
-// instead of reaching across into an unrelated feature.
 export function useStudentProfileQuery(studentId: string | null | undefined) {
     return useQuery({
         queryKey: ['review-student-profile', studentId],

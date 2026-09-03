@@ -1,89 +1,21 @@
 // File: PassageCard.tsx
-// File: PassageCard.tsx
-// File: PassageCard.tsx
 // File: src/pages/students/review/features/PassageCard.tsx
 //
-// Passage-text-only panel of AttemptWordReview — just the color legend,
-// the tap hint, and the passage itself as flowing colored text. Used to
-// also hold the header/recording/scores block, but that moved out into
-// its own ResultsSummaryCard.tsx per explicit ask: the passage panel
-// should hold ONLY the passage, with results/recording info living in a
-// separate visual container. Shared identically by the editable flow
-// (AttemptWordReview.tsx) and the read-only results flow
-// (AttemptResults.tsx) — no readOnly prop needed, since there's nothing
-// conditionally hidden here.
+// Passage-text-only panel of AttemptWordReview. id="passage-card" is
+// load-bearing: the parent uses it as the IntersectionObserver target
+// for the mobile "Back to Passage" button. lg:h-full lg:min-h-0 means
+// this always fills whatever height its wrapper div hands it — that
+// wrapper is now a plain flex-1 sibling of ResultsSummaryCard's own
+// wrapper in AttemptWordReview.tsx's draggable-divider layout, so this
+// component itself needs no resize-related props at all; it just fills
+// whatever space it's given, same as it always has.
 //
-// id="passage-card" on the outer section is load-bearing: the parent
-// uses it both as the IntersectionObserver target (to know when to show
-// the "Back to Passage" floating button, mobile-only — see
-// AttemptWordReview.tsx) and as the scroll target that button jumps
-// back to.
-//
-// FIXED LEGEND HEADER + SCROLLING BODY (this pass): the legend/tap-hint
-// block used to just flow together with the passage text as one
-// scrolling unit (AttemptWordReview.tsx's wrapper div around this
-// component owned the scrolling). Per explicit ask ("make the legend
-// fixed like SelectedWordsCard's header"), this component now owns its
-// OWN internal scroll instead, split the same way
-// SelectedWordsCard.tsx's header/body already are: the legend+hint
-// block is a plain (non-sticky, non-positioned) shrink-0 first child,
-// structurally OUTSIDE the scrolling passage-text body below it — see
-// SelectedWordsCard.tsx's own HEADER PLACEMENT comment for why plain
-// sibling-splitting was used instead of position:sticky (three earlier
-// sticky attempts elsewhere in this app all let content visually bleed
-// in front of a sticky header during scroll; a true sibling split
-// guarantees nothing that scrolls ever shares a box with it). The
-// outer <section> is now `flex flex-col lg:h-full lg:min-h-0` so it
-// fills whatever height AttemptWordReview.tsx's wrapper gives it, the
-// header keeps its natural size (shrink-0), and the passage body takes
-// the rest (lg:flex-1 lg:min-h-0 lg:overflow-y-auto — the same fixed-
-// header/scrollable-body flex combination used everywhere else in this
-// review UI). Below lg this produces no scrolling of its own — the
-// whole grid scrolls as one unit instead (see
-// AttemptWordReview.tsx's MOBILE SCROLL FIX comment) — so the
-// header/body split there is just plain stacked layout with no
-// functional difference from before.
-//
-// .review-scroll (defined in AttemptWordReview.tsx, a global class, not
-// scoped to that file) gives the passage body the same visible themed
-// scrollbar as every other scroll region in this review UI, including
-// the dark-mode color override.
-//
-// SELECTED-WORDS RING: any word whose id is in selectedWordIds (the
-// stack shown in SelectedWordsCard, on the editable flow only) gets a
-// sky-blue ring so it's clear which words are currently in the working
-// set. selectedWordIds is optional and defaults to empty, so the
-// read-only AttemptResults.tsx page (which never passes it) renders
-// with no ring logic at all. The corner error-type badge carries an
-// explicit z-index — without one, a neighboring word's background
-// (later in the DOM, tightly packed inline) painted over it.
-//
-// VERDICT BACKGROUNDS — CORRECT LIGHTENED, MISCUE UNCHANGED (this pass,
-// THIRD iteration): per explicit ask, Correct words should read as
-// quietly "fine" while Miscue stays the sharp, attention-grabbing
-// signal. Two earlier attempts missed the mark: first just a darker
-// shade of the same vivid green (still read as "strong green," just
-// dimmer); second swapped to a custom desaturated sage/olive tone,
-// which read as flat GRAY rather than green at all — over-corrected.
-// This pass goes the other direction: a light, PASTEL green background
-// (Tailwind's green-100/green-200, not a custom muted hex) with dark
-// green TEXT instead of white — this is what actually reads as "soft
-// green" rather than either "bold green" or "gray," since lightness
-// (not desaturation) is what makes a color feel calm while staying
-// unambiguously green. Dark mode mirrors the same idea inverted: a low-
-// opacity dark green background (green-900/40) with a light green text
-// color, so it stays soft/quiet against the dark card without washing
-// out — opacity is fine here specifically because the background this
-// sits on (PassageCard's own dark gradient) is a known, controlled
-// color, unlike the earlier translucent-on-page-background problem this
-// file's history warns about. Miscue stays exactly rose-600/rose-700
-// (hover), completely untouched — it's the one that should still pop.
-//
-// The error-type corner icon reflects the EFFECTIVE type (system
-// detection, or a teacher's manual Omission/Mispronunciation override
-// from SelectedWordsCard's type picker) via effectiveErrorType(), not
-// the raw system value — so overriding a word's type updates its icon
-// in the passage too.
+// LEGEND: includes the Omission/Mispronunciation corner-icon meanings
+// via ErrorTypeIcon with literal 'Omission'/'Mispronunciation' — same
+// untranslated labels WordListCard's own type-picker buttons use. The
+// "tap a word to add it here" hint pill that used to sit at the right
+// of this row has been removed per request — the legend row is now
+// just the legend, left-aligned.
 import type { AttemptWord, Verdict } from '../hooks'
 import type { AttemptWordReviewStrings } from './attemptWordReviewStrings'
 import { effectiveErrorType, wordTooltip } from './attemptWordReviewHelpers'
@@ -93,10 +25,6 @@ type PassageCardProps = {
     verdicts: Record<string, Verdict>
     manualFlags: Record<string, boolean>
     manualErrorType: Record<string, AttemptWord['error_type']>
-    // Ids currently stacked in SelectedWordsCard (AttemptWordReview's
-    // editable flow only) — every matching word gets a highlight ring.
-    // Omitted/undefined on the read-only AttemptResults.tsx page, where
-    // there's no such concept.
     selectedWordIds?: string[]
     t: AttemptWordReviewStrings
     onWordClick: (wordId: string) => void
@@ -124,48 +52,28 @@ export function PassageCard({
                 </p>
             ) : (
                 <>
-                    {/* FIXED HEADER — legend + tap hint, now sharing one
-                    row (per explicit ask) instead of hint sitting on its
-                    own line below. shrink-0, a true sibling of the
-                    scrolling body below rather than sharing a box with
-                    it — see this file's header comment for why.
-                    justify-between + flex-wrap lets the hint drop to
-                    its own line only when the legend swatches don't
-                    leave room for it, rather than ever overlapping. */}
                     <div className="relative shrink-0 px-6 pt-6 sm:px-8 sm:pt-8">
-                        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-dashed border-gray-900/10 pb-4 dark:border-gray-100/10">
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                                <LegendSwatch colorClass="bg-green-500" label={t.legendCorrect} />
-                                <LegendSwatch colorClass="bg-rose-500" label={t.legendMiscue} />
-                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
-                                    <span className="inline-block h-3 w-5 rounded-full border-2 border-dashed border-amber-500 dark:border-amber-400" />
-                                    {t.legendInserted}
-                                </span>
-                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
-                                    <span className="inline-block h-3 w-3 rounded-full bg-gray-300 ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:bg-gray-600 dark:ring-amber-300 dark:ring-offset-gray-900" />
-                                    {t.legendLowConfidence}
-                                </span>
-                            </div>
-                            {/* Dashed-outline pill, same "dashed border
-                            = affordance/instruction" visual language
-                            this file already uses (the Inserted-word
-                            swatch above, and SelectedWordsCard's own
-                            dashed-border empty-state box) — reads as a
-                            hint rather than plain caption text now. */}
-                            <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-dashed border-teal-500/50 px-3 py-1 text-xs font-semibold text-teal-700 dark:border-teal-400/40 dark:text-teal-300">
-                                {t.tapHint}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-dashed border-gray-900/10 pb-4 dark:border-gray-100/10">
+                            <LegendSwatch colorClass="bg-green-500" label={t.legendCorrect} />
+                            <LegendSwatch colorClass="bg-rose-500" label={t.legendMiscue} />
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                <span className="inline-block h-3 w-5 rounded-full border-2 border-dashed border-amber-500 dark:border-amber-400" />
+                                {t.legendInserted}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                <span className="inline-block h-3 w-3 rounded-full bg-gray-300 ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:bg-gray-600 dark:ring-amber-300 dark:ring-offset-gray-900" />
+                                {t.legendLowConfidence}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                <ErrorTypeIcon errorType="Omission" />
+                                Omission
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                <ErrorTypeIcon errorType="Mispronunciation" />
+                                Mispronunciation
                             </span>
                         </div>
                     </div>
-                    {/* SCROLLING BODY — just the passage text. lg:flex-1
-                    lg:min-h-0 lg:overflow-y-auto is the same fixed-
-                    header/scrollable-body combination
-                    AttemptWordReview.tsx's "left" column and
-                    SelectedWordsCard.tsx both use. review-scroll gives
-                    it the shared visible/theme-aware scrollbar (defined
-                    in AttemptWordReview.tsx). Below lg this is a plain
-                    block with no scroll of its own — the whole grid
-                    scrolls as one unit there instead. */}
                     <div className="review-scroll relative px-6 pb-6 pt-4 sm:px-8 sm:pb-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-4">
                         <p className="text-lg font-medium leading-[2.1] tracking-wide text-gray-800 dark:text-gray-200" style={{ wordSpacing: '0.1em' }}>
                             {words.map((w) => {
@@ -195,10 +103,6 @@ export function PassageCard({
                                                 {displayWord}
                                             </span>
                                             {hasTypeIcon && (
-                                                // h-[18px]/w-[18px] and the -2 offsets (up from h-4/w-4 and
-                                                // -1.5) give the now-slightly-bigger ErrorTypeIcon (size 13,
-                                                // up from 10) enough breathing room inside the circle
-                                                // instead of touching its edges.
                                                 <span className="absolute -right-2 -top-2 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white text-gray-700 shadow ring-1 ring-gray-900/10 dark:bg-gray-800 dark:text-gray-200 dark:ring-gray-100/10">
                                                     <ErrorTypeIcon errorType={errorType} />
                                                 </span>

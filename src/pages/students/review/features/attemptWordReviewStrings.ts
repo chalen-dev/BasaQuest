@@ -1,11 +1,6 @@
 // File: attemptWordReviewStrings.ts
 // File: attemptWordReviewStrings.ts
 // File: src/pages/students/review/features/attemptWordReviewStrings.ts
-//
-// Bilingual copy for AttemptWordReview and its two sub-cards
-// (PassageCard, SelectedWordsCard). Split out into its own file so those
-// components — and any future one that needs the same copy — can import
-// just the strings without pulling in the whole orchestrator component.
 import type { Lang } from '../../../../components/buttons/LangToggle'
 export const STRINGS: Record<Lang, {
     kicker: string
@@ -31,28 +26,18 @@ export const STRINGS: Record<Lang, {
     confirming: string
     saveDraftLabel: string
     savingDraftLabel: string
-    // Discard button (see AttemptWordReview.tsx's own comment) — a
-    // permanent, one-way delete of the whole attempt. The confirmation
-    // dialog copy below is deliberately more severe than
-    // confirmDialogTitle/Text (Confirm Results is a one-way door too,
-    // but it still leaves the attempt's data around; this erases it).
     discardLabel: string
     discarding: string
     discardDialogTitle: string
     discardDialogText: string
     discardDialogConfirmButton: string
-    // Shown as a periodic toast (see AttemptWordReview.tsx's REMINDER
-    // INTERVAL comment) only while there are unsaved verdict/flag/type
-    // edits sitting in local state — not shown at all once the teacher
-    // has saved (draft or confirm) or made no edits yet.
     unsavedReminderToast: string
-    // LAST SAVED LABEL (see AttemptWordReview.tsx's own comment) — the
-    // small caption above the Save Draft/Confirm Results buttons.
     lastSavedNever: string
     lastSavedJustNow: string
     lastSavedMinutesAgo: (n: number) => string
     lastSavedHoursAgo: (n: number) => string
     recordingLabel: string
+    noRecordingMessage: string
     emptyWords: string
     confirmDialogTitle: string
     confirmDialogText: string
@@ -62,6 +47,15 @@ export const STRINGS: Record<Lang, {
     selectedWordsEmptyTitle: string
     selectedWordsEmptyHint: string
     clearAllLabel: string
+    // DRAGGABLE DIVIDER (AttemptWordReview.tsx, between
+    // ResultsSummaryCard and PassageCard) — tooltip on the drag handle.
+    dividerHint: string
+    // WORD SEARCH (SelectedWordsCard.tsx) — the search box that lets a
+    // teacher find any word in the whole passage (not just the current
+    // stack) and click it to add it to the stack.
+    searchPlaceholder: string
+    searchResultsLabel: (n: number) => string
+    searchNoResults: string
 }> = {
     fil: {
         kicker: 'Pagsusuri',
@@ -98,15 +92,20 @@ export const STRINGS: Record<Lang, {
         lastSavedMinutesAgo: (n) => `Na-save ${n} minuto ang nakalipas`,
         lastSavedHoursAgo: (n) => `Na-save ${n} oras ang nakalipas`,
         recordingLabel: 'Rekording',
+        noRecordingMessage: 'Wala nang naka-imbak na rekording para sa pagbasang ito — awtomatiko itong tinatanggal kapag nakumpirma na ang resulta.',
         emptyWords: 'Wala pang word-level na datos para sa pagsusuring ito.',
         confirmDialogTitle: 'Isumite ang mga resultang ito?',
-        confirmDialogText: 'Malapit mo nang kumpirmahin ang pagsusuring ito. Hindi na ito maaaring bawiin.',
+        confirmDialogText: 'Malapit mo nang kumpirmahin ang pagsusuring ito. Permanente ring mabubura ang rekording — hindi mo na ito maririnig muli, pero maaari mo pa ring i-edit ang mga resulta kung kinakailangan. Hindi na ito maaaring bawiin.',
         confirmDialogConfirmButton: 'Oo, Kumpirmahin',
         backToPassageLabel: 'Bumalik sa Talata',
         selectedWordsKicker: 'Mga Napiling Salita',
         selectedWordsEmptyTitle: 'Wala pang napiling salita',
         selectedWordsEmptyHint: 'Ang mga salitang pinindot mo sa talata ay lalabas dito, ang pinakabago sa itaas.',
         clearAllLabel: 'I-clear Lahat',
+        dividerHint: 'I-drag para baguhin ang laki',
+        searchPlaceholder: 'Maghanap ng salita...',
+        searchResultsLabel: (n) => `${n} resultang salita`,
+        searchNoResults: 'Walang nahanap na tumutugmang salita.',
     },
     en: {
         kicker: 'Review',
@@ -143,15 +142,20 @@ export const STRINGS: Record<Lang, {
         lastSavedMinutesAgo: (n) => `Saved ${n}m ago`,
         lastSavedHoursAgo: (n) => `Saved ${n}h ago`,
         recordingLabel: 'Recording',
+        noRecordingMessage: 'No recording is stored for this reading — it was automatically deleted once the results were confirmed.',
         emptyWords: "There's no word-level data for this attempt yet.",
         confirmDialogTitle: 'Submit these results?',
-        confirmDialogText: "You're about to confirm this review. This can't be undone.",
+        confirmDialogText: "You're about to confirm this review. This will also permanently delete the recording — you won't be able to listen to it again, but you can still edit the results afterward if needed. This can't be undone.",
         confirmDialogConfirmButton: 'Yes, Confirm',
         backToPassageLabel: 'Back to Passage',
         selectedWordsKicker: 'Selected Words',
         selectedWordsEmptyTitle: 'No words selected yet',
         selectedWordsEmptyHint: "Words you tap in the passage will stack here, most recent on top.",
         clearAllLabel: 'Clear All',
+        dividerHint: 'Drag to resize',
+        searchPlaceholder: 'Search for a word...',
+        searchResultsLabel: (n) => `${n} match${n === 1 ? '' : 'es'}`,
+        searchNoResults: 'No matching words found.',
     },
 }
 export type AttemptWordReviewStrings = (typeof STRINGS)['en']

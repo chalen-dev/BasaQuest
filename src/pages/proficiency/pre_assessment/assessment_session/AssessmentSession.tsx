@@ -397,9 +397,9 @@ export const AssessmentSession: React.FC = () => {
     // actual final scores instead of one of them just bouncing back to a
     // list/picker screen with nothing to show for it.
     const handleConfirmReview = async (overrides: WordReviewOverride[]) => {
-        if (!attemptId) return
+        if (!attemptId || !attemptQuery.data) return
         try {
-            await submitReview.mutateAsync({ attemptId, overrides })
+            await submitReview.mutateAsync({ attemptId, overrides, audioPath: attemptQuery.data.audio_path })
             showToast(t.reviewConfirmedToast, 'success', theme === 'dark')
             navigate(`/students/review/${attemptId}/results`)
         } catch (err) {

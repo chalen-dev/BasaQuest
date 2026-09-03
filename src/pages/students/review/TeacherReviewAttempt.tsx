@@ -1,77 +1,6 @@
 // File: TeacherReviewAttempt.tsx
 // File: TeacherReviewAttempt.tsx
 // File: src/pages/students/review/TeacherReviewAttempt.tsx
-//
-// Detail page for reviewing a single "Send"-mode attempt. Routed at
-// /students/review/:attemptId, reached from ReviewList.tsx. Renders the
-// same AttemptWordReview component the inline "Now"-mode step uses, so
-// the two flows produce identical review data.
-//
-// CONTAINER WIDTH: widens to max-w-[1350px] only for the actual review
-// step (showingWordReview) — AttemptWordReview's two-panel layout needs
-// real width or both panels get crushed. Every other state here
-// (loading/failed/not-found) is just a centered message card, so those
-// stay at the narrower max-w-3xl.
-//
-// The old small "{for} {studentName}" line only renders when NOT showing
-// the word-review step — once AttemptWordReview is on screen it displays
-// the student's name itself, prominently, inside its own card (via the
-// studentName prop below), so repeating it in a second tiny line above
-// the card would be redundant.
-//
-// BACK BUTTON: while showingWordReview is true, Back fires a three-way
-// swal (showSaveOnLeaveConfirmation) — Save & Leave / Discard & Leave /
-// Stay — instead of navigating straight away, since there could be
-// unsaved verdict/flag/error-type edits sitting in AttemptWordReview's
-// own local state. "Save & Leave" calls into that state via reviewRef
-// (the same saveDraftNow() escape hatch AssessmentSessionHeader.tsx uses
-// for its own Exit button — see AttemptWordReview.tsx's own comment).
-// Every OTHER state on this page (loading, scoring, failed, not-found)
-// has nothing to save, so Back just navigates immediately there, same
-// as before. NOTE: this three-way "Discard & Leave" choice is a
-// DIFFERENT, older concept than AttemptWordReview.tsx's own Discard
-// button below — this one just discards unsaved EDITS on an attempt
-// that still exists, while the new Discard button deletes the whole
-// ATTEMPT permanently. They happen to share a word but not a mechanism.
-//
-// CONFIRM DESTINATION / ALREADY-REVIEWED: confirming a review now routes
-// to AttemptResults.tsx (/students/review/:attemptId/results) instead of
-// straight back to the review inbox — see that file's own comment for
-// why. An already-reviewed attempt landing here (a stale link, a
-// bookmark, Dashboard's Recent Activity) redirects straight to that same
-// results page instead of rendering anything editable.
-//
-// DISCARD (permanent delete): handleDiscard below is what
-// AttemptWordReview.tsx's own Discard button calls, via the onDiscard
-// prop — see useDiscardAttemptMutation in hooks.ts for what actually
-// gets deleted (word rows, the recording, the attempt row itself). Once
-// it resolves, this page just navigates back to the Pending Review list
-// — there's nothing left on screen to show, since the attempt this page
-// was displaying no longer exists. If the mutation throws (e.g. an RLS
-// policy gap on the Supabase side rejecting the delete), we now show an
-// error toast instead of silently leaving the teacher stuck on this
-// screen with no feedback — previously this was a console.error only.
-//
-// LOADING STATE: both the initial attempt-fetch and the words-fetch
-// (attemptLoading / wordsLoading) now render reviewLoadingSkeleton (see
-// components/ui/Skeleton.tsx) instead of a centered OwlLoader spinner —
-// a rough placeholder of the score-pills-and-passage shape the real
-// content will take, since either phase resolves into the same eventual
-// screen and the container itself stays at max-w-3xl until then anyway
-// (showingWordReview, which is what widens it, requires both to be done).
-//
-// RE-EDITING A CONFIRMED ATTEMPT: this page no longer has any special
-// handling for that case — AttemptResults.tsx's "Edit Results" button
-// now genuinely clears reviewed_at/reviewed_by on the attempt itself
-// (via useReopenAttemptMutation in hooks.ts) before ever navigating
-// here, and then sends the teacher to the Pending Review list rather
-// than straight into this page. So by the time this page is opened from
-// that list, the attempt is honestly unreviewed again, and the normal
-// branch below handles it with no special-casing needed. An earlier
-// version of this file supported an explicit "?edit=1" query param to
-// bypass the reviewed_at redirect without changing the database — that
-// was removed once reopening started actually updating reviewed_at,
-// since it made the bypass redundant.
 import React, { useRef } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -157,12 +86,6 @@ const STRINGS: Record<Lang, {
         leaveDialogCancelButton: 'Stay',
     },
 }
-// Shared between the attemptLoading and wordsLoading branches below —
-// both resolve into the same eventual screen, and the container stays
-// narrow (max-w-3xl) either way until showingWordReview flips true, so
-// one skeleton shape covers both waits. Loosely mirrors a score-pill row
-// (ResultsSummaryCard's shape) over a paragraph-of-lines card
-// (PassageCard's shape), since that's what's about to load in.
 const reviewLoadingSkeleton = (
     <div role="status" aria-busy="true" className="flex flex-col gap-4 py-2">
         <span className="sr-only">Loading…</span>
@@ -204,19 +127,15 @@ export const TeacherReviewAttempt: React.FC = () => {
         && attempt.status !== 'pending' && attempt.status !== 'processing' && attempt.status !== 'failed'
         && !attempt.reviewed_at && !wordsLoading && !!words
     const handleConfirm = async (overrides: WordReviewOverride[]) => {
-        if (!attemptId) return
+        if (!attemptId || !attempt) return
         try {
-            await submitReview.mutateAsync({ attemptId, overrides })
+            await submitReview.mutateAsync({ attemptId, overrides, audioPath: attempt.audio_path })
             showToast(t.confirmedToast, 'success', theme === 'dark')
             navigate(`/students/review/${attemptId}/results`)
         } catch (err) {
             console.error('TeacherReviewAttempt: failed to submit review', err)
         }
     }
-    // Unlike handleConfirm, this doesn't navigate away — saving a draft
-    // is meant to let the teacher keep reviewing (or come back to this
-    // exact page later), not to close the attempt out. Also what
-    // handleBack calls (via reviewRef) when leaving with "Save & Leave".
     const handleSaveDraft = async (overrides: WordReviewOverride[]) => {
         if (!attemptId) return
         try {
@@ -226,13 +145,6 @@ export const TeacherReviewAttempt: React.FC = () => {
             console.error('TeacherReviewAttempt: failed to save draft', err)
         }
     }
-    // Permanently deletes this attempt — see this file's header comment
-    // and useDiscardAttemptMutation in hooks.ts. Navigates back to the
-    // Pending Review list once done, since the attempt this page was
-    // showing no longer exists. On failure (e.g. an RLS policy gap
-    // rejecting the delete server-side), shows an error toast and stays
-    // put — previously this just logged to the console, leaving the
-    // teacher with no visible sign anything went wrong.
     const handleDiscard = async () => {
         if (!attemptId || !attempt) return
         try {
@@ -244,8 +156,6 @@ export const TeacherReviewAttempt: React.FC = () => {
             showToast(t.discardFailedToast, 'error', theme === 'dark')
         }
     }
-    // Only asks (and only bothers saving) while the actual review UI is
-    // showing — every other state on this page has nothing to lose.
     const handleBack = async () => {
         if (!showingWordReview) {
             navigate('/students/review')
