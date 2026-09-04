@@ -17,6 +17,21 @@
 // the bilingual copy lives in assessmentSessionStrings.ts, so this file
 // doesn't balloon into one giant component.
 //
+// NAVIGATION GUARD (this pass): hasUnsavedChanges tracks
+// AttemptWordReview.tsx's own unsaved-edit state (via its
+// onUnsavedChangesChange callback) for the inline "Now"-mode review
+// step, fed into useUnsavedChangesBlocker in SILENT mode (see
+// src/hooks/useUnsavedChangesBlocker.ts) — this covers the browser's
+// back/forward buttons and closing the tab mid-review, auto-saving a
+// draft first with no confirmation dialog, matching
+// AssessmentSessionHeader.tsx's own Exit button philosophy exactly
+// ("nothing here is actually being lost, so nothing to confirm"). That
+// Exit button itself is UNCHANGED — it already calls the registered
+// reviewSaveHandler before navigating, and since that save already
+// clears hasUnsavedChanges before navigate() runs, this new blocker
+// simply won't have anything to intercept when Exit is used, avoiding a
+// redundant double-save.
+//
 // PASSAGE CACHING (sessionStorage): a generated passage now survives a
 // browser reload — previously, refreshing this page always dropped
 // straight back to the 'intro' step, and clicking Start again called
@@ -159,6 +174,7 @@ import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { supabase } from '../../../../lib/supabaseClient.ts'
 import { showToast } from '../../../../helpers/swalHelpers.ts'
 import { useAssistedStudentProfile } from '../hooks.ts'
+import { useUnsavedChangesBlocker } from '../../../../hooks/useUnsavedChangesBlocker.ts'
 import { useRecorder } from './features/useRecorder.ts'
 import { useSubmitAttempt, useRetryScoring } from './features/useSubmitAttempt.ts'
 import { PassagePanel } from './features/PassagePanel.tsx'
@@ -248,6 +264,7 @@ export const AssessmentSession: React.FC = () => {
     const submitAttempt = useSubmitAttempt()
     const retryScoring = useRetryScoring()
     const reviewRef = useRef<AttemptWordReviewHandle>(null)
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const showPassageStep = step === 'passage' && !!passage
     // Only ever polled for an assisted session that's actually been
     // submitted — the non-assisted case never needs this data at all.
@@ -262,6 +279,18 @@ export const AssessmentSession: React.FC = () => {
     // condition below exactly, since that's the only window where
     // reviewRef.current is non-null and there's anything to save.
     const reviewReady = showInlineReview && attemptQuery.data?.status === 'scored' && !!wordsQuery.data
+    // Covers the browser's own back/forward buttons and tab close/
+    // refresh mid-review — see this file's header comment for why this
+    // is SILENT (no dialog), matching AssessmentSessionHeader.tsx's Exit
+    // button. `reviewReady &&` guards against a stray true left over
+    // from a just-unmounted AttemptWordReview instance.
+    useUnsavedChangesBlocker({
+        hasUnsavedChanges: reviewReady && hasUnsavedChanges,
+        onSaveDraft: async () => {
+            await reviewRef.current?.saveDraftNow()
+        },
+        silent: true,
+    })
     const generatePassage = async () => {
         if (!assessmentLang) return
         // Cache check first — a Start click after a reload wiped local
@@ -619,6 +648,7 @@ export const AssessmentSession: React.FC = () => {
                         discarding={discardAttempt.isPending}
                         studentName={studentNameParam}
                         heightBudget={{ base: 144, lg: 128 }}
+                        onUnsavedChangesChange={setHasUnsavedChanges}
                     />
                 ) : attemptQuery.data?.status === 'failed' ? (
                     <section className="flex flex-col items-center gap-4 rounded-3xl border border-red-500/25 bg-red-500/5 p-8 text-center shadow-sm dark:border-red-400/25 dark:bg-red-400/5">

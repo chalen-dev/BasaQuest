@@ -8,16 +8,28 @@
 // inline, right after a "Now" mode session (from AssessmentSession.tsx),
 // and standalone on the "Send"-mode review page (TeacherReviewAttempt.tsx).
 //
-// DRAGGABLE DIVIDER (this pass, replaces an earlier button-based
-// expand/collapse toggle that didn't feel right): a full-width,
-// clearly-visible horizontal drag bar sits between ResultsSummaryCard
-// and PassageCard inside the "left" column, lg breakpoint only (below
-// lg there's no fixed-height column to resize within — the whole grid
-// scrolls as one unit, so a drag handle there wouldn't mean anything).
-// Dragging it up/down resizes ResultsSummaryCard's wrapper directly via
-// an explicit pixel height (`summaryHeight` state, null = natural/
-// default size); PassageCard's wrapper is always flex-1, so it
-// automatically fills whatever's left. Bounds:
+// UNSAVED-CHANGES CALLBACK (this pass): `onUnsavedChangesChange`, called
+// every time hasUnsavedChangesRef actually flips (via the new
+// markUnsavedChanges helper below), lets the PARENT page know whether
+// there's anything unsaved right now — previously that lived only in a
+// ref here, invisible outside this component. Both parents
+// (TeacherReviewAttempt.tsx and AssessmentSession.tsx) now feed this
+// into useUnsavedChangesBlocker (src/hooks/useUnsavedChangesBlocker.ts)
+// so navigating away mid-review — clicking a header nav link, the
+// browser's back button, closing the tab — can't silently drop an
+// in-progress review anymore. Optional, so nothing here breaks if a
+// future caller doesn't need it.
+//
+// DRAGGABLE DIVIDER (replaces an earlier button-based expand/collapse
+// toggle that didn't feel right): a full-width, clearly-visible
+// horizontal drag bar sits between ResultsSummaryCard and PassageCard
+// inside the "left" column, lg breakpoint only (below lg there's no
+// fixed-height column to resize within — the whole grid scrolls as one
+// unit, so a drag handle there wouldn't mean anything). Dragging it
+// up/down resizes ResultsSummaryCard's wrapper directly via an explicit
+// pixel height (`summaryHeight` state, null = natural/default size);
+// PassageCard's wrapper is always flex-1, so it automatically fills
+// whatever's left. Bounds:
 //   - LOWER bound: the live-measured height needed to show EXACTLY
 //     ResultsSummaryCard's title+student-name row and nothing past it
 //     — see MEASURED MINIMUM below. Dragging down that far shows just
@@ -170,9 +182,14 @@ type AttemptWordReviewProps = {
     discarding: boolean
     studentName?: string | null
     heightBudget?: AttemptWordReviewHeightBudget
+    // See this file's header comment — fired every time
+    // hasUnsavedChangesRef actually flips, so a parent page can wire up
+    // its own navigation guard (see src/hooks/useUnsavedChangesBlocker.ts).
+    // Optional so no existing caller breaks.
+    onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void
 }
 export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWordReviewProps>(function AttemptWordReview(
-    { attempt, words, onConfirm, confirming, onSaveDraft, savingDraft, onDiscard, discarding, studentName, heightBudget = DEFAULT_HEIGHT_BUDGET },
+    { attempt, words, onConfirm, confirming, onSaveDraft, savingDraft, onDiscard, discarding, studentName, heightBudget = DEFAULT_HEIGHT_BUDGET, onUnsavedChangesChange },
     ref
 ) {
     const { lang } = useLang()
@@ -184,6 +201,14 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
     const [selectedWordIds, setSelectedWordIds] = useState<string[]>([])
     const [passageVisible, setPassageVisible] = useState(true)
     const hasUnsavedChangesRef = useRef(false)
+    // Sets the ref AND notifies the parent (if wired) — every place that
+    // used to write hasUnsavedChangesRef.current directly now goes
+    // through this instead, so onUnsavedChangesChange never falls out of
+    // sync with the ref's actual value.
+    const markUnsavedChanges = (value: boolean) => {
+        hasUnsavedChangesRef.current = value
+        onUnsavedChangesChange?.(value)
+    }
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
     const [lastSavedTick, setLastSavedTick] = useState(0)
     const audioUrlQuery = useAttemptAudioUrlQuery(attempt.audio_path)
@@ -220,7 +245,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
         )
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedWordIds([])
-        hasUnsavedChangesRef.current = false
+        markUnsavedChanges(false)
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setLastSavedAt(latestTeacherReviewedAt(words))
         // A different attempt loading in starts back at the default
@@ -228,6 +253,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
         // for the PREVIOUS attempt.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSummaryHeight(null)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [attempt.id, words])
     useEffect(() => {
         const el = document.getElementById('passage-card')
@@ -301,7 +327,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
     }, [isDraggingDivider])
     const setVerdict = (wordId: string, verdict: Verdict) => {
         setVerdicts((prev) => ({ ...prev, [wordId]: verdict }))
-        hasUnsavedChangesRef.current = true
+        markUnsavedChanges(true)
         if (verdict === 'correct') {
             setManualFlags((prev) => {
                 if (!prev[wordId]) return prev
@@ -319,7 +345,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
     }
     const toggleManualFlag = (wordId: string) => {
         setManualFlags((prev) => ({ ...prev, [wordId]: !prev[wordId] }))
-        hasUnsavedChangesRef.current = true
+        markUnsavedChanges(true)
     }
     const setErrorType = (wordId: string, errorType: 'Omission' | 'Mispronunciation') => {
         setManualErrorType((prev) => {
@@ -331,7 +357,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
             }
             return next
         })
-        hasUnsavedChangesRef.current = true
+        markUnsavedChanges(true)
     }
     const handleWordClick = (wordId: string) => {
         const alreadySelected = selectedWordIds.includes(wordId)
@@ -362,13 +388,13 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
             t.confirmDialogConfirmButton
         )
         if (!confirmed) return
-        hasUnsavedChangesRef.current = false
+        markUnsavedChanges(false)
         setLastSavedAt(new Date())
         onConfirm(buildOverrides())
     }
     const handleSaveDraft = () => {
         onSaveDraft(buildOverrides())
-        hasUnsavedChangesRef.current = false
+        markUnsavedChanges(false)
         setLastSavedAt(new Date())
     }
     const handleDiscard = async () => {
@@ -395,7 +421,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
     })
     useImperativeHandle(ref, () => ({
         saveDraftNow: async () => {
-            hasUnsavedChangesRef.current = false
+            markUnsavedChanges(false)
             setLastSavedAt(new Date())
             await onSaveDraft(buildOverrides())
         },

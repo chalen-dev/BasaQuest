@@ -1,12 +1,26 @@
 // File: TeacherReviewAttempt.tsx
 // File: TeacherReviewAttempt.tsx
 // File: src/pages/students/review/TeacherReviewAttempt.tsx
-import React, { useRef } from 'react'
+//
+// NAVIGATION GUARD (this pass): hasUnsavedChanges now comes straight
+// from AttemptWordReview.tsx (via its onUnsavedChangesChange callback)
+// instead of only existing as a ref inside that component, and is fed
+// into useUnsavedChangesBlocker (src/hooks/useUnsavedChangesBlocker.ts).
+// That hook intercepts ANY navigation attempt while there's something
+// unsaved — clicking a link in the full ProtectedHeader nav (Home,
+// Students, etc.), the browser's back/forward buttons, closing the tab
+// — and shows the exact same save/discard/cancel dialog the old
+// handleBack used to show ONLY for its own Back button. handleBack
+// itself is now just a plain navigate() — the blocker is what decides
+// whether a dialog is needed, so a Back click with zero actual edits no
+// longer pops up a needless "save first?" prompt the way it used to.
+import React, { useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { useProfile } from '../../../hooks/useProfile'
+import { useUnsavedChangesBlocker } from '../../../hooks/useUnsavedChangesBlocker.ts'
 import { OwlLoader } from '../../../components/ui/OwlLoader'
 import { Skeleton } from '../../../components/ui/Skeleton'
 import { Owl } from '../../../components/ui/Owl'
@@ -123,6 +137,28 @@ export const TeacherReviewAttempt: React.FC = () => {
     const saveDraft = useSaveDraftMutation(profile?.id)
     const discardAttempt = useDiscardAttemptMutation(profile?.id)
     const reviewRef = useRef<AttemptWordReviewHandle>(null)
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+    // Intercepts any navigation attempt (header nav links, browser
+    // back/forward, closing the tab) while hasUnsavedChanges is true —
+    // see this file's header comment and
+    // src/hooks/useUnsavedChangesBlocker.ts.
+    useUnsavedChangesBlocker({
+        hasUnsavedChanges,
+        onSaveDraft: async () => {
+            await reviewRef.current?.saveDraftNow()
+        },
+        confirmLeave: () =>
+            showSaveOnLeaveConfirmation(
+                t.leaveDialogTitle,
+                t.leaveDialogText,
+                theme === 'dark',
+                {
+                    saveButtonText: t.leaveDialogSaveButton,
+                    discardButtonText: t.leaveDialogDiscardButton,
+                    cancelButtonText: t.leaveDialogCancelButton,
+                }
+            ),
+    })
     const showingWordReview = !attemptLoading && !attemptError && !!attempt
         && attempt.status !== 'pending' && attempt.status !== 'processing' && attempt.status !== 'failed'
         && !attempt.reviewed_at && !wordsLoading && !!words
@@ -156,29 +192,12 @@ export const TeacherReviewAttempt: React.FC = () => {
             showToast(t.discardFailedToast, 'error', theme === 'dark')
         }
     }
-    const handleBack = async () => {
-        if (!showingWordReview) {
-            navigate('/students/review')
-            return
-        }
-        const choice = await showSaveOnLeaveConfirmation(
-            t.leaveDialogTitle,
-            t.leaveDialogText,
-            theme === 'dark',
-            {
-                saveButtonText: t.leaveDialogSaveButton,
-                discardButtonText: t.leaveDialogDiscardButton,
-                cancelButtonText: t.leaveDialogCancelButton,
-            }
-        )
-        if (choice === 'cancel') return
-        if (choice === 'save') {
-            try {
-                await reviewRef.current?.saveDraftNow()
-            } catch (err) {
-                console.error('TeacherReviewAttempt: failed to save draft before leaving', err)
-            }
-        }
+    // Just a plain navigate() now — useUnsavedChangesBlocker (registered
+    // above) is what decides whether a save/discard/cancel dialog is
+    // actually needed, based on the real hasUnsavedChanges state rather
+    // than firing unconditionally just because the word-review UI
+    // happens to be showing.
+    const handleBack = () => {
         navigate('/students/review')
     }
     const backLink = (
@@ -251,6 +270,7 @@ export const TeacherReviewAttempt: React.FC = () => {
                     discarding={discardAttempt.isPending}
                     studentName={studentName}
                     heightBudget={{ base: 232, lg: 200 }}
+                    onUnsavedChangesChange={setHasUnsavedChanges}
                 />
             )}
         </div>

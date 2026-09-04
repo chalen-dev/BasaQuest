@@ -1,17 +1,22 @@
 // File: StudentsSubNav.tsx
 // File: StudentsSubNav.tsx
 // File: src/pages/students/components/StudentsSubNav.tsx
+//
+// REMEDIATION TAB (this pass): a 5th pill, after Results — the new
+// per-pupil remediation material list (RemediationList.tsx). No badge
+// here (unlike Review's pending-count badge) since "has remediation
+// material" isn't a queue that needs clearing, just a browsable list.
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, ClipboardCheck, ListChecks } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardCheck, ListChecks, Sparkles } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { HomeButton } from '../../../components/buttons/HomeButton'
 import { usePendingReviewCountQuery } from '../review/hooks'
-const STRINGS: Record<Lang, { dashboard: string; list: string; review: string; results: string }> = {
-    fil: { dashboard: 'Dashboard', list: 'Listahan', review: 'Suriin', results: 'Resulta' },
-    en: { dashboard: 'Dashboard', list: 'Student List', review: 'Review', results: 'Results' },
+const STRINGS: Record<Lang, { dashboard: string; list: string; review: string; results: string; remediation: string }> = {
+    fil: { dashboard: 'Dashboard', list: 'Listahan', review: 'Suriin', results: 'Resulta', remediation: 'Remediation' },
+    en: { dashboard: 'Dashboard', list: 'Student List', review: 'Review', results: 'Results', remediation: 'Remediation' },
 }
 export const StudentsSubNav: React.FC = () => {
     const { lang } = useLang()
@@ -68,6 +73,14 @@ export const StudentsSubNav: React.FC = () => {
             <NavLink to="/students/results" className={tabClass}>
                 <ListChecks size={15} />
                 {t.results}
+            </NavLink>
+            {/* Remediation — pupils with generated remediation material
+                (see remediation/hooks.ts). Uses the "/students/remediation"
+                prefix so both the list and the per-pupil detail page
+                (/students/remediation/:studentId) keep this pill active. */}
+            <NavLink to="/students/remediation" className={tabClass}>
+                <Sparkles size={15} />
+                {t.remediation}
             </NavLink>
         </nav>
     )
