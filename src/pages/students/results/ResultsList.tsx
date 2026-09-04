@@ -9,6 +9,14 @@
 // lands on right after confirming — so browsing back to an old result
 // and just having confirmed one look identical.
 //
+// DAYS-LEFT BADGE: recordings now survive review — deletion is anchored
+// to attempt.purge_after (created_at + 7 days, never reset by review —
+// see hooks.ts and the purge-expired-recordings Edge Function), not to
+// when the review was confirmed. So a confirmed result can still have a
+// recording attached for a little while, and this shows the same
+// countdown badge ReviewList.tsx does, for the same reason: easy to spot
+// at a glance which ones are about to lose their recording.
+//
 // Lives in its own results/ folder (sibling to dashboard/, list/,
 // remediation/, review/) but still pulls REVIEW_PAGE_SIZE and
 // useReviewedAttemptsQuery from review/hooks.ts, since that's the
@@ -29,7 +37,7 @@
 // real ones below.
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mic, ArrowRight, Clock } from 'lucide-react'
+import { Mic, ArrowRight, Clock, TimerReset } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { Pagination } from '../../../components/ui/Pagination'
@@ -48,6 +56,10 @@ const STRINGS: Record<Lang, {
     filipinoLabel: string
     englishLabel: string
     unnamedStudent: string
+    daysLeft: (n: number) => string
+    dayLeft: string
+    dueToday: string
+    expired: string
 }> = {
     fil: {
         title: 'Mga Resulta',
@@ -60,6 +72,10 @@ const STRINGS: Record<Lang, {
         filipinoLabel: 'Filipino',
         englishLabel: 'English',
         unnamedStudent: 'Estudyante',
+        daysLeft: (n) => `${n} araw na lang`,
+        dayLeft: '1 araw na lang',
+        dueToday: 'Mawawala ngayon',
+        expired: 'Nawala na',
     },
     en: {
         title: 'Results',
@@ -72,6 +88,10 @@ const STRINGS: Record<Lang, {
         filipinoLabel: 'Filipino',
         englishLabel: 'English',
         unnamedStudent: 'Student',
+        daysLeft: (n) => `${n} days left`,
+        dayLeft: '1 day left',
+        dueToday: 'Deletes today',
+        expired: 'Recording gone',
     },
 }
 // Fixed to Asia/Manila regardless of the viewing device's own timezone —
@@ -82,6 +102,31 @@ function formatPHTime(isoString: string): string {
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(isoString))
+}
+type DaysLeftTone = 'safe' | 'soon' | 'urgent' | 'gone'
+function daysLeftInfo(purgeAfter: string, t: (typeof STRINGS)['en']): { label: string; tone: DaysLeftTone } {
+    const msLeft = new Date(purgeAfter).getTime() - Date.now()
+    const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000))
+    if (daysLeft <= 0) return { label: t.expired, tone: 'gone' }
+    if (daysLeft === 1) return { label: t.dayLeft, tone: 'urgent' }
+    if (daysLeft <= 2) return { label: t.daysLeft(daysLeft), tone: 'urgent' }
+    if (daysLeft <= 3) return { label: t.daysLeft(daysLeft), tone: 'soon' }
+    return { label: t.daysLeft(daysLeft), tone: 'safe' }
+}
+const TONE_CLASSES: Record<DaysLeftTone, string> = {
+    safe: 'bg-teal-500/15 text-teal-700 dark:text-teal-300',
+    soon: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+    urgent: 'bg-red-500/15 text-red-700 dark:text-red-300',
+    gone: 'bg-gray-500/15 text-gray-500 dark:text-gray-400',
+}
+function DaysLeftBadge({ purgeAfter, t }: { purgeAfter: string; t: (typeof STRINGS)['en'] }) {
+    const { label, tone } = daysLeftInfo(purgeAfter, t)
+    return (
+        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-extrabold ${TONE_CLASSES[tone]}`}>
+            <TimerReset size={14} />
+            {label}
+        </span>
+    )
 }
 export const ResultsList: React.FC = () => {
     const { lang } = useLang()
@@ -134,6 +179,7 @@ export const ResultsList: React.FC = () => {
                                 <Skeleton className="mt-2 h-3 w-40 rounded-full" />
                                 <Skeleton className="mt-2 h-2.5 w-24 rounded-full" />
                             </div>
+                            <Skeleton className="h-7 w-24 shrink-0 rounded-full" />
                             <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
                         </div>
                     ))}
@@ -183,6 +229,7 @@ export const ResultsList: React.FC = () => {
                                         {formatPHTime(attempt.reviewed_at)}
                                     </div>
                                 </div>
+                                <DaysLeftBadge purgeAfter={attempt.purge_after} t={t} />
                                 <ArrowRight size={16} className="shrink-0 text-gray-400 dark:text-gray-500" />
                             </button>
                         )

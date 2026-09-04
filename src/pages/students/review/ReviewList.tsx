@@ -18,6 +18,14 @@
 // timeZone in the Intl.DateTimeFormat call is deliberate — NOT a bug to
 // "fix" by dropping it and letting the browser localize automatically.
 //
+// DAYS-LEFT BADGE: recordings are deleted 7 days after the attempt was
+// created (attempt.purge_after — see the purge-expired-recordings Edge
+// Function + its pg_cron job), whether or not the review has been
+// confirmed by then, and that deadline never resets once it has been.
+// Deliberately made bigger/bolder than the rest of the row (not just
+// another gray meta pill) so a teacher scanning this list can spot
+// "about to expire" readings at a glance — see daysLeftBadge() below.
+//
 // LOADING STATE: skeleton rows (see components/ui/Skeleton.tsx) instead
 // of a centered OwlLoader spinner — 5 placeholder rows shaped like the
 // real ones below (icon chip, name+badge line, subtitle line, timestamp
@@ -25,7 +33,7 @@
 // it's still fetching, rather than an unrelated spinner card.
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mic, ArrowRight, Clock } from 'lucide-react'
+import { Mic, ArrowRight, Clock, TimerReset } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { Pagination } from '../../../components/ui/Pagination'
@@ -45,6 +53,10 @@ const STRINGS: Record<Lang, {
     englishLabel: string
     reviewButton: string
     unnamedStudent: string
+    daysLeft: (n: number) => string
+    dayLeft: string
+    dueToday: string
+    expired: string
 }> = {
     fil: {
         title: 'Naghihintay ng Review',
@@ -58,6 +70,10 @@ const STRINGS: Record<Lang, {
         englishLabel: 'English',
         reviewButton: 'Suriin',
         unnamedStudent: 'Estudyante',
+        daysLeft: (n) => `${n} araw na lang`,
+        dayLeft: '1 araw na lang',
+        dueToday: 'Mawawala ngayon',
+        expired: 'Nawala na',
     },
     en: {
         title: 'Pending Review',
@@ -71,6 +87,10 @@ const STRINGS: Record<Lang, {
         englishLabel: 'English',
         reviewButton: 'Review',
         unnamedStudent: 'Student',
+        daysLeft: (n) => `${n} days left`,
+        dayLeft: '1 day left',
+        dueToday: 'Deletes today',
+        expired: 'Recording gone',
     },
 }
 // Fixed to Asia/Manila regardless of the viewing device's own timezone —
@@ -81,6 +101,36 @@ function formatPHTime(isoString: string): string {
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(isoString))
+}
+type DaysLeftTone = 'safe' | 'soon' | 'urgent' | 'gone'
+function daysLeftInfo(purgeAfter: string, t: (typeof STRINGS)['en']): { label: string; tone: DaysLeftTone } {
+    const msLeft = new Date(purgeAfter).getTime() - Date.now()
+    const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000))
+    if (daysLeft <= 0) return { label: t.expired, tone: 'gone' }
+    if (daysLeft === 1) return { label: t.dayLeft, tone: 'urgent' }
+    if (daysLeft <= 2) return { label: t.daysLeft(daysLeft), tone: 'urgent' }
+    if (daysLeft <= 3) return { label: t.daysLeft(daysLeft), tone: 'soon' }
+    return { label: t.daysLeft(daysLeft), tone: 'safe' }
+}
+const TONE_CLASSES: Record<DaysLeftTone, string> = {
+    safe: 'bg-teal-500/15 text-teal-700 dark:text-teal-300',
+    soon: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+    urgent: 'bg-red-500/15 text-red-700 dark:text-red-300',
+    gone: 'bg-gray-500/15 text-gray-500 dark:text-gray-400',
+}
+// Deliberately bigger/bolder than the other meta pills on the row (see
+// this file's header comment) — text-sm + font-extrabold instead of the
+// text-xs/font-semibold used for grade/language pills, plus an icon, so
+// it reads as "pay attention to this" rather than blending into the rest
+// of the row's metadata.
+function DaysLeftBadge({ purgeAfter, t }: { purgeAfter: string; t: (typeof STRINGS)['en'] }) {
+    const { label, tone } = daysLeftInfo(purgeAfter, t)
+    return (
+        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-extrabold ${TONE_CLASSES[tone]}`}>
+            <TimerReset size={14} />
+            {label}
+        </span>
+    )
 }
 export const ReviewList: React.FC = () => {
     const { lang } = useLang()
@@ -133,6 +183,7 @@ export const ReviewList: React.FC = () => {
                                 <Skeleton className="mt-2 h-3 w-40 rounded-full" />
                                 <Skeleton className="mt-2 h-2.5 w-24 rounded-full" />
                             </div>
+                            <Skeleton className="h-7 w-24 shrink-0 rounded-full" />
                             <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
                         </div>
                     ))}
@@ -182,6 +233,7 @@ export const ReviewList: React.FC = () => {
                                         {formatPHTime(attempt.created_at)}
                                     </div>
                                 </div>
+                                <DaysLeftBadge purgeAfter={attempt.purge_after} t={t} />
                                 <ArrowRight size={16} className="shrink-0 text-gray-400 dark:text-gray-500" />
                             </button>
                         )

@@ -25,21 +25,14 @@
 // tab is still one click away for anyone who wants to dig into the
 // passage/word detail, but it's no longer the first thing shown.
 //
-// LAYOUT (Review tab, THIS PASS): rebuilt to match AttemptWordReview.tsx's
-// own bounded-height grid + fixed-header/scrollable-body pattern instead
-// of a plain flex/grid stack that just flowed with the page. Previously
-// this tab's whole left column (ResultsSummaryCard + PassageCard) and
-// right column (SelectedWordsCard) grew to their natural content height
-// and relied on the PAGE scrolling — which technically worked here (this
-// page isn't hosted inside AttemptWordReview.tsx's own height-bounded
-// wrapper), but reads inconsistently against the editable review screen
-// a teacher was just looking at seconds earlier, where the passage
-// scrolls in its own fixed-height panel and the summary card never moves.
-// Per explicit ask, this tab now reuses the SAME CSS (.attempt-word-
-// review-grid / .review-scroll, copied verbatim from AttemptWordReview.tsx
-// — these are plain global class names, not scoped/exported from that
-// file, so duplicating the rule here is the straightforward way to reuse
-// it without a shared component refactor) with its own height budget (see
+// LAYOUT (Review tab): rebuilt to match AttemptWordReview.tsx's own
+// bounded-height grid + fixed-header/scrollable-body pattern instead of
+// a plain flex/grid stack that just flowed with the page. Per explicit
+// ask, this tab now reuses the SAME CSS (.attempt-word-review-grid /
+// .review-scroll, copied verbatim from AttemptWordReview.tsx — these
+// are plain global class names, not scoped/exported from that file, so
+// duplicating the rule here is the straightforward way to reuse it
+// without a shared component refactor) with its own height budget (see
 // REVIEW_HEIGHT_BUDGET below): ResultsSummaryCard is the shrink-0 fixed
 // block up top, PassageCard scrolls internally within its own bounded
 // column (via its own internal header/body split — see that file's own
@@ -47,6 +40,32 @@
 // editBar (Edit Results button) now occupies the "buttons" grid area,
 // same position Save Draft/Confirm Results occupy on the editable page,
 // instead of trailing below SelectedWordsCard as a separate block.
+//
+// DRAGGABLE DIVIDER (this pass): the SAME draggable-divider system
+// AttemptWordReview.tsx uses between its own ResultsSummaryCard and
+// PassageCard is now duplicated here — same constants, same
+// live-measured minimum (via ResultsSummaryCard's `headerRef`) and
+// live-measured natural maximum, same pointer-capture drag handlers,
+// same full-width visible drag bar. Copied rather than shared for the
+// same reason the grid CSS above is copied: this page doesn't import
+// AttemptWordReview.tsx, and factoring this out into a shared hook/
+// component is a bigger refactor than duplicating ~80 lines that are
+// already proven correct there. If the divider's sizing/behavior ever
+// needs to change, remember to update BOTH copies.
+//
+// SELECTEDWORDSCARD WIRING (this pass): onWordClick is now passed
+// through (previously omitted) — SelectedWordsCard's own per-word
+// remove-X and its search-results' click-to-add both depend on it being
+// wired, and having it absent silently left both inert. readOnly is
+// still passed, since nothing about verdict/flag/type editing changes
+// here — only the "which words are stacked in this view" state does,
+// same as it never mutated anything on this read-only page. See
+// SelectedWordsCard.tsx's own comments for why toggling that state is
+// safe in read-only mode. handleWordClick below was previously a
+// pure "add/reorder to front" — it never actually removed anything,
+// which is why the remove-X wouldn't have worked here even once wired.
+// It's now a real toggle (add if absent, remove if present), matching
+// AttemptWordReview.tsx's own handleWordClick.
 //
 // REVIEW_HEIGHT_BUDGET: this page's own fixed chrome above the grid is
 // AttemptResultsSubNav (mb-6, a ~40px pill row) versus TeacherReviewAttempt.tsx's
@@ -60,9 +79,10 @@
 // measurement of AttemptResultsSubNav specifically.
 //
 // wordList.length === 0 still falls back to the old plain flex-column
-// stack (no grid, no bounded height) — there's no passage/word data to
-// scroll through in that case, so the bounded-grid machinery would just
-// add complexity for a single short card + the edit button.
+// stack (no grid, no bounded height, no divider) — there's no passage/
+// word data to scroll through or divide in that case, so the bounded-
+// grid machinery would just add complexity for a single short card +
+// the edit button.
 //
 // RIGHT COLUMN HEIGHT: no longer a separate lg:h-[42rem] fixed value —
 // SelectedWordsCard now fills whatever the shared grid's "wordselect"
@@ -137,9 +157,9 @@
 // row over a paragraph-of-lines card — the same shape TeacherReviewAttempt.tsx
 // uses for its own equivalent wait — instead of a centered OwlLoader
 // spinner.
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Ear, Gauge, MessageSquareText, MinusCircle, Pencil, ThumbsUp } from 'lucide-react'
+import { Ear, Gauge, GripHorizontal, MessageSquareText, MinusCircle, Pencil, ThumbsUp } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { useProfile } from '../../../hooks/useProfile'
@@ -167,6 +187,13 @@ import { AttemptResultsSubNav, type AttemptResultsTab } from './AttemptResultsSu
 // heightBudget prop, since both pages share the same ProtectedLayout
 // chrome and a near-identical amount of fixed content above the grid.
 const REVIEW_HEIGHT_BUDGET = { base: 232, lg: 200 }
+// DRAGGABLE DIVIDER constants — duplicated verbatim from
+// AttemptWordReview.tsx; see this file's own header comment for why.
+const MIN_SUMMARY_HEIGHT_PX = 92
+const MIN_PASSAGE_HEIGHT_PX = 180
+const DIVIDER_ROW_HEIGHT_PX = 28
+const LEFT_COLUMN_GAP_PX = 12 // matches the gap-3 class on the "left" column
+const SUMMARY_CARD_BOTTOM_PADDING_PX = 12
 const STRINGS: Record<Lang, {
     loading: string
     notFoundTitle: string
@@ -300,15 +327,125 @@ export const AttemptResults: React.FC = () => {
     const [tab, setTab] = useState<AttemptResultsTab>('results')
     // Same tap-to-stack behavior as AttemptWordReview.tsx's own
     // selectedWordIds/handleWordClick — most-recently-tapped first,
-    // re-tapping an already-stacked word moves it back to the top
-    // instead of duplicating it. Purely local UI state: nothing here is
-    // saved, since this page has nothing left to save.
+    // re-tapping an already-stacked word REMOVES it (toggle), matching
+    // SelectedWordsCard's own remove-X and search-results expectations
+    // — see this file's SELECTEDWORDSCARD WIRING header comment. Purely
+    // local UI state: nothing here is saved, since this page has
+    // nothing left to save.
     const [selectedWordIds, setSelectedWordIds] = useState<string[]>([])
     const handleWordClick = (wordId: string) => {
-        setSelectedWordIds((prev) => [wordId, ...prev.filter((id) => id !== wordId)])
-        document.getElementById('selected-words-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        const alreadySelected = selectedWordIds.includes(wordId)
+        setSelectedWordIds((prev) => (alreadySelected ? prev.filter((id) => id !== wordId) : [wordId, ...prev]))
+        if (!alreadySelected) {
+            document.getElementById('selected-words-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
     }
     const clearSelectedWords = () => setSelectedWordIds([])
+    // DRAGGABLE DIVIDER state/refs — duplicated from AttemptWordReview.tsx;
+    // see this file's own header comment for why.
+    const [summaryHeight, setSummaryHeight] = useState<number | null>(null)
+    const [isDraggingDivider, setIsDraggingDivider] = useState(false)
+    const [minSummaryHeight, setMinSummaryHeight] = useState<number>(MIN_SUMMARY_HEIGHT_PX)
+    const leftColumnRef = useRef<HTMLDivElement>(null)
+    const summaryWrapperRef = useRef<HTMLDivElement>(null)
+    const summaryContentRef = useRef<HTMLDivElement>(null)
+    const headerRowRef = useRef<HTMLDivElement>(null)
+    const naturalSummaryHeightRef = useRef<number>(0)
+    const dragStartRef = useRef<{ startY: number; startHeight: number; leftColumnHeight: number; naturalHeight: number } | null>(null)
+    // A different attempt loading in starts back at the default split
+    // rather than carrying over a size dragged for a PREVIOUS attempt.
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSummaryHeight(null)
+    }, [attempt?.id])
+    // MEASURED MINIMUM — see AttemptWordReview.tsx's own comment for the
+    // full reasoning; identical logic here.
+    //
+    // DEPS INCLUDE `tab`: unlike AttemptWordReview.tsx (where this grid
+    // is always mounted), this page only renders the review grid —
+    // and therefore headerRowRef/summaryContentRef — while
+    // tab === 'review'. The page LOADS on the 'results' tab by
+    // default, so on first mount both refs are still null and this
+    // effect bails out immediately below. Without `tab` in the deps,
+    // that early return was PERMANENT: attempt?.id never changes just
+    // from clicking the Review tab, so the effect never re-ran once
+    // the elements actually existed, naturalSummaryHeightRef.current
+    // stayed stuck at its initial 0, and the drag's upper bound fell
+    // back to the much larger space-based max — letting the divider
+    // be dragged well past the card's real full-content size into
+    // empty space even when it looked "fully expanded". Adding `tab`
+    // here makes this effect re-subscribe (and immediately
+    // recompute()) the moment the Review tab actually mounts these
+    // elements.
+    useEffect(() => {
+        const headerEl = headerRowRef.current
+        if (!headerEl || typeof ResizeObserver === 'undefined') return
+        const recompute = () => {
+            const headerRect = headerEl.getBoundingClientRect()
+            const contentRect = summaryContentRef.current?.getBoundingClientRect()
+            const topOffset = contentRect ? Math.max(0, headerRect.top - contentRect.top) : 0
+            const next = Math.round(topOffset + headerRect.height + SUMMARY_CARD_BOTTOM_PADDING_PX)
+            setMinSummaryHeight(next)
+            setSummaryHeight((prev) => (prev != null && prev < next ? next : prev))
+        }
+        recompute()
+        const observer = new ResizeObserver(recompute)
+        observer.observe(headerEl)
+        window.addEventListener('resize', recompute)
+        return () => {
+            observer.disconnect()
+            window.removeEventListener('resize', recompute)
+        }
+    }, [attempt?.id, tab])
+    // MEASURED NATURAL MAXIMUM — same reasoning as AttemptWordReview.tsx.
+    // Same `tab` dependency fix as the MEASURED MINIMUM effect above,
+    // and for the same reason — this is the effect whose stuck-at-0
+    // ref value was the actual cause of the over-drag bug.
+    useEffect(() => {
+        const contentEl = summaryContentRef.current
+        if (!contentEl || typeof ResizeObserver === 'undefined') return
+        const recompute = () => {
+            naturalSummaryHeightRef.current = contentEl.getBoundingClientRect().height
+        }
+        recompute()
+        const observer = new ResizeObserver(recompute)
+        observer.observe(contentEl)
+        return () => observer.disconnect()
+    }, [attempt?.id, tab])
+    useEffect(() => {
+        if (!isDraggingDivider) return
+        const prev = document.body.style.userSelect
+        document.body.style.userSelect = 'none'
+        return () => {
+            document.body.style.userSelect = prev
+        }
+    }, [isDraggingDivider])
+    const handleDividerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        setIsDraggingDivider(true)
+        dragStartRef.current = {
+            startY: e.clientY,
+            startHeight: summaryWrapperRef.current?.getBoundingClientRect().height ?? 0,
+            leftColumnHeight: leftColumnRef.current?.getBoundingClientRect().height ?? 0,
+            naturalHeight: naturalSummaryHeightRef.current,
+        }
+    }
+    const handleDividerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isDraggingDivider || !dragStartRef.current) return
+        const { startY, startHeight, leftColumnHeight, naturalHeight } = dragStartRef.current
+        const delta = e.clientY - startY
+        const spaceBasedMax = leftColumnHeight - MIN_PASSAGE_HEIGHT_PX - DIVIDER_ROW_HEIGHT_PX - LEFT_COLUMN_GAP_PX * 2
+        const naturalBasedMax = naturalHeight > 0 ? naturalHeight : spaceBasedMax
+        const maxHeight = Math.max(minSummaryHeight, Math.min(spaceBasedMax, naturalBasedMax))
+        const next = Math.min(Math.max(startHeight + delta, minSummaryHeight), maxHeight)
+        setSummaryHeight(next)
+    }
+    const handleDividerPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isDraggingDivider) return
+        e.currentTarget.releasePointerCapture(e.pointerId)
+        setIsDraggingDivider(false)
+        dragStartRef.current = null
+    }
     // Confirm → clear reviewed_at/reviewed_by (useReopenAttemptMutation)
     // → land on the Pending Review LIST, not this attempt's own edit
     // screen. See this file's header comment for the full reasoning.
@@ -527,20 +664,51 @@ export const AttemptResults: React.FC = () => {
                             }
                         `}</style>
                         <div className="attempt-word-review-grid review-scroll">
-                            <div style={{ gridArea: 'left' }} className="attempt-word-review-left flex flex-col gap-6 lg:min-h-0">
-                                {/* shrink-0 — never compressible, same
-                                reasoning as AttemptWordReview.tsx's own
-                                summary wrapper: this is what stops the
-                                audio player from being squeezed. */}
-                                <div className="shrink-0">
-                                    <ResultsSummaryCard
-                                        attempt={attempt}
-                                        studentName={studentName}
-                                        words={wordList}
-                                        manualFlags={manualFlags}
-                                        t={reviewT}
-                                        audioUrl={audioUrlQuery.data ?? null}
-                                        showScores={false}
+                            <div
+                                ref={leftColumnRef}
+                                style={{ gridArea: 'left' }}
+                                className="attempt-word-review-left flex flex-col gap-3 lg:min-h-0"
+                            >
+                                <div
+                                    ref={summaryWrapperRef}
+                                    className="review-scroll shrink-0 overflow-y-auto rounded-3xl lg:min-h-0"
+                                    style={summaryHeight != null ? { height: `${summaryHeight}px` } : undefined}
+                                >
+                                    <div ref={summaryContentRef}>
+                                        <ResultsSummaryCard
+                                            attempt={attempt}
+                                            studentName={studentName}
+                                            words={wordList}
+                                            manualFlags={manualFlags}
+                                            t={reviewT}
+                                            audioUrl={audioUrlQuery.data ?? null}
+                                            showScores={false}
+                                            headerRef={headerRowRef}
+                                        />
+                                    </div>
+                                </div>
+                                {/* DRAGGABLE DIVIDER — lg only, duplicated
+                                from AttemptWordReview.tsx; see this
+                                file's header comment. Double-click
+                                resets to the default split. */}
+                                <div
+                                    onPointerDown={handleDividerPointerDown}
+                                    onPointerMove={handleDividerPointerMove}
+                                    onPointerUp={handleDividerPointerUp}
+                                    onDoubleClick={() => setSummaryHeight(null)}
+                                    title={reviewT.dividerHint}
+                                    style={{ height: DIVIDER_ROW_HEIGHT_PX }}
+                                    className={`hidden shrink-0 touch-none cursor-row-resize items-center justify-center rounded-full border transition-colors duration-150 lg:flex ${
+                                        isDraggingDivider
+                                            ? 'border-teal-500 bg-teal-500/20 dark:border-teal-400 dark:bg-teal-400/20'
+                                            : 'border-gray-900/10 bg-gray-900/10 hover:border-teal-500/40 hover:bg-teal-500/15 dark:border-gray-100/10 dark:bg-gray-100/10 dark:hover:border-teal-400/40 dark:hover:bg-teal-400/15'
+                                    }`}
+                                >
+                                    <GripHorizontal
+                                        size={16}
+                                        className={`transition-colors duration-150 ${
+                                            isDraggingDivider ? 'text-teal-600 dark:text-teal-300' : 'text-gray-500 dark:text-gray-400'
+                                        }`}
                                     />
                                 </div>
                                 {/* Just sizing here — PassageCard owns
@@ -567,6 +735,7 @@ export const AttemptResults: React.FC = () => {
                                     manualErrorType={manualErrorType}
                                     t={reviewT}
                                     onClearAll={clearSelectedWords}
+                                    onWordClick={handleWordClick}
                                     readOnly
                                 />
                             </div>

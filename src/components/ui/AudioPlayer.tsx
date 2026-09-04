@@ -1,4 +1,3 @@
-// File: AudioPlayer.tsx
 // File: src/components/ui/AudioPlayer.tsx
 // Custom-styled replacement for a native <audio controls> element. Used
 // in two places: PassageCard.tsx (teacher review of a submitted attempt's
@@ -43,6 +42,14 @@ function formatTime(seconds: number): string {
     return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
+// MediaError.code values (no built-in string form on the DOM type).
+const MEDIA_ERROR_NAMES: Record<number, string> = {
+    1: 'MEDIA_ERR_ABORTED',
+    2: 'MEDIA_ERR_NETWORK',
+    3: 'MEDIA_ERR_DECODE',
+    4: 'MEDIA_ERR_SRC_NOT_SUPPORTED',
+}
+
 export function AudioPlayer({ src, className }: AudioPlayerProps) {
     const audioRef = useRef<HTMLAudioElement>(null)
     const trackRef = useRef<HTMLDivElement>(null)
@@ -50,6 +57,13 @@ export function AudioPlayer({ src, className }: AudioPlayerProps) {
     const [currentTime, setCurrentTime] = useState(0)
     const [duration, setDuration] = useState(0)
     const [isDragging, setIsDragging] = useState(false)
+    // Surfaced on screen (not just console) so a playback failure is
+    // visible without opening DevTools — was previously swallowed
+    // entirely: togglePlay ignored audio.play()'s rejection, and nothing
+    // listened for the element's own 'error' event at all, so a decode/
+    // network/unsupported-format failure looked identical to "did
+    // nothing" from the outside.
+    const [playbackError, setPlaybackError] = useState<string | null>(null)
 
     // New recording loaded — reset playback UI so an old attempt's
     // scrub position/time doesn't linger onto a newly-opened one.
@@ -58,6 +72,7 @@ export function AudioPlayer({ src, className }: AudioPlayerProps) {
         setIsPlaying(false)
         setCurrentTime(0)
         setDuration(0)
+        setPlaybackError(null)
         // eslint-disable-next-line react-hooks/set-state-in-effect
     }, [src])
 
@@ -77,18 +92,45 @@ export function AudioPlayer({ src, className }: AudioPlayerProps) {
         }
         const onPlay = () => setIsPlaying(true)
         const onPause = () => setIsPlaying(false)
+        const onError = () => {
+            const mediaError = audio.error
+            const name = mediaError ? (MEDIA_ERROR_NAMES[mediaError.code] ?? `code ${mediaError.code}`) : 'unknown'
+            const message = `${name}${mediaError?.message ? `: ${mediaError.message}` : ''}`
+            console.error('AudioPlayer: media error', message)
+            setPlaybackError(message)
+        }
+
+        // The <audio> element mounts with `src` already set (see callers:
+        // ResultsSummaryCard's `audioUrl && <AudioPlayer .../>` only
+        // renders this once the signed URL is known), so the browser can
+        // start — and for a small/fast-to-serve file, finish — loading
+        // metadata during React's commit, before this effect has run.
+        // If 'loadedmetadata' fires before addEventListener below, it's
+        // gone for good and duration is stuck at 0 forever (timeupdate
+        // still updates fine since it fires repeatedly, which is why only
+        // the total/duration side of the readout used to freeze). Checking
+        // readyState here catches that already-happened case.
+        if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) onLoadedMetadata()
+
+        // Catches a failure that already happened before this effect ran
+        // (mirrors the readyState check above for loadedmetadata) — an
+        // <audio> element can hit MEDIA_ERR_SRC_NOT_SUPPORTED etc. during
+        // React's commit, same timing story as the metadata race.
+        if (audio.error) onError()
 
         audio.addEventListener('loadedmetadata', onLoadedMetadata)
         audio.addEventListener('timeupdate', onTimeUpdate)
         audio.addEventListener('ended', onEnded)
         audio.addEventListener('play', onPlay)
         audio.addEventListener('pause', onPause)
+        audio.addEventListener('error', onError)
         return () => {
             audio.removeEventListener('loadedmetadata', onLoadedMetadata)
             audio.removeEventListener('timeupdate', onTimeUpdate)
             audio.removeEventListener('ended', onEnded)
             audio.removeEventListener('play', onPlay)
             audio.removeEventListener('pause', onPause)
+            audio.removeEventListener('error', onError)
         }
     }, [isDragging])
 
@@ -96,7 +138,10 @@ export function AudioPlayer({ src, className }: AudioPlayerProps) {
         const audio = audioRef.current
         if (!audio) return
         if (audio.paused) {
-            audio.play().catch(() => {})
+            audio.play().catch((err) => {
+                console.error('AudioPlayer: play() rejected', err)
+                setPlaybackError(err instanceof Error ? err.message : String(err))
+            })
         } else {
             audio.pause()
         }
@@ -132,37 +177,44 @@ export function AudioPlayer({ src, className }: AudioPlayerProps) {
     const progressPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
 
     return (
-        <div className={`flex items-center gap-3 ${className ?? ''}`}>
-            <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
-            <button
-                type="button"
-                onClick={togglePlay}
-                aria-label={isPlaying ? 'Pause' : 'Play'}
-                className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-teal-500 text-white shadow-[0_3px_0_0_#0f766e] transition-transform duration-100 active:translate-y-0.5 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_3px_0_0_#115e59]"
-            >
-                {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
-            </button>
+        <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
+            <div className="flex items-center gap-3">
+                <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
+                <button
+                    type="button"
+                    onClick={togglePlay}
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                    className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-teal-500 text-white shadow-[0_3px_0_0_#0f766e] transition-transform duration-100 active:translate-y-0.5 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_3px_0_0_#115e59]"
+                >
+                    {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+                </button>
 
-            <div
-                ref={trackRef}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                className="group relative h-2.5 flex-1 cursor-pointer touch-none rounded-full bg-gray-900/10 dark:bg-gray-100/10"
-            >
                 <div
-                    className="h-full rounded-full bg-teal-500 dark:bg-teal-400"
-                    style={{ width: `${progressPct}%` }}
-                />
-                <div
-                    className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-teal-600 shadow ring-2 ring-white transition-transform duration-100 group-hover:scale-110 dark:bg-teal-300 dark:ring-gray-900"
-                    style={{ left: `calc(${progressPct}% - 8px)` }}
-                />
+                    ref={trackRef}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    className="group relative h-2.5 flex-1 cursor-pointer touch-none rounded-full bg-gray-900/10 dark:bg-gray-100/10"
+                >
+                    <div
+                        className="h-full rounded-full bg-teal-500 dark:bg-teal-400"
+                        style={{ width: `${progressPct}%` }}
+                    />
+                    <div
+                        className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-teal-600 shadow ring-2 ring-white transition-transform duration-100 group-hover:scale-110 dark:bg-teal-300 dark:ring-gray-900"
+                        style={{ left: `calc(${progressPct}% - 8px)` }}
+                    />
+                </div>
+
+                <span className="w-20 shrink-0 text-right font-mono text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400">
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
             </div>
-
-            <span className="w-20 shrink-0 text-right font-mono text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400">
-                {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
+            {playbackError && (
+                <p className="pl-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                    Playback error: {playbackError}
+                </p>
+            )}
         </div>
     )
 }

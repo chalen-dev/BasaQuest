@@ -19,6 +19,10 @@ export type PendingReviewAttempt = {
     pron_score: number | null
     created_at: string
     scored_at: string | null
+    // Recording deletion deadline — created_at + 7 days, set once at
+    // insert (20260812060319) and never touched again, review or not.
+    // Drives the "days left" badge in ReviewList.tsx.
+    purge_after: string
     student: { full_name: string | null; username: string | null; grade_level: number | null } | null
 }
 export type ReviewedAttempt = {
@@ -34,6 +38,10 @@ export type ReviewedAttempt = {
     created_at: string
     scored_at: string | null
     reviewed_at: string
+    // Same deadline as PendingReviewAttempt.purge_after — recordings now
+    // survive review, so ResultsList.tsx shows the same countdown until
+    // the purge-expired-recordings job (see its migration) deletes it.
+    purge_after: string
     student: { full_name: string | null; username: string | null; grade_level: number | null } | null
 }
 export type AttemptDetail = {
@@ -118,7 +126,7 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
             const to = from + REVIEW_PAGE_SIZE - 1
             const { data: attempts, error, count } = await supabase
                 .from('assessment_attempts')
-                .select('id, student_id, language, passage_title, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at', { count: 'exact' })
+                .select('id, student_id, language, passage_title, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, purge_after', { count: 'exact' })
                 .eq('teacher_id', teacherId as string)
                 .eq('status', 'scored')
                 .is('reviewed_at', null)
@@ -154,7 +162,7 @@ export function useReviewedAttemptsQuery({ teacherId, page }: ReviewedAttemptsAr
             const to = from + REVIEW_PAGE_SIZE - 1
             const { data: attempts, error, count } = await supabase
                 .from('assessment_attempts')
-                .select('id, student_id, language, passage_title, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, reviewed_at', { count: 'exact' })
+                .select('id, student_id, language, passage_title, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, reviewed_at, purge_after', { count: 'exact' })
                 .eq('teacher_id', teacherId as string)
                 .not('reviewed_at', 'is', null)
                 .order('reviewed_at', { ascending: false })
@@ -261,47 +269,32 @@ export function useSaveDraftMutation(teacherId: string | undefined) {
         },
     })
 }
-// Writes every word's teacher verdict, marks the attempt reviewed, then
-// PERMANENTLY removes the recording — both the file in the
-// assessment-recordings bucket AND the audio_path column itself, in the
-// same update() call that sets reviewed_at/reviewed_by. Nulling the
-// column (not just deleting the file) is deliberate, not optional — the
-// app's own privacy commitment is that a recording does not survive
-// past initial review, so audio_path must actually reflect "there is no
-// recording anymore" rather than continuing to point at a file that no
-// longer exists. This is also what ResultsSummaryCard.tsx now keys off
-// of to decide whether to show the audio player or a "no recording
-// stored" message (see that file) — it checks attempt.audio_path, not
-// just whether a signed URL happened to resolve.
+// Writes every word's teacher verdict and marks the attempt reviewed.
 //
-// Order matters: the DB update (reviewed_at/reviewed_by/audio_path) runs
-// FIRST and is allowed to throw normally — that's the actual "is this
-// attempt reviewed" state and must succeed. The storage removal runs
-// AFTER, and failures there are only logged (matching
-// useDiscardAttemptMutation's own best-effort pattern) — a storage
-// hiccup should never leave a teacher stuck unable to confirm a review,
-// worst case is a leftover orphaned file in the bucket that audio_path
-// no longer points to anyway.
+// CHANGED: this used to also null audio_path and delete the recording
+// from storage immediately on confirm. That's no longer how deletion
+// works — recordings now live for a fixed 7 days from when the attempt
+// was CREATED (assessment_attempts.purge_after, set once at insert and
+// never touched here), whether or not — and regardless of when — a
+// teacher confirms the review. Actual deletion is handled by the
+// purge-expired-recordings Edge Function, run daily via pg_cron (see
+// supabase/migrations/20260903120000_add_recording_purge_cron.sql).
+// Confirming a review no longer has any effect on the recording at all.
+//
+// audioPath is kept as a parameter (now unused) so this still accepts
+// the same call shape as before without touching every call site.
 export function useSubmitReviewMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async ({ attemptId, overrides, audioPath }: { attemptId: string; overrides: WordReviewOverride[]; audioPath: string | null }) => {
+        mutationFn: async ({ attemptId, overrides }: { attemptId: string; overrides: WordReviewOverride[]; audioPath: string | null }) => {
             if (!teacherId) throw new Error('Missing teacher id')
             await writeWordReviewOverrides(overrides, teacherId)
             const nowIso = new Date().toISOString()
             const { error: attemptError } = await supabase
                 .from('assessment_attempts')
-                .update({ reviewed_at: nowIso, reviewed_by: teacherId, audio_path: null })
+                .update({ reviewed_at: nowIso, reviewed_by: teacherId })
                 .eq('id', attemptId)
             if (attemptError) throw attemptError
-            if (audioPath) {
-                const { error: storageError } = await supabase.storage
-                    .from(RECORDINGS_BUCKET)
-                    .remove([audioPath])
-                if (storageError) {
-                    console.error('useSubmitReviewMutation: failed to remove recording from storage', storageError)
-                }
-            }
         },
         onSuccess: (_data, { attemptId }) => {
             queryClient.invalidateQueries({ queryKey: pendingReviewCountKey(teacherId) })

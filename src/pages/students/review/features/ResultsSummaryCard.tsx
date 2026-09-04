@@ -20,6 +20,7 @@ import type { AttemptDetail, AttemptWord } from '../hooks'
 import type { AttemptWordReviewStrings } from './attemptWordReviewStrings'
 import { ScorePill } from './AttemptWordReviewShared'
 import { AudioPlayer } from '../../../../components/ui/AudioPlayer.tsx'
+
 type ResultsSummaryCardProps = {
     attempt: AttemptDetail
     studentName?: string | null
@@ -28,12 +29,20 @@ type ResultsSummaryCardProps = {
     t: AttemptWordReviewStrings
     audioUrl: string | null
     showScores?: boolean
+    // When false, the entire recording block (player AND the
+    // "no recording" fallback text) is skipped — used on the
+    // confirmed-results page, where the recording is always deleted
+    // once an attempt is finalized, so there's nothing meaningful to
+    // show either way. Defaults to true so the pre-confirm editable
+    // AttemptWordReview.tsx flow keeps showing it as before.
+    showRecording?: boolean
     // See this file's header comment — used only so
     // AttemptWordReview.tsx can measure this row's rendered height for
     // its drag-to-minimum calculation. Not a resize/layout prop.
     headerRef?: React.Ref<HTMLDivElement>
 }
-export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t, audioUrl, showScores = true, headerRef }: ResultsSummaryCardProps) {
+
+export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t, audioUrl, showScores = true, showRecording = true, headerRef }: ResultsSummaryCardProps) {
     const flaggedCount = words.filter((w) => w.confidence === 'low' || !!manualFlags[w.id]).length
     return (
         <section className="relative overflow-hidden rounded-3xl border border-gray-900/5 p-4 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-5">
@@ -57,7 +66,7 @@ export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t
                         </div>
                     )}
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-dashed border-gray-900/10 pt-3 dark:border-gray-100/10">
+                <div className="flex flex-wrap items-center justify-start gap-2 border-t border-dashed border-gray-900/10 pt-3 dark:border-gray-100/10">
                     {showScores && (
                         <>
                             <ScorePill label={t.accuracy} value={attempt.accuracy_score} />
@@ -79,24 +88,26 @@ export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t
                         </span>
                     )}
                 </div>
-                {attempt.audio_path ? (
-                    audioUrl && (
+                {showRecording && (
+                    attempt.audio_path ? (
+                        audioUrl && (
+                            <div className="flex w-full flex-col gap-1.5 rounded-2xl border border-gray-900/5 bg-white/60 p-3 dark:border-gray-100/10 dark:bg-gray-900/40">
+                                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    {t.recordingLabel}
+                                </span>
+                                <AudioPlayer src={audioUrl} className="w-full px-1 py-1" />
+                            </div>
+                        )
+                    ) : (
                         <div className="flex w-full flex-col gap-1.5 rounded-2xl border border-gray-900/5 bg-white/60 p-3 dark:border-gray-100/10 dark:bg-gray-900/40">
                             <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 {t.recordingLabel}
                             </span>
-                            <AudioPlayer src={audioUrl} className="w-full px-1 py-1" />
+                            <p className="text-sm font-medium italic text-gray-500 dark:text-gray-400">
+                                {t.noRecordingMessage}
+                            </p>
                         </div>
                     )
-                ) : (
-                    <div className="flex w-full flex-col gap-1.5 rounded-2xl border border-gray-900/5 bg-white/60 p-3 dark:border-gray-100/10 dark:bg-gray-900/40">
-                        <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            {t.recordingLabel}
-                        </span>
-                        <p className="text-sm font-medium italic text-gray-500 dark:text-gray-400">
-                            {t.noRecordingMessage}
-                        </p>
-                    </div>
                 )}
             </div>
         </section>
