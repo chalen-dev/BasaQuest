@@ -5,9 +5,17 @@
 // Layout mirrors BeforeAssessment.tsx: a compact status/confirm hero card
 // on top, the searchable/filterable picker in its own card below (filter
 // column shape borrowed from ProficiencyAssessmentSelectStudent.tsx).
+//
+// There's no more student-level recording lock to check here — locking
+// moved to being per-recording (see RecordingHistory.tsx and
+// 20260905041659_move_recording_lock_to_per_recording.sql). A locked
+// recording only blocks retaking THAT ONE sentence, which RecordSession.tsx
+// now enforces on its own; it never blocks starting a session with a
+// student at all, so there's nothing for this picker to filter or warn
+// about anymore.
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search as SearchIcon, ShieldAlert, UserRound, Loader2, ArrowRight, Lock, Mic, Users, Pencil, ScrollText, Radio } from 'lucide-react'
+import { Search as SearchIcon, ShieldAlert, UserRound, Loader2, ArrowRight, Mic, Users, Pencil, ScrollText, Radio } from 'lucide-react'
 import { useFinetuneStudentsQuery, type FinetuneStudent } from '../../_hooks/useFinetuneStudents.ts'
 import { useConsentFileCountsQuery } from '../../_hooks/useConsentFiles.ts'
 import { useReadingSentencesQuery, useReadingSentenceSetsQuery } from '../../_hooks/useReadingSentences.ts'
@@ -18,52 +26,41 @@ import { Tooltip } from '../../../../components/ui/Tooltip'
 import { Pagination } from '../../../../components/ui/Pagination'
 import { AdminSubNav } from '../../_components/AdminSubNav'
 import { GenderBadge } from '../../_components/genderDisplay.tsx'
-
 const PAGE_SIZE = 6
-
 type ConsentFilter = '' | 'yes' | 'no'
-type LockedFilter = '' | 'locked' | 'unlocked'
-
 const TIER_LABELS: Record<string, string> = {
     below: 'Below level',
     on: 'On level',
     above: 'Above level',
 }
-
 export default function AdminSelectStudent() {
     const navigate = useNavigate()
     const [search, setSearch] = useState('')
     const [gradeFilter, setGradeFilter] = useState('')
     const [tierFilter, setTierFilter] = useState('')
     const [consentFilter, setConsentFilter] = useState<ConsentFilter>('')
-    const [lockedFilter, setLockedFilter] = useState<LockedFilter>('')
     const [page, setPage] = useState(0)
     const [studentId, setStudentId] = useState('')
     // Was a hardcoded 'g1_2' | 'g3_4' union with a fixed default — sets are
     // admin-editable now (see SentenceScripts.tsx), so this starts empty
     // and gets filled in once the sets have actually loaded (below).
     const [sentenceSet, setSentenceSet] = useState('')
-
     const { data: studentsData, isLoading: loadingStudents, error: studentsError } = useFinetuneStudentsQuery()
     const students = studentsData ?? []
-
     // consent_on_file (the DB column) stopped being settable once the
     // manual checkbox was removed from the student form — "has ≥1
     // consent file attached" is the real signal now, both for the badge
     // below, the consent filter, and the default sort order.
     const { data: consentCountsData } = useConsentFileCountsQuery()
     const consentCounts = consentCountsData ?? {}
-
     // Real-time "who's actively recording right now" map — see
     // useRecordingSessions.ts. Used to badge each row and to disable
     // starting a session with a student someone else already has open.
     const { sessions: recordingSessions } = useRecordingSessionsPresence()
-
     const { data: setsData, isLoading: loadingSets } = useReadingSentenceSetsQuery()
     const sets = useMemo(() => setsData ?? [], [setsData])
     const { data: sentencesData, isLoading: loadingSentences } = useReadingSentencesQuery()
     const sentencesBySet = sentencesData ?? {}
-
     // Default the picker to the first script once the sets have loaded,
     // and re-point it if the currently-selected one ever disappears
     // (e.g. deleted on the Sentence Scripts page in another tab).
@@ -76,7 +73,6 @@ export default function AdminSelectStudent() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sets])
     const effectiveSentenceSet = sentenceSet || sets[0]?.key || ''
-
     // Built from whatever grades actually appear in the roster rather
     // than a fixed 1-6 range, since this roster isn't tied to BasaQuest's
     // own grade-level enrollment the way the proficiency assessment's
@@ -89,26 +85,17 @@ export default function AdminSelectStudent() {
             ...grades.map((g) => ({ value: String(g), label: `Grade ${g}` })),
         ]
     }, [students])
-
     const tierOptions = [
         { value: '', label: 'All tiers' },
         { value: 'below', label: TIER_LABELS.below },
         { value: 'on', label: TIER_LABELS.on },
         { value: 'above', label: TIER_LABELS.above },
     ]
-
     const consentOptions = [
         { value: '', label: 'All' },
         { value: 'yes', label: 'Consent on file' },
         { value: 'no', label: 'No consent' },
     ]
-
-    const lockedOptions = [
-        { value: '', label: 'All' },
-        { value: 'unlocked', label: 'Unlocked' },
-        { value: 'locked', label: 'Locked' },
-    ]
-
     // Default order: consent-on-file students first (A-Z), then
     // no-consent students (A-Z) — the DB query already orders by
     // full_name, but consent status only exists in consentCounts (a
@@ -130,10 +117,6 @@ export default function AdminSelectStudent() {
                         if (consentFilter === 'yes' && !hasConsent) return false
                         if (consentFilter === 'no' && hasConsent) return false
                     }
-                    if (lockedFilter) {
-                        if (lockedFilter === 'locked' && !s.recording_locked) return false
-                        if (lockedFilter === 'unlocked' && s.recording_locked) return false
-                    }
                     return true
                 })
                 .sort((a, b) => {
@@ -142,41 +125,34 @@ export default function AdminSelectStudent() {
                     if (aHasConsent !== bHasConsent) return aHasConsent ? -1 : 1
                     return a.full_name.localeCompare(b.full_name)
                 }),
-        [students, search, gradeFilter, tierFilter, consentFilter, lockedFilter, consentCounts],
+        [students, search, gradeFilter, tierFilter, consentFilter, consentCounts],
     )
-    const hasFilters = search.length > 0 || gradeFilter.length > 0 || tierFilter.length > 0 || consentFilter !== '' || lockedFilter !== ''
-
+    const hasFilters = search.length > 0 || gradeFilter.length > 0 || tierFilter.length > 0 || consentFilter !== ''
     const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
     const paginated = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
-
     const selectedStudent: FinetuneStudent | null = useMemo(
         () => students.find((s) => s.id === studentId) ?? null,
         [students, studentId],
     )
     const selectedHasConsent = !!selectedStudent && (consentCounts[selectedStudent.id] ?? 0) > 0
     const activeSessionForSelected = selectedStudent ? recordingSessions.get(selectedStudent.id) : undefined
-    // A finalized ("locked") student can't have a new session started —
-    // for everyone, no exception for the admin who recorded them. See
-    // 20260822083253_add_recording_lock.sql. Same for a student someone
-    // else currently has RecordSession.tsx open for — see
-    // useRecordingSessions.ts.
+    // A student someone else currently has RecordSession.tsx open for
+    // can't have a second session started against them — see
+    // useRecordingSessions.ts. There's no more student-level recording
+    // lock to check here (see header comment).
     const canStart =
         !!selectedStudent &&
         selectedHasConsent &&
         !!effectiveSentenceSet &&
-        !selectedStudent.recording_locked &&
         !activeSessionForSelected
-
     const handleSearchChange = (value: string) => {
         setSearch(value)
         setPage(0)
     }
-
     const handleStart = () => {
         if (!canStart) return
         navigate(`/admin/recording/session?student=${studentId}&set=${effectiveSentenceSet}`)
     }
-
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
             <AdminSubNav />
@@ -204,12 +180,6 @@ export default function AdminSelectStudent() {
                                     <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-red-600 dark:text-red-400">
                                         <ShieldAlert size={14} className="shrink-0" />
                                         No consent file on record — attach one on the Students page first.
-                                    </p>
-                                )}
-                                {selectedStudent.recording_locked && (
-                                    <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400">
-                                        <Lock size={14} className="shrink-0" />
-                                        This student's recordings have been finalized and locked — no new session can be started.
                                     </p>
                                 )}
                                 {activeSessionForSelected && (
@@ -326,16 +296,6 @@ export default function AdminSelectStudent() {
                                     setPage(0)
                                 }}
                             />
-                            <Select
-                                name="lockedFilter"
-                                label="Locked status"
-                                options={lockedOptions}
-                                value={lockedFilter}
-                                onChange={(e) => {
-                                    setLockedFilter(e.target.value as LockedFilter)
-                                    setPage(0)
-                                }}
-                            />
                         </div>
                         {/* Right column — the list itself */}
                         <div className="min-w-0 flex-1">
@@ -399,11 +359,6 @@ export default function AdminSelectStudent() {
                                                                 >
                                                                     {hasConsent ? 'consent on file' : 'no consent'}
                                                                 </span>
-                                                                {s.recording_locked && (
-                                                                    <span className="flex items-center gap-1 rounded-full bg-gray-900/10 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                                                                        <Lock size={11} /> locked
-                                                                    </span>
-                                                                )}
                                                                 {activeSession && (
                                                                     <span className="flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-600 dark:text-sky-400">
                                                                         <Radio size={11} /> recording — {activeSession.adminName}

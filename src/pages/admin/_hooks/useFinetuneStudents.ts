@@ -2,7 +2,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient.ts'
 import { useAuth } from '../../../contexts/AuthContext.tsx'
+
 export type ReadingTier = 'below' | 'on' | 'above'
+
 export type FinetuneStudent = {
     id: string
     full_name: string
@@ -11,8 +13,8 @@ export type FinetuneStudent = {
     reading_tier: ReadingTier | null
     consent_on_file: boolean
     notes: string | null
-    recording_locked: boolean
 }
+
 export type NewFinetuneStudent = {
     full_name: string
     grade_level: number | null
@@ -21,9 +23,13 @@ export type NewFinetuneStudent = {
     consent_on_file: boolean
     notes?: string | null
 }
+
 export type UpdateFinetuneStudentPayload = NewFinetuneStudent & { id: string }
-const SELECT_COLUMNS = 'id, full_name, grade_level, gender, reading_tier, consent_on_file, notes, recording_locked'
+
+const SELECT_COLUMNS = 'id, full_name, grade_level, gender, reading_tier, consent_on_file, notes'
+
 export const finetuneStudentsKey = ['finetune_students'] as const
+
 export function useFinetuneStudentsQuery() {
     return useQuery({
         queryKey: finetuneStudentsKey,
@@ -37,6 +43,7 @@ export function useFinetuneStudentsQuery() {
         },
     })
 }
+
 export function useCreateFinetuneStudentMutation() {
     const { user } = useAuth()
     const queryClient = useQueryClient()
@@ -55,6 +62,7 @@ export function useCreateFinetuneStudentMutation() {
         },
     })
 }
+
 export function useUpdateFinetuneStudentMutation() {
     const queryClient = useQueryClient()
     return useMutation({
@@ -73,24 +81,7 @@ export function useUpdateFinetuneStudentMutation() {
         },
     })
 }
-// The recording_locked flag is deliberately NOT settable through the
-// regular update mutation above — it only ever changes via this RPC
-// (see the migration's set_finetune_student_recording_lock function),
-// which is a SECURITY DEFINER function that bypasses the "can't update a
-// locked row" RLS policy, since locking/unlocking has to work even while
-// the row is currently locked.
-export function useSetRecordingLockMutation() {
-    const queryClient = useQueryClient()
-    return useMutation({
-        mutationFn: async ({ id, locked }: { id: string; locked: boolean }) => {
-            const { error } = await supabase.rpc('set_finetune_student_recording_lock', { p_id: id, p_locked: locked })
-            if (error) throw error
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: finetuneStudentsKey })
-        },
-    })
-}
+
 // Both consent-files and student-recordings store objects under a
 // "<student_id>/..." folder, so deleting everything for a student is just
 // listing that folder and removing whatever's in it — no need to track
@@ -104,6 +95,7 @@ async function removeStorageFolder(bucket: string, folder: string) {
     const { error: removeErr } = await supabase.storage.from(bucket).remove(paths)
     if (removeErr) throw removeErr
 }
+
 export function useDeleteFinetuneStudentMutation() {
     const queryClient = useQueryClient()
     return useMutation({
@@ -112,8 +104,11 @@ export function useDeleteFinetuneStudentMutation() {
             // student_recordings at the DB level, but Postgres cascade never
             // touches Storage — without this, the actual consent-form scans
             // and audio blobs would be orphaned in both buckets forever.
-            // Note: the delete itself will simply fail (RLS) if the student
-            // is recording_locked — that's enforced at the DB level, not here.
+            // Note: locking is per-recording now, not per-student — if any
+            // of this student's recordings are individually locked, the
+            // DELETE on student_recordings simply fails RLS for that one
+            // row, and the whole cascade/delete attempt errors out here
+            // rather than silently deleting everything else around it.
             await Promise.all([
                 removeStorageFolder('consent-files', id),
                 removeStorageFolder('student-recordings', id),

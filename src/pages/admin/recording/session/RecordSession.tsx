@@ -10,6 +10,14 @@
 // meant to be a focused capture screen, not another place to navigate
 // from, same reasoning as RecordingHistory.tsx.
 //
+// PLAYBACK: both the "already saved" listen-back panel and the
+// just-recorded listen-back use the shared AudioPlayer
+// (components/ui/AudioPlayer.tsx) instead of a bare native
+// <audio controls> — same component RecordingHistory.tsx uses, so
+// playback looks and behaves identically everywhere in the admin
+// recording flow instead of falling back to the browser's own (small,
+// inconsistent-across-browsers) control here specifically.
+//
 // The RECORD_MAX_SECONDS cap is enforced twice: once inside useRecorder's
 // own start()/tick logic, and redundantly here via a useEffect that force
 // -stops the instant `seconds` reaches the cap. Belt and suspenders.
@@ -20,6 +28,16 @@
 // and saving over it deletes the old row/storage object first so we
 // never end up with two student_recordings rows for the same
 // (student_id, sentence_set, sentence_number).
+//
+// LOCKING IS PER-RECORDING: there's no more student-level "finalized"
+// concept (see 20260905041659_move_recording_lock_to_per_recording.sql
+// and RecordingHistory.tsx, where an admin locks/unlocks one recording
+// at a time). Here that shows up as a check on `existingRecording.locked`
+// for whichever sentence is currently on screen — if it's locked, the
+// mic/retake button is disabled and swapped for a Lock icon, since RLS
+// would reject the delete-then-reinsert this page's save flow does
+// anyway (see useSaveRecording.ts). Unlocking has to happen back on
+// RecordingHistory.tsx; there's no unlock control here.
 //
 // The signed-URL fetch effect intentionally does NOT reset state
 // synchronously at the top of its body (that pattern trips
@@ -61,26 +79,19 @@
 //    the word-tagging UI hides itself once any whole-clip chip is
 //    active.
 //
-// A finalized ("locked") student — see 20260822083253_add_recording_lock.sql
-// — bounces the admin back before rendering the recorder at all (below,
-// right after the "student not found" guard). This is defense-in-depth:
-// SelectStudent.tsx already disables "Start recording" for a locked
-// student, but this page is also reachable directly via a bookmarked or
-// shared URL, so it needs its own check too.
-//
 // A DIFFERENT admin already having this student's recorder open right
-// now (not a permanent lock, just "someone's mid-session") gets the same
+// now (not a permanent lock, just "someone's mid-session") gets a
 // bounce-back treatment via useRecordingSessionsPresence (see
 // useRecordingSessions.ts) — real-time Supabase Presence, not a DB row,
 // so it can't get permanently stuck occupied if that admin's browser
 // crashes. This is a soft, best-effort signal (see that file's header
-// comment on the race it doesn't close), not a substitute for
-// recording_locked. Both the "read who's recording" and "announce that
-// I'm recording" concerns for THIS page go through a single call to
-// useRecordingSessionsPresence — deliberately not two separate hook
-// calls — because the shared 'admin-recording-sessions' topic can only
-// ever have one channel object per tab (see that file's header comment
-// for why a second channel() call on the same topic silently no-ops).
+// comment on the race it doesn't close). Both the "read who's recording"
+// and "announce that I'm recording" concerns for THIS page go through a
+// single call to useRecordingSessionsPresence — deliberately not two
+// separate hook calls — because the shared 'admin-recording-sessions'
+// topic can only ever have one channel object per tab (see that file's
+// header comment for why a second channel() call on the same topic
+// silently no-ops).
 //
 // Split across a few files to keep this one to "wire the pieces together
 // and lay out two panels": the actual save sequence (upload -> replace
@@ -90,11 +101,12 @@
 // components/QualityFlagChips.tsx and components/WordTaggingPanel.tsx.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Mic, Check, RotateCcw, Loader2, ShieldAlert, ArrowLeft, TriangleAlert, Flag, Tag, Radio } from 'lucide-react'
+import { Mic, Check, RotateCcw, Loader2, ShieldAlert, ArrowLeft, TriangleAlert, Flag, Tag, Radio, Lock } from 'lucide-react'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { useProfile } from '../../../../hooks/useProfile'
 import { useRecorder } from '../../../proficiency/pre_assessment/assessment_session/features/useRecorder'
 import { Waveform } from '../../../proficiency/pre_assessment/assessment_session/features/Waveform'
+import { AudioPlayer } from '../../../../components/ui/AudioPlayer'
 import { useReadingSentencesQuery, useReadingSentenceSetsQuery } from '../../_hooks/useReadingSentences.ts'
 import { useFinetuneStudentsQuery } from '../../_hooks/useFinetuneStudents.ts'
 import { useConsentFileCountsQuery } from '../../_hooks/useConsentFiles.ts'
@@ -180,7 +192,7 @@ export default function RecordSession() {
                 studentId,
                 adminId: user?.id,
                 adminName: adminDisplayName,
-                enabled: !!selectedStudent && !selectedStudent.recording_locked,
+                enabled: !!selectedStudent,
             }
             : undefined,
     )
@@ -196,6 +208,10 @@ export default function RecordSession() {
     // gets out of the way, and the normal recording flow takes over.
     const showSavedPanel = status === 'idle' && !!existingRecording
     const loadingExistingAudio = showSavedPanel && signedUrlMutation.isPending
+    // PER-RECORDING lock check for the sentence currently on screen —
+    // this is what actually blocks a retake now, not any student-level
+    // flag. Unlocking happens on RecordingHistory.tsx, not here.
+    const isCurrentRecordingLocked = !!existingRecording?.locked
     const hasWordLevelIssues = Object.keys(wordFlags).length > 0 || insertions.length > 0
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const toggleFlag = useCallback((key: string) => {
@@ -379,32 +395,12 @@ export default function RecordSession() {
             </div>
         )
     }
-    // A finalized ("locked") student — bounce back rather than showing a
-    // recorder for a session that can no longer be started. Defense in
-    // depth alongside the RLS lock and SelectStudent's disabled "Start
-    // recording" button — this page is also reachable directly via a
-    // bookmarked/shared URL.
-    if (selectedStudent.recording_locked) {
-        return (
-            <div className="mx-auto max-w-2xl px-4 pb-12 pt-2">
-                <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-8 text-center text-sm font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                    {selectedStudent.full_name}'s recordings have been finalized and are locked — no new session can be
-                    started.{' '}
-                    <Link to="/admin/recording" className="font-semibold text-teal-600 underline dark:text-teal-400">
-                        Pick another student
-                    </Link>
-                    .
-                </div>
-            </div>
-        )
-    }
     // A DIFFERENT admin already has this student's recorder open right
     // now — bounce back rather than letting two admins record over each
-    // other simultaneously. Same defense-in-depth reasoning as the
-    // recording_locked check above: SelectStudent.tsx already disables
-    // "Start recording" for an occupied student, but this page is also
-    // reachable directly. See header comment / useRecordingSessions.ts
-    // for the race this doesn't fully close.
+    // other simultaneously. SelectStudent.tsx already disables "Start
+    // recording" for an occupied student, but this page is also reachable
+    // directly. See header comment / useRecordingSessions.ts for the race
+    // this doesn't fully close.
     if (isSessionTakenByOther && activeSession) {
         return (
             <div className="mx-auto max-w-2xl px-4 pb-12 pt-2">
@@ -469,6 +465,11 @@ export default function RecordSession() {
                                     <Flag size={13} /> Flagged{existingRecording.notes ? `: ${existingRecording.notes}` : ''}
                                 </span>
                             )}
+                            {isCurrentRecordingLocked && (
+                                <span className="flex items-center gap-1 rounded-full bg-gray-900/10 px-3 py-1 text-sm font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                    <Lock size={13} /> Locked
+                                </span>
+                            )}
                         </div>
                         <h2 className="mt-2 text-xl font-extrabold text-gray-900 dark:text-gray-50">
                             Recording — {selectedStudent.full_name}
@@ -496,6 +497,7 @@ export default function RecordSession() {
                                         const hasSavedTake = !!savedRecording
                                         const isFlaggedTake = savedRecording?.status === 'discarded'
                                         const isLabeledTake = savedRecording?.status === 'evaluation'
+                                        const isLockedTake = !!savedRecording?.locked
                                         const isCurrent = i === sentenceIndex
                                         return (
                                             <button
@@ -506,11 +508,13 @@ export default function RecordSession() {
                                                 }
                                                 title={
                                                     hasSavedTake
-                                                        ? isFlaggedTake
-                                                            ? 'Recording flagged'
-                                                            : isLabeledTake
-                                                                ? 'Recording labeled (evaluation data)'
-                                                                : 'Recording already saved'
+                                                        ? isLockedTake
+                                                            ? 'Recording locked'
+                                                            : isFlaggedTake
+                                                                ? 'Recording flagged'
+                                                                : isLabeledTake
+                                                                    ? 'Recording labeled (evaluation data)'
+                                                                    : 'Recording already saved'
                                                         : undefined
                                                 }
                                                 className={`h-2.5 cursor-pointer rounded-full transition-all duration-200 ${
@@ -544,11 +548,14 @@ export default function RecordSession() {
                     circular mic/stop toggle, then retake/save once a take
                     exists. When the sentence already has a saved recording
                     and no new local take has started yet, an extra panel up
-                    top plays the existing take back and makes clear that
-                    pressing the mic again will retake (and replace) it. Once
-                    a fresh take is recorded, a row of quality-flag chips
-                    lets the admin mark it as unusable-for-training before
-                    saving, and — if no whole-clip flag is active — a
+                    top plays the existing take back (via AudioPlayer) and
+                    makes clear that pressing the mic again will retake (and
+                    replace) it — or, if that recording is locked, that a
+                    retake isn't possible until it's unlocked in Recording
+                    History. Once a fresh take is recorded, its own listen-
+                    back also uses AudioPlayer, then a row of quality-flag
+                    chips lets the admin mark it as unusable-for-training
+                    before saving, and — if no whole-clip flag is active — a
                     tap-to-cycle word list lets them tag real mistakes
                     instead. See header comment. */}
                     <section className="flex h-full flex-col items-center justify-center gap-6 overflow-y-auto rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10">
@@ -559,7 +566,9 @@ export default function RecordSession() {
                                     : isRecorded
                                         ? 'RECORDED — LISTEN BACK'
                                         : showSavedPanel
-                                            ? 'SAVED — LISTEN OR RETAKE'
+                                            ? isCurrentRecordingLocked
+                                                ? 'SAVED & LOCKED'
+                                                : 'SAVED — LISTEN OR RETAKE'
                                             : 'READY?'}
                             </div>
                             <div
@@ -591,23 +600,43 @@ export default function RecordSession() {
                             </div>
                         )}
                         {showSavedPanel && (
-                            <div className="w-full rounded-2xl border border-teal-500/20 bg-teal-500/5 p-4 dark:border-teal-400/20 dark:bg-teal-400/5">
-                                <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-teal-700 dark:text-teal-300">
-                                    <Check size={15} /> A recording is already saved for this sentence.
+                            <div
+                                className={`w-full rounded-2xl border p-4 ${
+                                    isCurrentRecordingLocked
+                                        ? 'border-gray-900/10 bg-gray-900/[0.03] dark:border-gray-100/10 dark:bg-gray-100/[0.03]'
+                                        : 'border-teal-500/20 bg-teal-500/5 dark:border-teal-400/20 dark:bg-teal-400/5'
+                                }`}
+                            >
+                                <p
+                                    className={`mb-2 flex items-center gap-1.5 text-sm font-bold ${
+                                        isCurrentRecordingLocked
+                                            ? 'text-gray-700 dark:text-gray-300'
+                                            : 'text-teal-700 dark:text-teal-300'
+                                    }`}
+                                >
+                                    {isCurrentRecordingLocked ? <Lock size={15} /> : <Check size={15} />}
+                                    {isCurrentRecordingLocked
+                                        ? 'This recording is locked and cannot be retaken.'
+                                        : 'A recording is already saved for this sentence.'}
                                 </p>
                                 {loadingExistingAudio ? (
                                     <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                         <Loader2 size={14} className="animate-spin" /> Loading saved recording…
                                     </div>
                                 ) : existingSignedUrl ? (
-                                    <audio controls src={existingSignedUrl} className="w-full" />
+                                    <AudioPlayer src={existingSignedUrl} className="w-full" />
                                 ) : (
                                     <p className="text-sm text-gray-500 dark:text-gray-400">Couldn't load the saved recording.</p>
+                                )}
+                                {isCurrentRecordingLocked && (
+                                    <p className="mt-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                        Unlock it from Recording History before recording a new take.
+                                    </p>
                                 )}
                             </div>
                         )}
                         {!showSavedPanel && <Waveform active={isRecording} levels={levels} />}
-                        {isRecorded && audioUrl && <audio controls src={audioUrl} className="w-full" />}
+                        {isRecorded && audioUrl && <AudioPlayer src={audioUrl} className="w-full" />}
                         {isRecorded && <QualityFlagChips flagReasons={flagReasons} onToggle={toggleFlag} />}
                         {isRecorded && flagReasons.length === 0 && words.length > 0 && (
                             <WordTaggingPanel
@@ -624,8 +653,16 @@ export default function RecordSession() {
                         {!isRecorded && (
                             <button
                                 onClick={isRecording ? stop : () => start(RECORD_MAX_SECONDS)}
-                                disabled={!hasConsent}
-                                aria-label={isRecording ? 'Stop recording' : showSavedPanel ? 'Retake recording' : 'Start recording'}
+                                disabled={!hasConsent || (isCurrentRecordingLocked && !isRecording)}
+                                aria-label={
+                                    isRecording
+                                        ? 'Stop recording'
+                                        : isCurrentRecordingLocked
+                                            ? 'Recording locked'
+                                            : showSavedPanel
+                                                ? 'Retake recording'
+                                                : 'Start recording'
+                                }
                                 className={`flex h-36 w-36 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-100 active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-40 ${
                                     isRecording
                                         ? 'bg-rose-600 shadow-[0_10px_0_0_#9f1239] active:shadow-[0_3px_0_0_#9f1239]'
@@ -634,6 +671,8 @@ export default function RecordSession() {
                             >
                                 {isRecording ? (
                                     <span className="h-10 w-10 rounded-xl bg-white" />
+                                ) : isCurrentRecordingLocked ? (
+                                    <Lock size={48} />
                                 ) : showSavedPanel ? (
                                     <RotateCcw size={48} />
                                 ) : (
@@ -647,7 +686,9 @@ export default function RecordSession() {
                                 : isRecorded
                                     ? 'Listen back before saving.'
                                     : showSavedPanel
-                                        ? 'Press the button to record a new take — this will replace the saved one.'
+                                        ? isCurrentRecordingLocked
+                                            ? 'This recording is locked — unlock it in Recording History to record a new take.'
+                                            : 'Press the button to record a new take — this will replace the saved one.'
                                         : 'Press the microphone to start.'}
                         </p>
                         {isRecorded && (
