@@ -26,21 +26,21 @@
 import React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Calendar, CheckCircle2, PlayCircle, Sparkles, Trash2 } from 'lucide-react'
-import { useLang } from '../../../contexts/LangContext'
-import { useTheme } from '../../../contexts/ThemeContext'
-import { useProfile } from '../../../hooks/useProfile'
-import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
-import { Skeleton } from '../../../components/ui/Skeleton'
-import { Owl } from '../../../components/ui/Owl'
-import type { Lang } from '../../../components/buttons/LangToggle'
-import { useStudentProfileQuery } from '../review/hooks'
-import { ERROR_TYPE_COLOR } from '../review/features/attemptWordReviewHelpers'
+import { useLang } from '../../../../contexts/LangContext.tsx'
+import { useTheme } from '../../../../contexts/ThemeContext.tsx'
+import { useProfile } from '../../../../hooks/useProfile.ts'
+import { showConfirmation, showToast } from '../../../../helpers/swalHelpers.ts'
+import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
+import { Owl } from '../../../../components/ui/Owl.tsx'
+import type { Lang } from '../../../../components/buttons/LangToggle.tsx'
+import { useStudentProfileQuery } from '../../review/hooks.ts'
+import { ERROR_TYPE_COLOR } from '../../review/features/attemptWordReviewHelpers.ts'
 import {
     readPracticed,
     useDeleteRemediationMaterialMutation,
     useStudentRemediationMaterialsQuery,
     type RemediationMaterial,
-} from './hooks'
+} from '../hooks.ts'
 const STRINGS: Record<Lang, {
     loading: string
     back: string

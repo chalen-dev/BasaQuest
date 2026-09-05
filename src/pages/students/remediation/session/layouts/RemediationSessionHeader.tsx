@@ -15,10 +15,10 @@
 // list.
 import { useNavigate, useParams } from 'react-router-dom'
 import { LogOut, UserRound } from 'lucide-react'
-import { Owl } from '../../../../components/ui/Owl'
-import { ThemeToggleButton } from '../../../../components/buttons/ThemeToggleButton'
-import { useLang } from '../../../../contexts/LangContext'
-import type { Lang } from '../../../../components/buttons/LangToggle'
+import { Owl } from '../../../../../components/ui/Owl.tsx'
+import { ThemeToggleButton } from '../../../../../components/buttons/ThemeToggleButton.tsx'
+import { useLang } from '../../../../../contexts/LangContext.tsx'
+import type { Lang } from '../../../../../components/buttons/LangToggle.tsx'
 const TAGLINE: Record<Lang, string> = {
     fil: 'Plataporma ng Pagkatuto',
     en: 'Learning Platform',

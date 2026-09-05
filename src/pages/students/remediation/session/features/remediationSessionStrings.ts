@@ -17,6 +17,7 @@ export const STRINGS: Record<Lang, {
     practicedBadge: (count: number, total: number) => string
     markPracticed: string
     markedPracticed: string
+    pronounce: string
     prev: string
     next: string
     finish: string
@@ -39,6 +40,7 @@ export const STRINGS: Record<Lang, {
         practicedBadge: (count, total) => `${count}/${total} nasanay na`,
         markPracticed: 'Markahan bilang Nasanay',
         markedPracticed: 'Nasanay na ✓',
+        pronounce: 'Pakinggan ang Bigkas',
         prev: 'Nakaraan',
         next: 'Susunod',
         finish: 'Tapusin ang Session',
@@ -61,6 +63,7 @@ export const STRINGS: Record<Lang, {
         practicedBadge: (count, total) => `${count}/${total} practiced`,
         markPracticed: 'Mark Practiced',
         markedPracticed: 'Practiced ✓',
+        pronounce: 'Hear Pronunciation',
         prev: 'Previous',
         next: 'Next',
         finish: 'Finish Session',

@@ -25,3 +25,12 @@ export const USE_PLACEHOLDER_PASSAGE = true
 // Azure credits, and requires basaquest-scoring to actually be
 // running and reachable at VITE_SCORING_SERVICE_URL.
 export const USE_PLACEHOLDER_SCORING = true
+
+// Calls the real pronounce-word Supabase Edge Function (Azure neural
+// TTS) instead of playing a short synthesized beep locally. Spends
+// Azure TTS credits on every never-before-cached word, and requires
+// the pronounce-word function to be deployed AND its Azure secrets
+// (AZURE_SPEECH_KEY / AZURE_SPEECH_REGION) to actually be set on the
+// Supabase project — flip this off (i.e. leave it true) until both of
+// those are in place. See usePronounceWord.ts.
+export const USE_PLACEHOLDER_PRONUNCIATION = false

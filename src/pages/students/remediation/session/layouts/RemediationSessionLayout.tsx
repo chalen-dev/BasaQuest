@@ -9,8 +9,8 @@
 // RemediationSession.tsx already persists immediately), so this layout
 // is pure chrome — no outlet context, no bridging.
 import { Outlet, useParams } from 'react-router-dom'
-import { useStudentProfileQuery } from '../../review/hooks'
-import RemediationSessionHeader from './RemediationSessionHeader'
+import { useStudentProfileQuery } from '../../../review/hooks.ts'
+import RemediationSessionHeader from './RemediationSessionHeader.tsx'
 export default function RemediationSessionLayout() {
     const { studentId } = useParams<{ studentId: string }>()
     const { data: student } = useStudentProfileQuery(studentId)

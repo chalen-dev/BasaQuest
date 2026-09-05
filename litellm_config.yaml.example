@@ -1,0 +1,8 @@
+model_list:
+  - model_name: gemini-3.5-flash-lite
+    litellm_params:
+      model: gemini/gemini-3.5-flash-lite
+      api_key: <insert your gemini free api key here>
+
+# run command
+# litellm --config litellm_config.yaml --port 4000

@@ -18,13 +18,13 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Sparkles, ArrowRight, Clock } from 'lucide-react'
-import { useLang } from '../../../contexts/LangContext'
-import { useProfile } from '../../../hooks/useProfile'
-import { Pagination } from '../../../components/ui/Pagination'
-import { Skeleton } from '../../../components/ui/Skeleton'
-import type { Lang } from '../../../components/buttons/LangToggle'
-import { StudentsSubNav } from '../components/StudentsSubNav'
-import { REMEDIATION_PAGE_SIZE, useStudentsWithRemediationQuery } from './hooks'
+import { useLang } from '../../../../contexts/LangContext.tsx'
+import { useProfile } from '../../../../hooks/useProfile.ts'
+import { Pagination } from '../../../../components/ui/Pagination.tsx'
+import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
+import type { Lang } from '../../../../components/buttons/LangToggle.tsx'
+import { StudentsSubNav } from '../../components/StudentsSubNav.tsx'
+import { REMEDIATION_PAGE_SIZE, useStudentsWithRemediationQuery } from '../hooks.ts'
 const STRINGS: Record<Lang, {
     title: string
     subtitle: string
