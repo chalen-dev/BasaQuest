@@ -13,19 +13,31 @@
 // merged/deduplicated across generations — two separate generations
 // from the same attempt show up as two separate cards.
 //
-// START REMEDIATION (this pass): each card now has a "Start
-// Remediation" button that opens the teacher-led drill session
-// (RemediationSession.tsx, under session/) for that one material's
-// words. A practiced-count badge and a "last practiced" line (from
-// last_practiced_at, updated whenever a session saves progress against
-// this material) show at a glance whether/how much of a piece of
+// START REMEDIATION (earlier pass): each card has a "Start Remediation"
+// button that opens the teacher-led flashcard drill (RemediationSession.tsx,
+// under session/) for that one material's words.
+//
+// OPEN READING COACH (renamed this pass — was "Play Remediation Game"):
+// each card now ALSO has an "Open Reading Coach" button, opening the
+// mic-driven coach (RemediationCoach.tsx, under coach/ — was
+// RemediationGame.tsx under game/) for the exact same word list. Both
+// buttons share the same underlying remediation_materials row and the
+// same "practiced" progress — completing a word in either mode marks
+// the same flag, so the practiced-count badge below reflects progress
+// from whichever mode(s) a pupil has used. Per product decision, these
+// are two entirely separate entry points into one word list, not two
+// different materials.
+//
+// A practiced-count badge and a "last practiced" line (from
+// last_practiced_at, updated whenever either session saves progress
+// against this material) show at a glance whether/how much of a piece of
 // material has actually been drilled yet.
 //
 // DELETE: a teacher can remove a single generated entry via the trash
 // button on each card — confirmed first via showConfirmation.
 import React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, PlayCircle, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Mic, PlayCircle, Sparkles, Trash2 } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
@@ -60,6 +72,7 @@ const STRINGS: Record<Lang, {
     lastPracticed: (date: string) => string
     notPracticedYet: string
     startButton: string
+    playCoachButton: string
     deleteAria: string
     deleteConfirmTitle: string
     deleteConfirmText: string
@@ -86,6 +99,7 @@ const STRINGS: Record<Lang, {
         lastPracticed: (date) => `Huling sinanay: ${date}`,
         notPracticedYet: 'Hindi pa sinasanay',
         startButton: 'Simulan ang Remediation',
+        playCoachButton: 'Buksan ang Reading Coach',
         deleteAria: 'Burahin ang materyal na ito',
         deleteConfirmTitle: 'Burahin ang remediation material na ito?',
         deleteConfirmText: 'Permanente itong mabubura. Hindi na ito maibabalik.',
@@ -112,6 +126,7 @@ const STRINGS: Record<Lang, {
         lastPracticed: (date) => `Last practiced: ${date}`,
         notPracticedYet: 'Not practiced yet',
         startButton: 'Start Remediation',
+        playCoachButton: 'Open Reading Coach',
         deleteAria: 'Delete this material',
         deleteConfirmTitle: 'Delete this remediation material?',
         deleteConfirmText: "This can't be undone.",
@@ -133,12 +148,14 @@ function MaterialCard({
                           onDelete,
                           isDeleting,
                           onStart,
+                          onOpenCoach,
                       }: {
     material: RemediationMaterial
     t: (typeof STRINGS)['en']
     onDelete: () => void
     isDeleting: boolean
     onStart: () => void
+    onOpenCoach: () => void
 }) {
     const practicedCount = material.words.filter(readPracticed).length
     return (
@@ -199,7 +216,15 @@ function MaterialCard({
                     </span>
                 ))}
             </div>
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex flex-wrap justify-end gap-3">
+                <button
+                    type="button"
+                    onClick={onOpenCoach}
+                    className="flex items-center gap-2 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                >
+                    <Mic size={17} />
+                    {t.playCoachButton}
+                </button>
                 <button
                     type="button"
                     onClick={onStart}
@@ -328,6 +353,7 @@ export const StudentRemediationDetail: React.FC = () => {
                             onDelete={() => handleDelete(material.id)}
                             isDeleting={deleteMaterial.isPending && deleteMaterial.variables?.id === material.id}
                             onStart={() => navigate(`/students/remediation/${material.student_id}/session/${material.id}`)}
+                            onOpenCoach={() => navigate(`/students/remediation/${material.student_id}/session/${material.id}/coach`)}
                         />
                     ))}
                 </div>

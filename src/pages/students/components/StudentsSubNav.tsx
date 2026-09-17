@@ -8,15 +8,15 @@
 // material" isn't a queue that needs clearing, just a browsable list.
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, ClipboardCheck, ListChecks, Sparkles } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, Users, ClipboardCheck, ListChecks, Sparkles } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { HomeButton } from '../../../components/buttons/HomeButton'
 import { usePendingReviewCountQuery } from '../review/hooks'
-const STRINGS: Record<Lang, { dashboard: string; list: string; review: string; results: string; remediation: string }> = {
-    fil: { dashboard: 'Dashboard', list: 'Listahan', review: 'Suriin', results: 'Resulta', remediation: 'Remediation' },
-    en: { dashboard: 'Dashboard', list: 'Student List', review: 'Review', results: 'Results', remediation: 'Remediation' },
+const STRINGS: Record<Lang, { dashboard: string; progress: string; list: string; review: string; results: string; remediation: string }> = {
+    fil: { dashboard: 'Dashboard', progress: 'Progreso', list: 'Listahan', review: 'Suriin', results: 'Resulta', remediation: 'Remediation' },
+    en: { dashboard: 'Dashboard', progress: 'Progress', list: 'Student List', review: 'Review', results: 'Results', remediation: 'Remediation' },
 }
 export const StudentsSubNav: React.FC = () => {
     const { lang } = useLang()
@@ -46,6 +46,13 @@ export const StudentsSubNav: React.FC = () => {
             <NavLink to="/dashboard" end className={tabClass}>
                 <LayoutDashboard size={15} />
                 {t.dashboard}
+            </NavLink>
+            {/* Progress — per-pupil consolidated view across tracks (see
+                progress/ProgressDashboard.tsx), distinct from Dashboard's
+                teacher-wide totals + activity feed above. */}
+            <NavLink to="/students/progress" className={tabClass}>
+                <TrendingUp size={15} />
+                {t.progress}
             </NavLink>
             <NavLink to="/students" end className={tabClass}>
                 <Users size={15} />

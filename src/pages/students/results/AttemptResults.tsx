@@ -10,7 +10,7 @@
 // reviewing" as two distinct URLs instead of one page silently changing
 // modes underneath the teacher.
 //
-// SPLIT INTO features/ (this pass): this file used to hold the entire
+// SPLIT INTO features/ (earlier pass): this file used to hold the entire
 // Review-tab grid (draggable divider included) AND the entire
 // Insights/Results-tab body inline, plus its own giant STRINGS record —
 // it grew too large to work with comfortably. Those now live in:
@@ -47,8 +47,32 @@
 // via buildRemediationWordEntries(), reusing the exact same
 // wordList/manualErrorType AttemptInsights.tsx's cards already show, so
 // remediation material can never disagree with the Insights block.
-// Multiple generations from the same attempt are allowed on purpose
-// (see remediation/hooks.ts's own header comment).
+//
+// SENTENCE + COACH TIP GENERATION: right after
+// buildRemediationWordEntries() produces the bare { word, errorType,
+// count } entries, attachSentences() below makes ONE batched call to
+// the generate-remediation-sentences edge function to get a short
+// Gemini sentence AND a per-word reading-coach tip for each weak word
+// (used by Reading Coach Mode, coach/RemediationCoach.tsx, instead of
+// the bare word — see remediation/hooks.ts's own comment on the new
+// sentenceWords/sentenceTargetIndex/coachTip fields). If that call
+// fails for any reason, attachSentences() falls back to treating each
+// bare word as its own one-word "sentence" with no coachTip, rather
+// than blocking material generation entirely — same "never let a
+// secondary feature block the main flow" spirit as
+// useSubmitAttempt.ts's placeholder-scoring fallback. Reading Coach
+// Mode has its own static tip pool for exactly this fallback case (see
+// remediationCoachStrings.ts).
+//
+// On success, this still navigates straight to that student's
+// Remediation detail page (StudentRemediationDetail.tsx) instead of
+// staying put — a teacher who just generated material almost always
+// wants to see/start it right away, same destination as the "View
+// Pupil's Remediation List" button already goes to. The success toast
+// still fires first so there's a moment of confirmation before the page
+// changes. Multiple generations from the same attempt are allowed on
+// purpose (see remediation/hooks.ts's own header comment) — navigating
+// away doesn't change that.
 //
 // GUARD: if a teacher (or a stale bookmark) lands here for an attempt
 // that isn't actually reviewed yet (reviewed_at still null), this
@@ -62,6 +86,7 @@ import { useProfile } from '../../../hooks/useProfile'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
 import { Skeleton } from '../../../components/ui/Skeleton'
 import { Owl } from '../../../components/ui/Owl'
+import { supabase } from '../../../lib/supabaseClient'
 import {
     useAttemptAudioUrlQuery,
     useAttemptQuery,
@@ -75,7 +100,55 @@ import { STRINGS } from './features/attemptResultsStrings'
 import { computeDominantWeakness, buildRemediationWordEntries } from './features/attemptResultsHelpers'
 import { AttemptResultsReviewGrid } from './features/AttemptResultsReviewGrid'
 import { AttemptInsights } from './features/AttemptInsights'
-import { useGenerateRemediationMaterialMutation } from '../remediation/hooks'
+import { useGenerateRemediationMaterialMutation, type RemediationWordEntry } from '../remediation/hooks'
+// Enriches each bare { word, errorType, count, practiced } entry with a
+// short Gemini-generated sentence AND a per-word coaching tip (see
+// generate-remediation-sentences edge function). One batched call for
+// the whole entries list, not one call per word. Never throws — any
+// failure (network, malformed response, missing entries for some
+// words) falls back to a one-word "sentence" and no coachTip for the
+// affected entries instead of blocking material generation.
+async function attachSentences(entries: RemediationWordEntry[], language: 'en' | 'fil'): Promise<RemediationWordEntry[]> {
+    const fallback = (entry: RemediationWordEntry): RemediationWordEntry => ({
+        ...entry,
+        sentenceWords: [entry.word],
+        sentenceTargetIndex: 0,
+        coachTip: undefined,
+    })
+    try {
+        const { data, error } = await supabase.functions.invoke('generate-remediation-sentences', {
+            body: { words: entries.map((e) => e.word), language },
+        })
+        if (error || !Array.isArray(data)) {
+            console.error('AttemptResults: generate-remediation-sentences failed, falling back to bare words', error)
+            return entries.map(fallback)
+        }
+        const byWord = new Map<string, { sentenceWords: string[]; targetIndex: number; coachTip?: string }>()
+        for (const item of data) {
+            if (
+                item &&
+                typeof item.word === 'string' &&
+                Array.isArray(item.sentenceWords) &&
+                item.sentenceWords.length > 0 &&
+                item.sentenceWords.every((w: unknown) => typeof w === 'string') &&
+                Number.isInteger(item.targetIndex) &&
+                item.targetIndex >= 0 &&
+                item.targetIndex < item.sentenceWords.length
+            ) {
+                const coachTip = typeof item.coachTip === 'string' && item.coachTip.trim().length > 0 ? item.coachTip : undefined
+                byWord.set(item.word.toLowerCase(), { sentenceWords: item.sentenceWords, targetIndex: item.targetIndex, coachTip })
+            }
+        }
+        return entries.map((entry) => {
+            const match = byWord.get(entry.word.toLowerCase())
+            if (!match) return fallback(entry)
+            return { ...entry, sentenceWords: match.sentenceWords, sentenceTargetIndex: match.targetIndex, coachTip: match.coachTip }
+        })
+    } catch (err) {
+        console.error('AttemptResults: generate-remediation-sentences threw, falling back to bare words', err)
+        return entries.map(fallback)
+    }
+}
 export const AttemptResults: React.FC = () => {
     const { attemptId } = useParams<{ attemptId: string }>()
     const navigate = useNavigate()
@@ -202,10 +275,16 @@ export const AttemptResults: React.FC = () => {
     }
     const insightSummary = summarySentences.join(' ')
     // Generate Remediation Material — see this file's header comment.
+    // On success, jump straight to this student's Remediation detail
+    // page (same route the "View Pupil's Remediation List" button
+    // uses) instead of staying on this Results page — a teacher who
+    // just generated material is almost always about to look at or
+    // start it.
     const handleGenerateRemediation = async () => {
         if (!attemptId || !attempt) return
         const { entries, total } = buildRemediationWordEntries(wordList, manualErrorType)
         if (entries.length === 0) return
+        const entriesWithSentences = await attachSentences(entries, attempt.language)
         try {
             await generateMaterial.mutateAsync({
                 attemptId,
@@ -214,9 +293,10 @@ export const AttemptResults: React.FC = () => {
                 passageTitle: attempt.passage_title,
                 dominantErrorType: dominantWeakness?.type ?? null,
                 wordCount: total,
-                words: entries,
+                words: entriesWithSentences,
             })
             showToast(t.generateSuccessToast, 'success', theme === 'dark')
+            navigate(`/students/remediation/${attempt.student_id}`)
         } catch (err) {
             console.error('AttemptResults: failed to generate remediation material', err)
             showToast(t.generateErrorToast, 'error', theme === 'dark')

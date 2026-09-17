@@ -5,7 +5,8 @@
 // on AttemptResults.tsx (see that file's own comment), browsed via
 // RemediationList.tsx / StudentRemediationDetail.tsx, and now practiced
 // via a teacher-led session (RemediationSession.tsx) that marks
-// individual words as practiced and persists that back here.
+// individual words as practiced and persists that back here, or played
+// via Reading Coach Mode (coach/RemediationCoach.tsx).
 //
 // v1 IS TEACHER-ONLY: remediation_materials' RLS only ever lets the
 // generating teacher (or the pupil's assigned teacher) read/write these
@@ -22,6 +23,19 @@
 // diagnostic content itself never changes, only whether it's been
 // drilled.
 //
+// SENTENCE + COACH TIP FIELDS: each word entry can also carry
+// sentenceWords/sentenceTargetIndex — a short Gemini-generated sentence
+// using that word, pre-split into words with the target word's index
+// marked — plus coachTip, a short Gemini-generated reading tip specific
+// to that word. All three are generated together, once, at
+// material-generation time (see AttemptResults.tsx's attachSentences())
+// and used by Reading Coach Mode (coach/RemediationCoach.tsx) instead of
+// the bare word. All are optional and jsonb needs no migration to add
+// them — same pattern as `practiced` before. Absent on any row
+// generated before these features existed, or if Gemini generation
+// failed for that word — the coach falls back to treating the bare word
+// as a one-word "sentence" and using a static tip pool in that case.
+//
 // STUDENTS-WITH-MATERIAL LISTING: there's no dedicated SQL view/RPC for
 // "distinct students with a count and latest date" — this fetches the
 // (small, teacher-scoped) set of raw rows and aggregates + paginates
@@ -30,7 +44,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient'
 import type { ErrorType } from '../review/hooks'
-
 export type RemediationWordEntry = {
     word: string
     errorType: Exclude<ErrorType, 'None'>
@@ -40,8 +53,21 @@ export type RemediationWordEntry = {
     // identically to false (see readPracticed() below) rather than
     // requiring a backfill migration for old rows.
     practiced?: boolean
+    // Added for sentence mode (Reading Coach Mode) — a short
+    // Gemini-generated sentence using this word, pre-split into words
+    // so the coach never has to re-parse a string to find where the
+    // target word landed.
+    sentenceWords?: string[]
+    sentenceTargetIndex?: number
+    // Added for Reading Coach Mode's owl speech bubble — a short
+    // Gemini-generated reading tip specific to this word, generated in
+    // the same batched call as sentenceWords/sentenceTargetIndex (see
+    // generate-remediation-sentences/index.ts). Optional: absent on
+    // older material, or when Gemini generation failed for this word —
+    // RemediationCoach.tsx falls back to a static tip pool in that case
+    // (see remediationCoachStrings.ts).
+    coachTip?: string
 }
-
 export type RemediationMaterial = {
     id: string
     attempt_id: string | null
@@ -55,7 +81,6 @@ export type RemediationMaterial = {
     created_at: string
     last_practiced_at: string | null
 }
-
 export type StudentWithRemediation = {
     student_id: string
     full_name: string | null
@@ -64,22 +89,17 @@ export type StudentWithRemediation = {
     material_count: number
     latest_created_at: string
 }
-
 export const REMEDIATION_PAGE_SIZE = 8
-
 // Reads a word entry's practiced flag, treating a missing key (rows
 // generated before this feature existed) the same as false — see
 // RemediationWordEntry's own comment.
 export function readPracticed(entry: RemediationWordEntry): boolean {
     return entry.practiced === true
 }
-
 const remediationStudentsKey = (teacherId: string | undefined) => ['remediation-students', teacherId] as const
 const remediationMaterialsKey = (studentId: string | undefined) => ['remediation-materials', studentId] as const
 const remediationMaterialKey = (materialId: string | undefined) => ['remediation-material', materialId] as const
-
 type StudentsWithRemediationArgs = { teacherId: string | undefined; page: number }
-
 export function useStudentsWithRemediationQuery({ teacherId, page }: StudentsWithRemediationArgs) {
     return useQuery({
         queryKey: [...remediationStudentsKey(teacherId), page],
@@ -90,7 +110,6 @@ export function useStudentsWithRemediationQuery({ teacherId, page }: StudentsWit
                 .eq('teacher_id', teacherId as string)
                 .order('created_at', { ascending: false })
             if (error) throw error
-
             const byStudent = new Map<string, { count: number; latest: string }>()
             for (const row of rows ?? []) {
                 const existing = byStudent.get(row.student_id)
@@ -100,7 +119,6 @@ export function useStudentsWithRemediationQuery({ teacherId, page }: StudentsWit
                     byStudent.set(row.student_id, { count: 1, latest: row.created_at })
                 }
             }
-
             const studentIds = Array.from(byStudent.keys())
             let studentsById = new Map<string, { full_name: string | null; username: string | null; grade_level: number | null }>()
             if (studentIds.length > 0) {
@@ -111,7 +129,6 @@ export function useStudentsWithRemediationQuery({ teacherId, page }: StudentsWit
                 if (studentsError) throw studentsError
                 studentsById = new Map((students ?? []).map((s) => [s.id, { full_name: s.full_name, username: s.username, grade_level: s.grade_level }]))
             }
-
             const all: StudentWithRemediation[] = studentIds
                 .map((id) => {
                     const agg = byStudent.get(id)!
@@ -126,7 +143,6 @@ export function useStudentsWithRemediationQuery({ teacherId, page }: StudentsWit
                     }
                 })
                 .sort((a, b) => (a.latest_created_at < b.latest_created_at ? 1 : -1))
-
             const total = all.length
             const from = page * REMEDIATION_PAGE_SIZE
             const students = all.slice(from, from + REMEDIATION_PAGE_SIZE)
@@ -136,7 +152,6 @@ export function useStudentsWithRemediationQuery({ teacherId, page }: StudentsWit
         placeholderData: (prev) => prev,
     })
 }
-
 export function useStudentRemediationMaterialsQuery(studentId: string | undefined) {
     return useQuery({
         queryKey: remediationMaterialsKey(studentId),
@@ -152,12 +167,11 @@ export function useStudentRemediationMaterialsQuery(studentId: string | undefine
         enabled: !!studentId,
     })
 }
-
-// Single-material fetch for RemediationSession.tsx — the session page
-// is reached by materialId (from a "Start Remediation" button on one
-// card in StudentRemediationDetail.tsx), not by studentId, so it needs
-// its own targeted query rather than pulling the whole list and
-// filtering client-side.
+// Single-material fetch for RemediationSession.tsx and
+// coach/RemediationCoach.tsx — both are reached by materialId (from a
+// button on one card in StudentRemediationDetail.tsx), not by
+// studentId, so they need a targeted query rather than pulling the
+// whole list and filtering client-side.
 export function useRemediationMaterialQuery(materialId: string | undefined) {
     return useQuery({
         queryKey: remediationMaterialKey(materialId),
@@ -173,7 +187,6 @@ export function useRemediationMaterialQuery(materialId: string | undefined) {
         enabled: !!materialId,
     })
 }
-
 type GenerateRemediationMaterialArgs = {
     attemptId: string
     studentId: string
@@ -183,7 +196,6 @@ type GenerateRemediationMaterialArgs = {
     wordCount: number
     words: RemediationWordEntry[]
 }
-
 export function useGenerateRemediationMaterialMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -208,7 +220,6 @@ export function useGenerateRemediationMaterialMutation(teacherId: string | undef
         },
     })
 }
-
 export function useDeleteRemediationMaterialMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
@@ -223,17 +234,16 @@ export function useDeleteRemediationMaterialMutation(teacherId: string | undefin
         },
     })
 }
-
 // Persists a remediation session's progress — the full (possibly
 // partially-toggled) words array, plus last_practiced_at = now(). Called
-// by RemediationSession.tsx every time a word's practiced toggle
-// changes (immediate persistence, no separate "save" step — see that
-// file's own comment for why: nothing here is destructive enough to
-// warrant a draft/confirm split like the review flow has, so the
-// simplest thing is also the safest one). Writing the whole array back
-// each time (rather than a narrower per-word update) is simplest given
-// the jsonb column has no partial-update operator this client uses
-// elsewhere.
+// by RemediationSession.tsx and coach/RemediationCoach.tsx every time a
+// word's practiced state changes (immediate persistence, no separate
+// "save" step — see RemediationSession.tsx's own comment for why:
+// nothing here is destructive enough to warrant a draft/confirm split
+// like the review flow has, so the simplest thing is also the safest
+// one). Writing the whole array back each time (rather than a narrower
+// per-word update) is simplest given the jsonb column has no partial-
+// update operator this client uses elsewhere.
 //
 // No teacherId parameter here (unlike the other mutations in this
 // file): a progress update never changes anything keyed by teacherId —

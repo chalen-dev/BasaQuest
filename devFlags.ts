@@ -17,14 +17,14 @@
 // Calls the real generate-passage Supabase Edge Function (Gemini)
 // instead of using PLACEHOLDER_PASSAGES from assessmentSessionStrings.ts.
 // Spends Gemini credits on every passage generated.
-export const USE_PLACEHOLDER_PASSAGE = true
+export const USE_PLACEHOLDER_PASSAGE = false
 
 // Calls the real basaquest-scoring service (Azure Pronunciation
 // Assessment) instead of fabricating scored data via
 // applyPlaceholderScoring() (features/placeholderScoring.ts). Spends
 // Azure credits, and requires basaquest-scoring to actually be
 // running and reachable at VITE_SCORING_SERVICE_URL.
-export const USE_PLACEHOLDER_SCORING = true
+export const USE_PLACEHOLDER_SCORING = false
 
 // Calls the real pronounce-word Supabase Edge Function (Azure neural
 // TTS) instead of playing a short synthesized beep locally. Spends
@@ -34,3 +34,15 @@ export const USE_PLACEHOLDER_SCORING = true
 // Supabase project — flip this off (i.e. leave it true) until both of
 // those are in place. See usePronounceWord.ts.
 export const USE_PLACEHOLDER_PRONUNCIATION = false
+
+// Shows fabricated example scores in the Progress dashboard's
+// Comprehension/History columns (ProgressRow.tsx) instead of the real
+// "Coming soon" badge. There is no comprehension_sessions or
+// history_sessions table backing these tracks — turning this on does
+// NOT wire up real data, it only swaps the badge for a made-up number
+// so the dashboard screenshots/demos as if those tracks existed.
+// MUST stay false for any session a real teacher might use — this
+// exists purely so a screenshot/presentation can show what the
+// finished dashboard is meant to look like. Flip it on right before
+// taking that screenshot, then back off.
+export const SHOW_MOCK_COMPREHENSION_HISTORY = false;

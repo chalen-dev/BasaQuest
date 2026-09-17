@@ -4,6 +4,9 @@ import './App.css'
 import {AdminRoute, GuestRoute, ProtectedRoute} from "./components/routes/AuthRoutes.tsx";
 import Login from "./pages/auth/Login.tsx";
 import { Dashboard } from "./pages/students/dashboard/Dashboard.tsx";
+import { ProgressDashboard } from "./pages/students/progress/ProgressDashboard.tsx";
+import PupilProgressReport from "./pages/students/reports/PupilProgressReport.tsx";
+import ClassAnalyticsReport from "./pages/students/reports/ClassAnalyticsReport.tsx";
 import { StudentList } from "./pages/students/list/StudentList.tsx";
 import ReviewList from "./pages/students/review/ReviewList.tsx";
 import TeacherReviewAttempt from "./pages/students/review/TeacherReviewAttempt.tsx";
@@ -13,6 +16,9 @@ import RemediationList from "./pages/students/remediation/list/RemediationList.t
 import StudentRemediationDetail from "./pages/students/remediation/list/StudentRemediationDetail.tsx";
 import RemediationSessionLayout from "./pages/students/remediation/session/layouts/RemediationSessionLayout.tsx";
 import RemediationSession from "./pages/students/remediation/session/RemediationSession.tsx";
+import RemediationCoachLayout from "./pages/students/remediation/coach/layout/RemediationCoachLayout.tsx";
+import RemediationCoach from "./pages/students/remediation/coach/RemediationCoach.tsx";
+import CoachBackdropTestPage from "./pages/students/remediation/coach/features/CoachBackdropTestPage.tsx";
 import Register from "./pages/auth/Register.tsx";
 import {Home} from "./pages/home/Home.tsx";
 import ProtectedLayout from "./pages/_layouts/ProtectedLayout.tsx";
@@ -36,12 +42,18 @@ import FinetuneStudentList from "./pages/admin/students/FinetuneStudentList.tsx"
 // useBlocker (see src/hooks/useUnsavedChangesBlocker.ts), used on the
 // teacher review screens.
 //
-// REMEDIATION SESSION ROUTE (this pass): /students/remediation/:studentId/session/:materialId,
-// wrapped in its own RemediationSessionLayout — same "stripped header,
-// no nav" pattern AssessmentSessionLayout already uses for the live
-// assessment session, placed as a SIBLING of ProtectedLayout's <Route>
-// (not nested inside it) for the same reason AssessmentSessionLayout is:
-// it needs its own header, not the full site nav.
+// REMEDIATION SESSION ROUTES: /students/remediation/:studentId/session/:materialId
+// (flashcard "Practice" drill, RemediationSession.tsx) uses
+// RemediationSessionLayout (shared header, Exit only).
+//
+// /students/remediation/:studentId/session/:materialId/coach ("Reading
+// Coach Mode", RemediationCoach.tsx) used to be nested under that SAME
+// RemediationSessionLayout, but Coach Mode is a full-bleed table+book
+// scene that can't share a header taking up vertical space — it now gets
+// its OWN layout, RemediationCoachLayout (no header, just a floating
+// Exit + Day/Night toggle), as its own sibling <Route> block, same
+// reasoning as AssessmentSessionLayout below.
+//
 const router = createBrowserRouter(
     createRoutesFromElements(
         <>
@@ -64,6 +76,18 @@ const router = createBrowserRouter(
                 <Route element={<PersistentBackdropLayout />}>
                     <Route element={<ProtectedLayout />}>
                         <Route path="/dashboard" element={<Dashboard />} />
+                        {/* Per-pupil progress dashboard — consolidates
+                        Reading Proficiency (EN/FIL) scores + trend,
+                        pending flagged-word counts, and stale remediation
+                        material across a teacher's whole roster in one
+                        screen. See teacher_dashboard_summary migration. */}
+                        <Route path="/students/progress" element={<ProgressDashboard />} />
+                        {/* Printable reports (capstone objective) — one
+                        pupil's full picture over a period, and the
+                        teacher's whole-roster analytics snapshot. See
+                        get_pupil_progress_report/get_class_analytics_report. */}
+                        <Route path="/students/progress/:studentId/report" element={<PupilProgressReport />} />
+                        <Route path="/students/progress/class-report" element={<ClassAnalyticsReport />} />
                         <Route path="/students" element={<StudentList />} />
                         {/* Teacher review inbox, its per-attempt detail
                         page, the confirmed-results list, and the
@@ -100,11 +124,20 @@ const router = createBrowserRouter(
                     <Route element={<AssessmentSessionLayout />}>
                         <Route path="/reading/proficiency/assessment/session" element={<AssessmentSession />} />
                     </Route>
-                    {/* Teacher-led remediation drill — same stripped-header
-                    idea as AssessmentSessionLayout above, scoped to one
-                    piece of remediation material for one pupil. */}
+                    {/* Teacher-led remediation drill (flashcard "Practice") —
+                    same stripped-header idea as AssessmentSessionLayout
+                    above, scoped to one piece of remediation material for
+                    one pupil. */}
                     <Route element={<RemediationSessionLayout />}>
                         <Route path="/students/remediation/:studentId/session/:materialId" element={<RemediationSession />} />
+                    </Route>
+                    {/* Reading Coach Mode — its own full-bleed layout, no
+                    shared header at all (see RemediationCoachLayout.tsx's
+                    header comment). Split out from RemediationSessionLayout
+                    above because Coach Mode's table+book scene needs the
+                    entire viewport, not a header-minus-height area. */}
+                    <Route element={<RemediationCoachLayout />}>
+                        <Route path="/students/remediation/:studentId/session/:materialId/coach" element={<RemediationCoach />} />
                     </Route>
                     {/* Same idea for the fine-tune mic-capture screen — a
                     stripped header with only an Exit button (back to the
@@ -122,6 +155,14 @@ const router = createBrowserRouter(
             outside both GuestRoute and ProtectedRoute, since this tab
             starts unauthenticated until the token is redeemed. */}
             <Route path="/student-session" element={<StudentSessionBridge />} />
+            {/* DEV-ONLY: isolated visual harness for CoachTableBackdrop.tsx
+            (the Reading Coach Mode page-turn scene) — no auth guard, no
+            data fetching, not linked from any nav. See
+            CoachBackdropTestPage.tsx's own header comment. Safe to
+            delete this route (and that file) once the backdrop's been
+            checked against the real RemediationCoach.tsx and the
+            standalone harness isn't needed anymore. */}
+            <Route path="/dev/coach-backdrop" element={<CoachBackdropTestPage />} />
             {/* Catch */}
             <Route path="*" element={<Navigate to="/login" replace />} />
         </>
