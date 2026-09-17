@@ -6,3 +6,6 @@ model_list:
 
 # run command
 # litellm --config litellm_config.yaml --port 4000
+
+# sample prompt (copy-paste)
+# make a commit message, scrap those old changes files you keep using one, find the very new changes in the commit window MAKE IT WHERE IT ENCOMPASSES ALL CHANGES NOT JUST A LITTLE, SINGLE PART

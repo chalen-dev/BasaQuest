@@ -319,3 +319,63 @@ export const NIGHT_LAYER = (
         </svg>
     </div>
 )
+
+// NOTEBOOK_ART: the prototype's own blank spiral-notebook SVG group
+// (`#notebook-transition` > `#notebook-placement` > `#notebook` --
+// shadow/cover/pages/holes/rings), mechanically ported the same way as
+// DAY_LAYER/NIGHT_LAYER above. This was NOT here before -- an earlier
+// pass wrongly built a brand-new hand-designed DOM notebook card in
+// RemediationCoach.tsx instead of reusing this existing prototype art.
+// This export fixes that: it's the actual notebook surface now, reused
+// as-is (it was already blank -- no text baked into the SVG; the
+// prototype's own word content is a separate plain-HTML overlay on top
+// of it, same as what CoachTableBackdrop.tsx/RemediationCoach.tsx do
+// now). The 9 ring/hole groups in the prototype are literally the same
+// shape repeated with only their x-position shifted by a constant 65px
+// step starting at x=191 -- verified algebraically against the
+// prototype's own 9 hand-copied <g id="notebook-ring-N"> blocks -- so
+// they're generated here from that shared shape via NOTEBOOK_RING_X
+// instead of pasting nine near-identical blocks. This changes nothing
+// about what's rendered; it's the same numbers the prototype has, just
+// not retyped nine times.
+const NOTEBOOK_RING_X = [191, 256, 321, 386, 451, 516, 581, 646, 711]
+
+export const NOTEBOOK_ART = (
+    <g id="coach-notebook-placement" transform="translate(54 83) scale(0.82)">
+        <defs>
+            <linearGradient id="coach-nb-paper-gradient" x2=".9" y2="1"><stop stopColor="var(--coach-nb-paper)"/><stop offset=".5" stopColor="var(--coach-nb-paper)"/><stop offset="1" stopColor="var(--coach-nb-paper-low)"/></linearGradient>
+            <linearGradient id="coach-nb-metal-gradient"><stop stopColor="var(--coach-nb-ring-dark)"/><stop offset=".4" stopColor="var(--coach-nb-ring-light)"/><stop offset=".7" stopColor="var(--coach-nb-ring)"/><stop offset="1" stopColor="var(--coach-nb-ring-dark)"/></linearGradient>
+        </defs>
+        <g id="coach-notebook" role="img" aria-label="Blank spiral notebook">
+            <g id="coach-notebook-shadow" fill="var(--coach-nb-shadow)">
+                <rect x="105" y="105" width="671" height="753" rx="44" opacity=".18"/>
+                <rect x="110" y="102" width="664" height="750" rx="43" opacity=".2"/>
+            </g>
+            <g id="coach-notebook-cover">
+                <rect x="116" y="100" width="655" height="746" rx="39" fill="var(--coach-nb-cover)" stroke="var(--coach-nb-border)" strokeWidth="5"/>
+                <path d="M121 145V808Q121 842 158 842H730Q766 842 768 808" fill="none" stroke="var(--coach-nb-border)" strokeWidth="4" opacity=".5"/>
+            </g>
+            <g id="coach-notebook-pages">
+                <rect x="128" y="113" width="632" height="718" rx="33" fill="var(--coach-nb-edge)"/>
+                <rect x="132" y="110" width="628" height="716" rx="32" fill="var(--coach-nb-edge-light)"/>
+                <path d="M132 145V793Q132 822 163 822H729Q756 822 759 795" fill="none" stroke="var(--coach-nb-edge)" strokeWidth="3"/>
+                <rect x="137" y="104" width="623" height="712" rx="29" fill="url(#coach-nb-paper-gradient)"/>
+                <path d="M142 139V787Q142 814 166 814H728" fill="none" stroke="var(--coach-nb-edge-light)" strokeWidth="3" opacity=".65"/>
+            </g>
+            <g id="coach-notebook-holes" fill="var(--coach-nb-hole)">
+                {NOTEBOOK_RING_X.map((x) => (
+                    <circle key={x} cx={x} cy="132" r="14"/>
+                ))}
+            </g>
+            <g id="coach-notebook-rings" fill="none" strokeLinecap="round">
+                {NOTEBOOK_RING_X.map((x) => (
+                    <g key={x}>
+                        <path d={`M${x} 131 C${x + 2} 112 ${x + 4} 78 ${x} 82 C${x - 7} 80 ${x - 7} 111 ${x - 5} 128`} stroke="var(--coach-nb-ring-dark)" strokeWidth="17"/>
+                        <path d={`M${x} 130 C${x + 2} 111 ${x + 4} 79 ${x} 82`} stroke="url(#coach-nb-metal-gradient)" strokeWidth="15"/>
+                        <path d={`M${x - 2} 85 Q${x + 1} 101 ${x - 1} 120`} stroke="var(--coach-nb-ring-light)" strokeWidth="3" opacity=".65"/>
+                    </g>
+                ))}
+            </g>
+        </g>
+    </g>
+)

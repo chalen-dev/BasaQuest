@@ -25,14 +25,6 @@
 // here), and the "glance" idle gesture (companion-mode-only) -- none of
 // those apply to Reading Coach Mode.
 //
-// HOVER: the prototype's own CSS has no dedicated "hovered" treatment
-// for the owl -- only a dashed keyboard focus-ring (`--owl-rim` color)
-// for when the mascot IS the clickable companion-toggle target, which
-// this component's own header comment above already says doesn't apply
-// here. Since a hover highlight was requested anyway (purely visual,
-// still not clickable), it reuses that same `--owl-rim` color as a soft
-// glow instead of inventing a new highlight color/style from scratch.
-//
 // WHAT'S RE-DERIVED: the prototype drives everything off one global
 // #owl-mascot element hand-wired to a mic/companion-toggle/dialogue
 // system (setupOwl()/setupOwlSpeech() in the prototype's <script>
@@ -78,6 +70,15 @@ export type OwlMascotProps = {
     /** Triggers one friendly wing-wave gesture on a rising edge
      * (false -> true) -- use for a pass/celebration moment. */
     celebrate?: boolean
+    /** True to pause the owl entirely -- idle gestures (blink/tilt/wave)
+     * stop scheduling and every in-progress animation freezes via CSS
+     * (`#owl-mascot[data-paused="true"] * { animation-play-state: paused
+     * }`, already present below). Mirrors the prototype's
+     * window.suspendOwlCompanion()/resumeOwlCompanion() pair, used there
+     * while the notebook companion is showing instead of the owl.
+     * Doesn't unmount anything, so a CSS crossfade back to `paused=false`
+     * resumes cleanly instead of restarting from a blank state. */
+    paused?: boolean
     /** Accessible name; the SVG's internals are aria-hidden. */
     label?: string
 }
@@ -91,6 +92,7 @@ export function OwlMascot({
                               listening = false,
                               speakText,
                               celebrate = false,
+                              paused: pausedProp = false,
                               label = 'BasaQuest owl mascot',
                           }: OwlMascotProps) {
     const { theme } = useTheme()
@@ -100,6 +102,14 @@ export function OwlMascot({
     const talkTimeoutRef = useRef<number | null>(null)
     const prevSpeakTextRef = useRef<string | null>(null)
     const prevCelebrateRef = useRef(false)
+    // Read by the idle-gesture scheduler below (mount-only effect, so it
+    // can't close over the `pausedProp` value directly) and updated by
+    // the small effect right after it whenever the prop changes.
+    const pausedPropRef = useRef(pausedProp)
+    // Lets the "paused prop turned false" effect below resume the
+    // scheduler without duplicating its resetSchedule()/schedule() logic
+    // -- set once the scheduler effect mounts, cleared on unmount.
+    const resumeSchedulerRef = useRef<(() => void) | null>(null)
 
     // The prototype's setupOwl() idle-gesture scheduler, ported near
     // verbatim: random blink (with a 20% chance of a double-blink)
@@ -121,7 +131,7 @@ export function OwlMascot({
             next.tilt = now + random(9000, 16000)
             next.wave = now + random(15000, 24000)
         }
-        const paused = () => document.hidden || reduced.matches
+        const paused = () => document.hidden || reduced.matches || pausedPropRef.current
         const schedule = () => {
             window.clearTimeout(timer)
             if (paused()) return
@@ -163,6 +173,7 @@ export function OwlMascot({
         mascot.addEventListener('animationend', handleAnimationEnd)
         document.addEventListener('visibilitychange', sync)
         reduced.addEventListener('change', sync)
+        resumeSchedulerRef.current = sync
         resetSchedule()
         schedule()
 
@@ -171,8 +182,23 @@ export function OwlMascot({
             mascot.removeEventListener('animationend', handleAnimationEnd)
             document.removeEventListener('visibilitychange', sync)
             reduced.removeEventListener('change', sync)
+            resumeSchedulerRef.current = null
         }
     }, [])
+
+    // Mirrors the mount effect's own `sync()` reaction to
+    // visibilitychange/reduced-motion, but for the `paused` prop: keeps
+    // the scheduler's own paused() check current every render, sets the
+    // CSS `data-paused` attribute the stylesheet below already freezes
+    // every animation on, and -- only when the prop just turned false --
+    // resumes the scheduler (mirrors the prototype's
+    // resumeOwlCompanion()).
+    useEffect(() => {
+        pausedPropRef.current = pausedProp
+        const mascot = mascotRef.current
+        if (mascot) mascot.dataset.paused = String(pausedProp)
+        if (!pausedProp) resumeSchedulerRef.current?.()
+    }, [pausedProp])
 
     // `listening` always wins -- mirrors the prototype's setOwlState(),
     // which only ever lands on 'listening'/'talking'/'idle' and treats

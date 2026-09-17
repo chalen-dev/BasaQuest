@@ -35,6 +35,41 @@
 // recording isn't wired up yet. When it is, aria-disabled/aria-pressed/
 // onClick should become props here, the same pattern previousDisabled/
 // nextDisabled/onPrevious already use.
+//
+// WORD NOTEBOOK: the story words rendered by coachStoryLayout.ts's
+// renderSentence() already come out as `<tspan class="coach-word"
+// data-word="...">` per word -- that class/attribute already existed for
+// verdict coloring, so making words tappable for the notebook didn't need
+// any change there. This file adds one delegated click listener on
+// #coach-stationary-story (added once, not per-word/per-render, since
+// renderSentence tears down and rebuilds every word node on every
+// turnTo/setCurrentContent call) that reads `data-word` off whatever
+// `.coach-word` was clicked and calls the new `onWordSelect` prop --
+// RemediationCoach.tsx owns what happens with that (opening its notebook
+// panel). `selectedWord` is a second new prop purely for the matching
+// visual feedback -- underlines/colors whichever currently-rendered word
+// equals it, mirroring the prototype's `.passage-word.is-selected`
+// (teal ink by day, violet by night). Only the word DOM, not app data --
+// deliberately not porting the prototype's real dictionary/notebook
+// content wiring (populateWordNotebook()) in this pass; see
+// RemediationCoach.tsx's own header comment for that scope decision.
+//
+// NOTEBOOK ART (corrected): an earlier pass had RemediationCoach.tsx
+// build its own brand-new hand-designed DOM notebook card instead of
+// reusing the prototype's actual blank spiral-notebook SVG art. Fixed:
+// that art is now ported into CoachTableBackdropArt.tsx as NOTEBOOK_ART
+// (same mechanical-port pattern as DAY_LAYER/NIGHT_LAYER) and rendered
+// right here, inside this component's own interactive SVG -- it's the
+// real notebook surface now, not an invented one. `notebookOpen` (new
+// prop) toggles `data-open` on the wrapping `.coach-notebook-transition`
+// group, which slides it on/off-canvas via CSS transform + opacity --
+// the same translate-based technique the prototype itself uses to flip
+// its `#owl-transition`/`#notebook-transition` groups (per your call
+// that this session's DOM/CSS crossfades should use that same
+// technique). RemediationCoach.tsx no longer renders any notebook
+// "card" of its own -- only a thin, undecorated HTML overlay for the
+// word text + pronounce + close button, positioned over this SVG
+// notebook's blank page.
 import React, {
     forwardRef,
     useCallback,
@@ -43,7 +78,7 @@ import React, {
     useRef,
 } from 'react'
 import { useTheme } from '../../../../../../contexts/ThemeContext'
-import { DAY_LAYER, NIGHT_LAYER } from './CoachTableBackdropArt'
+import { DAY_LAYER, NIGHT_LAYER, NOTEBOOK_ART } from './CoachTableBackdropArt'
 import {
     SLICE_BASES,
     STRIP_X0,
@@ -92,6 +127,18 @@ export type CoachTableBackdropProps = {
     nextLabel: string
     onPrevious: () => void
     onNext: () => void
+    /** Called with a word's own text whenever the reader taps it in the
+     * story (see this file's header comment, "WORD NOTEBOOK"). Optional
+     * -- word taps are simply inert if omitted. */
+    onWordSelect?: (word: string) => void
+    /** The word to visually mark as selected (underline + accent ink),
+     * if any currently-rendered word matches it. Purely cosmetic --
+     * doesn't gate onWordSelect or change what's paintable. */
+    selectedWord?: string | null
+    /** Slides the real NOTEBOOK_ART SVG group on-canvas (and slides it
+     * back off when false) -- see this file's header comment ("NOTEBOOK
+     * ART"). Defaults to false (owl mode / notebook off-canvas). */
+    notebookOpen?: boolean
     className?: string
     /** Owl / speech bubble -- positioned by the caller as an
      * absolutely-positioned overlay on top of this backdrop's 1670x941
@@ -109,6 +156,9 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
             nextLabel,
             onPrevious,
             onNext,
+            onWordSelect,
+            selectedWord = null,
+            notebookOpen = false,
             className = '',
             children,
         },
@@ -141,6 +191,14 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
         const currentContentRef = useRef<CoachSentenceContent>(initialContent)
         const storyStripPoolRef = useRef<{ carrier: SVGGElement; clip: SVGClipPathElement }[] | null>(null)
         const storyDefsRef = useRef<SVGDefsElement | null>(null)
+        // Latest onWordSelect, read by the delegated click listener below
+        // -- kept in a ref (rather than an effect dependency) so that
+        // listener never has to be torn down/rebound just because the
+        // caller passed a new closure identity on some unrelated render.
+        const onWordSelectRef = useRef(onWordSelect)
+        useEffect(() => {
+            onWordSelectRef.current = onWordSelect
+        }, [onWordSelect])
 
         // Paint every attribute a given pose implies -- the React
         // equivalent of the prototype's paint(t) applying pose.updates.
@@ -344,6 +402,48 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [])
 
+        // WORD NOTEBOOK (1/2) -- one delegated click listener on the
+        // stationary story group, added once (not per-word, not per-
+        // render): renderSentence tears down and rebuilds every
+        // `.coach-word` tspan on every turnTo/setCurrentContent call, so
+        // binding per-word listeners would mean rebinding constantly.
+        // Delegating to the parent group sidesteps that entirely. Only
+        // #coach-stationary-story is wired -- #coach-moving-story (the
+        // in-flight turning sheet) and #coach-outgoing-story-source (the
+        // hidden source it's built from) intentionally are not, so words
+        // are only tappable on the page currently at rest, same as the
+        // prototype disabling `.passage-word` pointer-events while
+        // `data-busy`/mid-turn.
+        useEffect(() => {
+            const story = stationaryStoryRef.current
+            if (!story) return
+            const handleClick = (event: MouseEvent) => {
+                const wordEl = (event.target as Element).closest('.coach-word')
+                const word = wordEl?.getAttribute('data-word')
+                if (word) onWordSelectRef.current?.(word)
+            }
+            story.addEventListener('click', handleClick)
+            return () => story.removeEventListener('click', handleClick)
+        }, [])
+
+        // WORD NOTEBOOK (2/2) -- purely cosmetic selection marking:
+        // whenever `selectedWord` changes, flag whichever currently-
+        // rendered `.coach-word` tspans match it via `data-selected`,
+        // which the stylesheet below colors/underlines (mirrors the
+        // prototype's `.passage-word.is-selected`). Since renderSentence
+        // rebuilds the word nodes on every page turn, this intentionally
+        // does NOT try to persist the mark across a turnTo -- landing on
+        // a new page with no mark, until another word is tapped, matches
+        // "selection is about this page's words," not global state.
+        useEffect(() => {
+            const story = stationaryStoryRef.current
+            if (!story) return
+            story.querySelectorAll('.coach-word').forEach((el) => {
+                const isSelected = selectedWord != null && el.getAttribute('data-word') === selectedWord
+                el.setAttribute('data-selected', String(isSelected))
+            })
+        }, [selectedWord])
+
         const handleControlKeyDown = useCallback(
             (handler: () => void) => (event: React.KeyboardEvent) => {
                 if (event.key === 'Enter' || event.key === ' ') {
@@ -386,6 +486,15 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                         <g ref={outgoingSourceRef} id="coach-outgoing-story-source"></g>
                     </defs>
                     <g ref={storyDefsRef}>{/* runtime home for the 16 temporary story-strip clipPaths */}</g>
+                    {/* NOTEBOOK ART -- see this file's header comment. Slides
+                    on/off-canvas via CSS transform + opacity, same
+                    translate-based technique the prototype's own
+                    #notebook-transition group uses. Sits in the left half of
+                    the stage (same footprint RemediationCoach.tsx gives the
+                    owl), so it never overlaps the book/story on the right. */}
+                    <g className="coach-notebook-transition" data-open={notebookOpen} aria-hidden={!notebookOpen}>
+                        {NOTEBOOK_ART}
+                    </g>
                     <g ref={stationaryStoryRef} id="coach-stationary-story" clipPath="url(#coach-stationary-story-clip)" role="group" aria-label="Story"></g>
                     <g ref={turningSheetRef} className="coach-turning-sheet" aria-hidden="true" style={{ display: "none" }}>
                         <g clipPath="url(#coach-turn-page-clip)"><use ref={movingShadowRef} id="coach-moving-shadow" href="#coach-turn-geometry" fill="url(#coach-turn-shadow-gradient)"/></g>
@@ -450,14 +559,22 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                         --coach-shine: #fff9e9; --coach-ink: #fff5e9; --coach-shade: #874013;
                         --coach-sheet: #faf1dd; --coach-sheet-light: #fff9e8; --coach-sheet-dark: #dfbb94;
                         --coach-story-ink: #68401f; --coach-correct: #0d9488; --coach-miscue: #d97706;
-                        --coach-mic: #ff593a; --coach-mic-low: #ff633c;
+                        --coach-mic: #ff593a; --coach-mic-low: #ff633c; --coach-selected: #00766d;
+                        --coach-nb-cover: #934713; --coach-nb-border: #803b0e; --coach-nb-edge: #e6c49e;
+                        --coach-nb-edge-light: #f6e4c7; --coach-nb-paper: #fdf7e7; --coach-nb-paper-low: #faf1dd;
+                        --coach-nb-hole: #934713; --coach-nb-ring: #b7a083; --coach-nb-ring-light: #e4d6bd;
+                        --coach-nb-ring-dark: #9a846b; --coach-nb-shadow: #71310c;
                     }
                     .coach-artwork[data-coach-theme="night"] {
                         --coach-arrow: #7068b5; --coach-ring: #a6a0e9; --coach-disc: #cbc9f7;
                         --coach-shine: #f3ecff; --coach-ink: #f2eaff; --coach-shade: #302260;
                         --coach-sheet: #e0dfff; --coach-sheet-light: #f4efff; --coach-sheet-dark: #b2acff;
                         --coach-story-ink: #2a2154; --coach-correct: #2dd4bf; --coach-miscue: #fbbf24;
-                        --coach-mic: #7739ff; --coach-mic-low: #703bff;
+                        --coach-mic: #7739ff; --coach-mic-low: #703bff; --coach-selected: #6932ce;
+                        --coach-nb-cover: #171951; --coach-nb-border: #10133f; --coach-nb-edge: #8d89e7;
+                        --coach-nb-edge-light: #b9b5ff; --coach-nb-paper: #e8e5ff; --coach-nb-paper-low: #d7d5ff;
+                        --coach-nb-hole: #1c1e62; --coach-nb-ring: #8c8fda; --coach-nb-ring-light: #d3d5ff;
+                        --coach-nb-ring-dark: #53599f; --coach-nb-shadow: #080c30;
                     }
                     .coach-art-layer { position: absolute; inset: 0; }
                     .coach-art-layer > svg { display: block; width: 100%; height: 100%; }
@@ -475,10 +592,33 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                     .coach-turning-sheet { pointer-events: none; }
                     .coach-story-text { fill: var(--coach-story-ink); font-family: ui-rounded, "Trebuchet MS", Verdana, sans-serif; }
                     .coach-story-body { font-weight: 400; }
-                    .coach-word { transition: fill 200ms ease; }
+                    /* Word notebook -- tappable words, matching the
+                    prototype's #stationary-story .passage-word rules
+                    (underline-only feedback, no layout shift). */
+                    .coach-word { transition: fill 200ms ease; cursor: pointer; pointer-events: visiblePainted; }
+                    .coach-word:hover, .coach-word:focus { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+                    .coach-word[data-selected="true"] { fill: var(--coach-selected); text-decoration: underline; text-decoration-thickness: 3px; text-decoration-color: var(--coach-selected); }
+                    /* NOTEBOOK ART -- translate-based slide on/off-canvas,
+                    same technique the prototype's own #notebook-transition
+                    group uses (see this file's header comment). */
+                    .coach-notebook-transition {
+                        transform-box: view-box;
+                        transform-origin: 410px 470px;
+                        transition: transform 550ms cubic-bezier(.18,.72,.25,1), opacity 320ms ease;
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    .coach-notebook-transition[data-open="false"] {
+                        transform: translateX(-2400px);
+                        opacity: 0;
+                        pointer-events: none;
+                    }
+                    #coach-notebook * { transition: fill 300ms ease, stroke 300ms ease, stop-color 300ms ease; }
                     @media (prefers-reduced-motion: reduce) {
                         .coach-night-layer { transition: none; }
                         #coach-microphone[aria-pressed="true"] .coach-recording-pulse { animation: none; opacity: .55; }
+                        .coach-notebook-transition { transition: opacity 200ms ease; transform: translateX(0) !important; }
+                        .coach-notebook-transition[data-open="false"] { opacity: 0; }
                     }
                 `}</style>
             </div>
