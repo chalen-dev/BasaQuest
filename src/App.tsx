@@ -11,6 +11,7 @@ import { StudentList } from "./pages/students/list/StudentList.tsx";
 import ReviewList from "./pages/students/review/ReviewList.tsx";
 import TeacherReviewAttempt from "./pages/students/review/TeacherReviewAttempt.tsx";
 import AttemptResults from "./pages/students/results/AttemptResults.tsx";
+import RemediationPassagePreview from "./pages/students/results/RemediationPassagePreview.tsx";
 import ResultsList from "./pages/students/results/ResultsList.tsx";
 import RemediationList from "./pages/students/remediation/list/RemediationList.tsx";
 import StudentRemediationDetail from "./pages/students/remediation/list/StudentRemediationDetail.tsx";
@@ -96,6 +97,14 @@ const router = createBrowserRouter(
                         <Route path="/students/review" element={<ReviewList />} />
                         <Route path="/students/review/:attemptId" element={<TeacherReviewAttempt />} />
                         <Route path="/students/review/:attemptId/results" element={<AttemptResults />} />
+                        {/* Generation-preview step between "Generate
+                        Remediation Material" and an actual saved row —
+                        see RemediationPassagePreview.tsx's own header
+                        comment. Same ProtectedLayout as AttemptResults
+                        above (normal header) -- a review/decision
+                        screen, not a focused/distraction-free session
+                        like AssessmentSession or RemediationSession. */}
+                        <Route path="/students/review/:attemptId/remediation-preview" element={<RemediationPassagePreview />} />
                         <Route path="/students/results" element={<ResultsList />} />
                         <Route path="/students/remediation" element={<RemediationList />} />
                         <Route path="/students/remediation/:studentId" element={<StudentRemediationDetail />} />

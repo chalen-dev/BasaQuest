@@ -99,7 +99,7 @@
 // in hooks/useSaveRecording.ts, and the two recorder-panel sub-UIs
 // (whole-clip flag chips, word-level tagging) live in
 // components/QualityFlagChips.tsx and components/WordTaggingPanel.tsx.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Mic, Check, RotateCcw, Loader2, ShieldAlert, ArrowLeft, TriangleAlert, Flag, Tag, Radio, Lock } from 'lucide-react'
 import { useAuth } from '../../../../contexts/AuthContext'
@@ -120,6 +120,14 @@ import { WordTaggingPanel } from './components/WordTaggingPanel'
 // the cap rather than assessment's proportionally tiny final ~5%.
 const RECORD_MAX_SECONDS = 15
 const NEAR_LIMIT_AT = RECORD_MAX_SECONDS - 5
+// Same 3-2-1 mic countdown as the pupil-facing RecorderPanel.tsx, ported
+// here rather than shared as a component — this page has no bilingual
+// strings file (admin-only, plain English inline throughout), and the
+// button here doubles as Retake, so it wasn't a clean drop-in. The timing
+// logic (prepare() kicked off in the background the instant the countdown
+// starts, begin() firing the instant it hits 0) is identical — see
+// useRecorder.ts's PREPARE / BEGIN SPLIT comment for why.
+const MIC_COUNTDOWN_SECONDS = 3
 function recordingKey(set: string, number: number) {
     return `${set}-${number}`
 }
@@ -136,7 +144,7 @@ export default function RecordSession() {
     const sentenceSet = searchParams.get('set') ?? ''
     const [sentenceIndex, setSentenceIndex] = useState(0)
     const [savedCount, setSavedCount] = useState(0)
-    const { status, seconds, audioUrl, levels, isNoisy, start, stop, reset } = useRecorder()
+    const { status, seconds, audioUrl, levels, isNoisy, prepare, begin, cancelPrepare, stop, reset } = useRecorder()
     const { data: setsData, isLoading: loadingSentenceSets } = useReadingSentenceSetsQuery()
     const sentenceSetLabels = useMemo(() => new Map((setsData ?? []).map((s) => [s.key, s.label])), [setsData])
     const { data: sentencesData, isLoading: loadingSentences, error: sentencesQueryError } = useReadingSentencesQuery()
@@ -202,11 +210,21 @@ export default function RecordSession() {
     const isRecording = status === 'recording'
     const isRecorded = status === 'recorded'
     const nearLimit = isRecording && seconds >= NEAR_LIMIT_AT
+    // Mic countdown — see MIC_COUNTDOWN_SECONDS comment and
+    // RecorderPanel.tsx's own MIC COUNTDOWN header comment for the full
+    // design; this mirrors it exactly, just without a strings file.
+    const [countdown, setCountdown] = useState<number | null>(null)
+    const countdownTickRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    const preparePromiseRef = useRef<Promise<boolean> | null>(null)
+    const isCountingDown = countdown !== null
     const existingRecording = current ? (recordingsByKey.get(recordingKey(sentenceSet, current.number)) ?? null) : null
     // Only relevant while we haven't started a fresh local take — once the
     // admin presses the mic to retake, the "already saved" playback panel
-    // gets out of the way, and the normal recording flow takes over.
-    const showSavedPanel = status === 'idle' && !!existingRecording
+    // gets out of the way, and the normal recording flow takes over. The
+    // countdown counts as "started a retake" here too (!isCountingDown),
+    // so pressing the mic swaps straight to the countdown UI instead of
+    // leaving the saved-take panel showing underneath it.
+    const showSavedPanel = status === 'idle' && !isCountingDown && !!existingRecording
     const loadingExistingAudio = showSavedPanel && signedUrlMutation.isPending
     // PER-RECORDING lock check for the sentence currently on screen —
     // this is what actually blocks a retake now, not any student-level
@@ -311,15 +329,34 @@ export default function RecordSession() {
         clearTakeState,
         incrementSavedCount,
     })
+    // Releases whatever prepare() already acquired (or is about to) and
+    // resets the countdown UI — used both by the mic button's own cancel
+    // tap and by navigating away mid-countdown (goToSentence below), so a
+    // live mic stream can never linger in the background with nothing
+    // recording from it.
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
+    const cancelCountdown = useCallback(() => {
+        if (countdownTickRef.current != null) clearInterval(countdownTickRef.current)
+        countdownTickRef.current = null
+        setCountdown(null)
+        preparePromiseRef.current = null
+        cancelPrepare()
+    }, [cancelPrepare])
+    useEffect(() => {
+        return () => {
+            if (countdownTickRef.current != null) clearInterval(countdownTickRef.current)
+        }
+    }, [])
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const goToSentence = useCallback(
         // eslint-disable-next-line react-hooks/preserve-manual-memoization
         (i: number) => {
+            if (isCountingDown) cancelCountdown()
             setSentenceIndex(i)
             reset()
             clearTakeState()
         },
-        [reset, clearTakeState],
+        [isCountingDown, cancelCountdown, reset, clearTakeState],
     )
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const handleRetake = useCallback(() => {
@@ -329,6 +366,49 @@ export default function RecordSession() {
         setInsertions([])
         setInsertionDraft('')
     }, [reset])
+    // Same countdown-then-record sequencing as RecorderPanel.tsx's
+    // handleMicClick — see that file's MIC COUNTDOWN comment for the full
+    // reasoning (prepare() in the background during the countdown,
+    // fail-fast on mic failure, begin() only once prepare() has actually
+    // settled so the digit doesn't flicker back to idle on a slow device).
+    const handleMicClick = useCallback(() => {
+        if (isRecording) {
+            stop()
+            return
+        }
+        if (isCountingDown) {
+            cancelCountdown()
+            return
+        }
+        if (countdownTickRef.current != null) {
+            clearInterval(countdownTickRef.current)
+            countdownTickRef.current = null
+        }
+        const preparePromise = prepare()
+        preparePromiseRef.current = preparePromise
+        preparePromise.then((ok) => {
+            if (ok || preparePromiseRef.current !== preparePromise) return
+            if (countdownTickRef.current != null) clearInterval(countdownTickRef.current)
+            countdownTickRef.current = null
+            setCountdown(null)
+        })
+        let remaining = MIC_COUNTDOWN_SECONDS
+        setCountdown(remaining)
+        const intervalId: ReturnType<typeof setInterval> = setInterval(() => {
+            remaining -= 1
+            if (remaining <= 0) {
+                clearInterval(intervalId)
+                if (countdownTickRef.current === intervalId) countdownTickRef.current = null
+                preparePromise.then((ok) => {
+                    setCountdown(null)
+                    if (ok) begin(RECORD_MAX_SECONDS)
+                })
+            } else {
+                setCountdown(remaining)
+            }
+        }, 1000)
+        countdownTickRef.current = intervalId
+    }, [isRecording, isCountingDown, stop, cancelCountdown, prepare, begin])
     // No student in the URL at all — someone landed here directly instead
     // of going through SelectStudent. Bounce them back rather than
     // rendering a recorder with nothing to record against.
@@ -561,15 +641,17 @@ export default function RecordSession() {
                     <section className="flex h-full flex-col items-center justify-center gap-6 overflow-y-auto rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10">
                         <div className="text-center">
                             <div className="text-sm font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                {isRecording
-                                    ? 'RECORDING…'
-                                    : isRecorded
-                                        ? 'RECORDED — LISTEN BACK'
-                                        : showSavedPanel
-                                            ? isCurrentRecordingLocked
-                                                ? 'SAVED & LOCKED'
-                                                : 'SAVED — LISTEN OR RETAKE'
-                                            : 'READY?'}
+                                {isCountingDown
+                                    ? 'GET READY…'
+                                    : isRecording
+                                        ? 'RECORDING…'
+                                        : isRecorded
+                                            ? 'RECORDED — LISTEN BACK'
+                                            : showSavedPanel
+                                                ? isCurrentRecordingLocked
+                                                    ? 'SAVED & LOCKED'
+                                                    : 'SAVED — LISTEN OR RETAKE'
+                                                : 'READY?'}
                             </div>
                             <div
                                 className={`font-mono text-6xl font-extrabold leading-none ${
@@ -587,7 +669,7 @@ export default function RecordSession() {
                                     </span>
                                 )}
                             </div>
-                            {!isRecording && !isRecorded && !showSavedPanel && (
+                            {!isRecording && !isRecorded && !showSavedPanel && !isCountingDown && (
                                 <p className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                                     Recording is limited to {RECORD_MAX_SECONDS} seconds.
                                 </p>
@@ -652,16 +734,18 @@ export default function RecordSession() {
                         )}
                         {!isRecorded && (
                             <button
-                                onClick={isRecording ? stop : () => start(RECORD_MAX_SECONDS)}
-                                disabled={!hasConsent || (isCurrentRecordingLocked && !isRecording)}
+                                onClick={handleMicClick}
+                                disabled={!hasConsent || (isCurrentRecordingLocked && !isRecording && !isCountingDown)}
                                 aria-label={
-                                    isRecording
-                                        ? 'Stop recording'
-                                        : isCurrentRecordingLocked
-                                            ? 'Recording locked'
-                                            : showSavedPanel
-                                                ? 'Retake recording'
-                                                : 'Start recording'
+                                    isCountingDown
+                                        ? 'Tap again to cancel'
+                                        : isRecording
+                                            ? 'Stop recording'
+                                            : isCurrentRecordingLocked
+                                                ? 'Recording locked'
+                                                : showSavedPanel
+                                                    ? 'Retake recording'
+                                                    : 'Start recording'
                                 }
                                 className={`flex h-36 w-36 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-100 active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-40 ${
                                     isRecording
@@ -669,7 +753,11 @@ export default function RecordSession() {
                                         : 'bg-teal-500 shadow-[0_10px_0_0_#0f766e] active:shadow-[0_3px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_10px_0_0_#115e59]'
                                 }`}
                             >
-                                {isRecording ? (
+                                {isCountingDown ? (
+                                    <span key={countdown} className="animate-pulse font-mono text-6xl font-extrabold leading-none">
+                                        {countdown}
+                                    </span>
+                                ) : isRecording ? (
                                     <span className="h-10 w-10 rounded-xl bg-white" />
                                 ) : isCurrentRecordingLocked ? (
                                     <Lock size={48} />
@@ -681,15 +769,17 @@ export default function RecordSession() {
                             </button>
                         )}
                         <p className="min-h-[24px] text-center text-base font-semibold text-gray-600 dark:text-gray-400">
-                            {isRecording
-                                ? 'Press the square when you are done.'
-                                : isRecorded
-                                    ? 'Listen back before saving.'
-                                    : showSavedPanel
-                                        ? isCurrentRecordingLocked
-                                            ? 'This recording is locked — unlock it in Recording History to record a new take.'
-                                            : 'Press the button to record a new take — this will replace the saved one.'
-                                        : 'Press the microphone to start.'}
+                            {isCountingDown
+                                ? 'Tap again to cancel.'
+                                : isRecording
+                                    ? 'Press the square when you are done.'
+                                    : isRecorded
+                                        ? 'Listen back before saving.'
+                                        : showSavedPanel
+                                            ? isCurrentRecordingLocked
+                                                ? 'This recording is locked — unlock it in Recording History to record a new take.'
+                                                : 'Press the button to record a new take — this will replace the saved one.'
+                                            : 'Press the microphone to start.'}
                         </p>
                         {isRecorded && (
                             <div className="flex w-full gap-3">

@@ -46,6 +46,23 @@
 // is a fixed set of elements (timer, waveform, one button, some copy), not
 // variable-length like the passage, so it just centers within whatever
 // height the grid gives it.
+//
+// MIC COUNTDOWN: tapping the mic button while idle starts a local 3-2-1
+// countdown (`countdown` state below) instead of recording immediately.
+// The countdown's visible 3-2-1 timer is purely client-side, but
+// rec.prepare() (mic access + MediaRecorder/AudioContext setup) is kicked
+// off in the BACKGROUND the instant the countdown starts, running in
+// parallel with it — see useRecorder.ts's PREPARE / BEGIN SPLIT comment.
+// That's what lets rec.begin() (synchronous) start capture the instant
+// the countdown hits 0, with no perceptible gap: an earlier version only
+// called rec.start() (which itself calls getUserMedia) after the
+// countdown finished, so the pupil watched the countdown end, the button
+// flash back to its idle mic icon, and only THEN start recording a beat
+// later once getUserMedia actually resolved. Tapping the button again
+// mid-countdown cancels it (rec.cancelPrepare() releases whatever
+// prepare() already acquired) instead of arming recording, so a mis-tap
+// can't force an unwanted take.
+import { useEffect, useRef, useState } from 'react'
 import { Hourglass, Mic, RotateCcw, Send, TriangleAlert } from 'lucide-react'
 import { Owl } from '../../../../../components/ui/Owl.tsx'
 import { Hint } from '../../../../../components/ui/Hint.tsx'
@@ -54,6 +71,7 @@ import type { AssessmentStrings } from '../assessmentSessionStrings.ts'
 import { formatSeconds, MAX_RECORDING_SECONDS } from '../assessmentSessionStrings.ts'
 import type { useRecorder } from './useRecorder.ts'
 import { Waveform } from './Waveform.tsx'
+const MIC_COUNTDOWN_SECONDS = 3
 type RecorderPanelProps = {
     t: AssessmentStrings
     submitted: boolean
@@ -65,6 +83,115 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
     const isRecording = rec.status === 'recording'
     const isRecorded = rec.status === 'recorded'
     const nearLimit = isRecording && rec.seconds >= MAX_RECORDING_SECONDS - 10
+    const [countdown, setCountdown] = useState<number | null>(null)
+    const countdownTickRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    // The in-flight (or settled) rec.prepare() call for the CURRENT
+    // countdown — see handleMicClick. Compared by reference against
+    // itself inside .then() callbacks so a stale prepare() from a
+    // canceled/superseded countdown can never act on the current one.
+    const preparePromiseRef = useRef<Promise<boolean> | null>(null)
+    const isCountingDown = countdown !== null
+    useEffect(() => {
+        return () => {
+            if (countdownTickRef.current != null) clearInterval(countdownTickRef.current)
+        }
+    }, [])
+    const cancelCountdown = () => {
+        if (countdownTickRef.current != null) clearInterval(countdownTickRef.current)
+        countdownTickRef.current = null
+        setCountdown(null)
+        preparePromiseRef.current = null
+        // Releases whatever stream/AudioContext prepare() already
+        // acquired (or is about to) — otherwise canceling mid-countdown
+        // would leave a live mic stream open in the background with
+        // nothing ever recording from it.
+        rec.cancelPrepare()
+    }
+    const handleMicClick = () => {
+        if (isRecording) {
+            rec.stop()
+            return
+        }
+        if (isCountingDown) {
+            cancelCountdown()
+            return
+        }
+        // Defensive: if handleMicClick's "start" branch is somehow re-
+        // entered before isCountingDown reflects the first call (e.g. a
+        // touch device firing both a synthetic click and a real one for
+        // what the pupil felt as one tap), kill any interval already in
+        // flight before starting a fresh one — otherwise two intervals
+        // would exist at once, see the intervalId comment below for what
+        // that leads to.
+        if (countdownTickRef.current != null) {
+            clearInterval(countdownTickRef.current)
+            countdownTickRef.current = null
+        }
+        // Kick off the slow async part (getUserMedia + MediaRecorder/
+        // AudioContext setup) in the BACKGROUND the instant the countdown
+        // starts, instead of only after it finishes — see useRecorder.ts's
+        // PREPARE / BEGIN SPLIT comment. By the time the visible countdown
+        // reaches 0, this has normally already resolved, so begin() (a
+        // synchronous call) can start capture immediately, with no gap
+        // between the countdown ending and recording actually starting.
+        const preparePromise = rec.prepare()
+        preparePromiseRef.current = preparePromise
+        // Fail fast: if the mic turns out to be unavailable, don't make
+        // the pupil sit through the rest of a countdown that's heading
+        // nowhere — rec.error/rec.status already flipped to the
+        // 'unsupported' fallback inside prepare() itself, so just cut the
+        // countdown short here. Guarded against a stale promise in case
+        // this countdown was already canceled/superseded by the time it
+        // resolves.
+        preparePromise.then((ok) => {
+            if (ok || preparePromiseRef.current !== preparePromise) return
+            if (countdownTickRef.current != null) clearInterval(countdownTickRef.current)
+            countdownTickRef.current = null
+            setCountdown(null)
+        })
+        // `remaining` is a plain closure variable, not React state — it just
+        // drives this interval's own tick logic.
+        let remaining = MIC_COUNTDOWN_SECONDS
+        setCountdown(remaining)
+        // Captured by value in this closure so the completion branch below
+        // clears THIS interval specifically, never whatever interval the
+        // ref happens to be pointing at by the time it fires. Clearing via
+        // `countdownTickRef.current` there was a real bug: if two
+        // intervals were ever alive at once, the ref only ever pointed at
+        // the newer one, so the OLDER interval's completion cleared the
+        // NEWER one by mistake and never stopped itself — it kept firing
+        // every second forever, each time re-triggering a start and
+        // spinning up yet another recording tick interval on top of the
+        // last, which is exactly what made the big timer climb forever
+        // even after the take was already marked done.
+        const intervalId: ReturnType<typeof setInterval> = setInterval(() => {
+            remaining -= 1
+            if (remaining <= 0) {
+                clearInterval(intervalId)
+                if (countdownTickRef.current === intervalId) countdownTickRef.current = null
+                // Deliberately NOT clearing the countdown digit here —
+                // only once prepare() actually settles, in the .then()
+                // below. Clearing it immediately would flash the button
+                // back to its idle mic icon for however long prepare()
+                // takes to resolve on a slow device, reintroducing the
+                // exact gap this whole split exists to remove. In the
+                // normal case prepare() has already resolved by now, so
+                // this .then() fires on the very next microtask — no
+                // visible pause at all.
+                preparePromise.then((ok) => {
+                    setCountdown(null)
+                    if (ok) rec.begin(MAX_RECORDING_SECONDS)
+                    // If !ok, rec.status/rec.error already reflect the
+                    // failure (set inside prepare()) — the existing
+                    // mic-unavailable fallback UI takes over once
+                    // isCountingDown flips back to false above.
+                })
+            } else {
+                setCountdown(remaining)
+            }
+        }, 1000)
+        countdownTickRef.current = intervalId
+    }
     return (
         <section className="flex h-full flex-col items-center justify-center gap-6 rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10">
             {submitted ? (
@@ -81,7 +208,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                 <>
                     <div className="text-center">
                         <div className="text-sm font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            {isRecording ? t.recordingLabel : isRecorded ? t.recordedLabel : t.readyLabel}
+                            {isCountingDown ? t.countdownLabel : isRecording ? t.recordingLabel : isRecorded ? t.recordedLabel : t.readyLabel}
                         </div>
                         <div
                             className={`font-mono text-6xl font-extrabold leading-none ${
@@ -99,7 +226,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                                 </span>
                             )}
                         </div>
-                        {!isRecording && !isRecorded && (
+                        {!isRecording && !isRecorded && !isCountingDown && (
                             <p className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                                 {t.timeLimitNote(Math.round(MAX_RECORDING_SECONDS / 60))}
                             </p>
@@ -123,25 +250,29 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                     {!isRecorded && (
                         <div className="relative">
                             <button
-                                onClick={isRecording ? rec.stop : () => rec.start(MAX_RECORDING_SECONDS)}
-                                aria-label={isRecording ? t.hintRecording : t.hintIdle}
+                                onClick={handleMicClick}
+                                aria-label={isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : t.hintIdle}
                                 className={`flex h-36 w-36 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-100 active:translate-y-1 ${
                                     isRecording
                                         ? 'bg-rose-600 shadow-[0_10px_0_0_#9f1239] active:shadow-[0_3px_0_0_#9f1239]'
                                         : 'bg-teal-500 shadow-[0_10px_0_0_#0f766e] active:shadow-[0_3px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_10px_0_0_#115e59]'
                                 }`}
                             >
-                                {isRecording ? (
+                                {isCountingDown ? (
+                                    <span key={countdown} className="animate-pulse font-mono text-6xl font-extrabold leading-none">
+                                        {countdown}
+                                    </span>
+                                ) : isRecording ? (
                                     <span className="h-10 w-10 rounded-xl bg-white" />
                                 ) : (
                                     <Mic size={52} />
                                 )}
                             </button>
-                            <Hint id="assessment-mic-button" text={t.micHint} show={!isRecording} placement="top" align="center" autoHideMs={6000} />
+                            <Hint id="assessment-mic-button" text={t.micHint} show={!isRecording && !isCountingDown} placement="top" align="center" autoHideMs={6000} />
                         </div>
                     )}
                     <p className="min-h-[24px] text-center text-base font-semibold text-gray-600 dark:text-gray-400">
-                        {isRecording ? t.hintRecording : isRecorded ? t.hintRecorded : t.hintIdle}
+                        {isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : isRecorded ? t.hintRecorded : t.hintIdle}
                     </p>
                     {rec.error && !isRecorded && (
                         <div className="w-full rounded-2xl bg-gray-900/5 p-4 text-center text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">

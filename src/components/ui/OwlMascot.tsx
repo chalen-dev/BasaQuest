@@ -20,10 +20,17 @@
 // and every one of the prototype's owl CSS rules/keyframes (breathe,
 // sway, blink, double-blink, tilt, wave, the four talking keyframes,
 // the night/day --owl-* variables, the reduced-motion overrides).
-// Dropped on purpose: the notebook/companion-mode plumbing, the
-// dashed focus-ring + button semantics (this mascot isn't clickable
-// here), and the "glance" idle gesture (companion-mode-only) -- none of
-// those apply to Reading Coach Mode.
+// Dropped on purpose: the notebook/companion-mode plumbing and the
+// "glance" idle gesture (companion-mode-only) -- neither applies to
+// Reading Coach Mode. The dashed focus-ring + button semantics WERE also
+// dropped originally ("this mascot isn't clickable here") but are now
+// back, conditionally: passing `onClick` makes the owl a real button
+// (role/tabIndex/keyboard activation + the prototype's own dashed
+// `#owl-focus-ring` on keyboard focus, `var(--owl-rim)`, same dash
+// pattern), matching `#owl-mascot { cursor: pointer } role="button"
+// tabindex="0" aria-label="Talk to the owl"` from the prototype. Omitting
+// `onClick` (other call sites -- loading/error/completion screens) keeps
+// the owl exactly as inert/decorative as before.
 //
 // WHAT'S RE-DERIVED: the prototype drives everything off one global
 // #owl-mascot element hand-wired to a mic/companion-toggle/dialogue
@@ -81,6 +88,13 @@ export type OwlMascotProps = {
     paused?: boolean
     /** Accessible name; the SVG's internals are aria-hidden. */
     label?: string
+    /** Makes the owl a real, focusable button -- see this file's header
+     * comment. Omit to keep the owl purely decorative (the default, and
+     * still correct for the loading/error/completion screens that render
+     * this component with nothing to click through to). When provided,
+     * the owl gets `role="button"`, keyboard activation (Enter/Space),
+     * a pointer cursor, and the prototype's dashed keyboard-focus ring. */
+    onClick?: () => void
 }
 
 const VIEWBOX_WIDTH = 980
@@ -94,6 +108,7 @@ export function OwlMascot({
                               celebrate = false,
                               paused: pausedProp = false,
                               label = 'BasaQuest owl mascot',
+                              onClick,
                           }: OwlMascotProps) {
     const { theme } = useTheme()
     const isNight = theme === 'dark'
@@ -266,16 +281,25 @@ export function OwlMascot({
             aria-label={label}
             className={`owlmascot ${className}`}
             data-theme={isNight ? 'night' : 'day'}
+            data-clickable={onClick ? 'true' : 'false'}
         >
             <style>{`
                 .owlmascot { --owl-outline: #006369; --owl-rim: #62e5cd; --owl-shadow: #803d13; display: block; transition: filter 220ms ease; }
                 .owlmascot[data-theme="night"] { --owl-outline: #00596d; --owl-rim: #aaa4ff; --owl-shadow: #111340; }
-                /* Hover highlight -- not clickable yet (see header comment),
-                but a hover glow using the prototype's own --owl-rim color
-                (the same color its dashed keyboard focus-ring uses) gives
-                the owl a "highlighted" state without inventing a new visual
-                language for it. */
+                /* Hover highlight -- a glow using the prototype's own
+                --owl-rim color (the same color its dashed keyboard
+                focus-ring uses), always shown on hover regardless of
+                whether the owl is clickable this render. */
                 .owlmascot:hover { filter: drop-shadow(0 0 22px var(--owl-rim)); }
+                /* Clickable state (only when onClick is passed -- see
+                header comment). Cursor + dashed keyboard-focus ring,
+                ported verbatim from the prototype's own
+                #owl-mascot { cursor: pointer } #owl-mascot:focus-visible
+                #owl-focus-ring { opacity: .85 }. Not clickable (the
+                default) keeps the owl inert, same as before. */
+                #owl-focus-ring { opacity: 0; pointer-events: none; }
+                .owlmascot[data-clickable="true"] #owl-mascot { cursor: pointer; pointer-events: visiblePainted; outline: none; }
+                .owlmascot[data-clickable="true"] #owl-mascot:focus-visible #owl-focus-ring { opacity: .85; }
                 #owl-glow { opacity: 0; transition: opacity 300ms ease; }
                 .owlmascot[data-theme="night"] #owl-glow { opacity: 1; }
                 #owl-mascot path, #owl-ground-shadow { transition: stroke 300ms ease, fill 300ms ease; }
@@ -331,7 +355,28 @@ export function OwlMascot({
                 <clipPath id="owl-eye-left-clip"><ellipse cx="460" cy="399" rx="116" ry="120"/></clipPath>
                 <clipPath id="owl-eye-right-clip"><ellipse cx="785" cy="399" rx="114" ry="120"/></clipPath>
             </defs>
-            <g ref={mascotRef} id="owl-mascot" data-state="idle" data-listening="false" aria-hidden="true">
+            <g
+                ref={mascotRef}
+                id="owl-mascot"
+                data-state="idle"
+                data-listening="false"
+                role={onClick ? 'button' : undefined}
+                tabIndex={onClick ? 0 : undefined}
+                aria-hidden={onClick ? undefined : true}
+                aria-label={onClick ? label : undefined}
+                onClick={onClick}
+                onKeyDown={
+                    onClick
+                        ? (event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault()
+                                  onClick()
+                              }
+                          }
+                        : undefined
+                }
+            >
+                <ellipse id="owl-focus-ring" cx="624" cy="608" rx="457" ry="585" fill="none" stroke="var(--owl-rim)" strokeWidth="9" strokeDasharray="18 14"/>
                 <ellipse id="owl-ground-shadow" cx="624" cy="1130" rx="325" ry="35" fill="var(--owl-shadow)" opacity=".2"/>
                 <ellipse id="owl-glow" cx="625" cy="600" rx="530" ry="590" fill="url(#owl-night-glow)"/>
                 <g id="owl-feet" fill="url(#owl-orange)" stroke="#c36105" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round">

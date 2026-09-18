@@ -24,6 +24,7 @@ const STRINGS: Record<Lang, {
     noAccount: string
     demoHintTeacher: string
     demoHintStudent: string
+    demoHintAdmin: string
 }> = {
     fil: {
         welcome: 'Maligayang pagdating!',
@@ -38,6 +39,7 @@ const STRINGS: Record<Lang, {
         noAccount: 'Walang account? Gumawa ng bago',
         demoHintTeacher: 'Guro: guro — password: basaquest',
         demoHintStudent: 'Estudyante: ella — password: basaquest',
+        demoHintAdmin: 'Admin: dustin — password: basaquest',
     },
     en: {
         welcome: 'Welcome back!',
@@ -52,6 +54,7 @@ const STRINGS: Record<Lang, {
         noAccount: "Don't have an account? Create one",
         demoHintTeacher: 'Teacher: guro — password: basaquest',
         demoHintStudent: 'Student: ella — password: basaquest',
+        demoHintAdmin: 'Admin: dustin — password: basaquest',
     },
 }
 export default function Login() {
@@ -169,6 +172,7 @@ export default function Login() {
                     <div className="mt-4 space-y-1 rounded-2xl border-2 border-dashed border-gray-300 px-3 py-2.5 text-center text-xs font-semibold text-gray-500 transition-colors duration-300 dark:border-gray-700 dark:text-gray-400">
                         <div>{t.demoHintTeacher}</div>
                         <div>{t.demoHintStudent}</div>
+                        <div>{t.demoHintAdmin}</div>
                     </div>
                 </div>
             </div>

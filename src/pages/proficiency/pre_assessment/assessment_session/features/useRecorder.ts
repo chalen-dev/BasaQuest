@@ -49,6 +49,20 @@
 // (same end state as pressing stop manually) once that many seconds are
 // reached, so a forgotten-running mic can't produce an unbounded take.
 //
+// PREPARE / BEGIN SPLIT: start() is just prepare() followed immediately by
+// begin() — most callers (RecordSession.tsx) just want one-shot start-on-
+// click and can keep using it as-is. RecorderPanel.tsx's mic-countdown
+// needs the two halves separated: prepare() does the slow async part
+// (getUserMedia, MediaRecorder + AudioContext/analyser setup) WITHOUT
+// actually starting capture, so it can run in the background for the
+// entire 3-2-1 countdown; begin() is synchronous and does only the fast
+// part (mediaRecorder.start(), the waveform loop, the seconds tick) once
+// the countdown visually reaches 0. That's what makes recording start the
+// instant the countdown ends instead of only THEN requesting the mic and
+// making the pupil wait out getUserMedia's latency after the countdown
+// already said "go". cancelPrepare() releases a stream prepare() already
+// acquired if the countdown gets canceled before begin() is ever called.
+//
 // Falls back to an 'unsupported' status if mic permission is denied or the
 // browser doesn't support the APIs — the calling screen lets the pupil
 // continue via a simulated take instead (see `simulate`). Ported from the
@@ -102,6 +116,17 @@ export function useRecorder() {
     const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
     const rafRef = useRef<number | null>(null)
     const audioCtxRef = useRef<AudioContext | null>(null)
+    // Set by prepare() once the analyser is wired up, called by begin() —
+    // see the PREPARE / BEGIN SPLIT header comment above.
+    const loopRef = useRef<(() => void) | null>(null)
+    // Bumped by cancelPrepare() (and by prepare() itself, on entry) so an
+    // in-flight prepare() can tell, once its own getUserMedia await
+    // resolves, whether it's still the one anyone wants. Without this, a
+    // prepare() that's still waiting on getUserMedia when cancelPrepare()
+    // runs would land its stream/MediaRecorder into mediaRef/loopRef
+    // AFTER cancelPrepare already cleared them — silently resurrecting a
+    // live mic stream nobody asked for anymore.
+    const prepareGenRef = useRef(0)
     const displayedBarsRef = useRef<number[]>(new Array(WAVEFORM_BARS).fill(0))
     const noiseBufRef = useRef<{ t: number; v: number }[]>([])
     const cleanupAudio = useCallback(() => {
@@ -121,7 +146,12 @@ export function useRecorder() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
-    const start = useCallback(async (maxSeconds?: number) => {
+    // Does everything up to (but not including) actually starting capture —
+    // see the PREPARE / BEGIN SPLIT header comment. Returns whether it
+    // succeeded; on failure, status/error are already set to the
+    // 'unsupported' fallback exactly as start() always did.
+    const prepare = useCallback(async (): Promise<boolean> => {
+        const myGen = ++prepareGenRef.current
         setError(null)
         setIsNoisy(false)
         noiseBufRef.current = []
@@ -134,10 +164,18 @@ export function useRecorder() {
         if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
             setStatus('unsupported')
             setError('Hindi available ang mikropono sa browser na ito.')
-            return
+            return false
         }
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            if (myGen !== prepareGenRef.current) {
+                // Superseded (cancelPrepare(), or a newer prepare()) while
+                // this call was waiting on getUserMedia — release this
+                // stream instead of handing it to state nobody asked for
+                // anymore. See prepareGenRef's own comment above.
+                stream.getTracks().forEach((t) => t.stop())
+                return false
+            }
             streamRef.current = stream
             chunksRef.current = []
             const mr = new MediaRecorder(stream)
@@ -154,7 +192,9 @@ export function useRecorder() {
                 setLevels(new Array(WAVEFORM_BARS).fill(0))
                 setIsNoisy(false)
             }
-            mr.start()
+            // NOT mr.start() here — that's begin()'s job, deliberately, so
+            // it can fire the instant the countdown hits 0 instead of only
+            // then kicking off this whole async setup.
             const AudioCtxCtor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
             const ctx = new AudioCtxCtor()
             audioCtxRef.current = ctx
@@ -226,23 +266,15 @@ export function useRecorder() {
                 }
                 rafRef.current = requestAnimationFrame(loop)
             }
-            loop()
-            setSeconds(0)
-            tickRef.current = setInterval(() => {
-                setSeconds((s) => {
-                    const next = s + 1
-                    if (maxSeconds != null && next >= maxSeconds) {
-                        if (mediaRef.current && mediaRef.current.state !== 'inactive') {
-                            mediaRef.current.stop()
-                        }
-                        if (tickRef.current != null) clearInterval(tickRef.current)
-                        setStatus('recorded')
-                    }
-                    return next
-                })
-            }, 1000)
-            setStatus('recording')
+            // Stored, not called — begin() calls it once capture actually
+            // starts, so the waveform doesn't animate during the countdown.
+            loopRef.current = loop
+            return true
         } catch (err) {
+            // Same supersession check as above — don't let a stale, since-
+            // canceled prepare() stomp status/error a newer call already
+            // set once getUserMedia's rejection finally comes back.
+            if (myGen !== prepareGenRef.current) return false
             setStatus('unsupported')
             const name = err instanceof DOMException ? err.name : undefined
             setError(
@@ -250,8 +282,67 @@ export function useRecorder() {
                     ? 'Hindi pinayagan ang paggamit ng mikropono.'
                     : 'Hindi ma-access ang mikropono.',
             )
+            return false
         }
     }, [audioUrl, cleanupAudio])
+    // The fast, synchronous half — assumes prepare() already succeeded
+    // (mediaRef.current set). No-ops if it wasn't, e.g. prepare() failed or
+    // cancelPrepare() already released it.
+    const begin = useCallback((maxSeconds?: number) => {
+        if (!mediaRef.current) return
+        mediaRef.current.start()
+        loopRef.current?.()
+        setSeconds(0)
+        // Defensive: clear any tick interval already in flight before
+        // arming a new one, in case begin() is ever re-entered before
+        // status has flipped away from a previous take (e.g. a
+        // double-fired click on a touch device).
+        if (tickRef.current != null) clearInterval(tickRef.current)
+        // Captured by value so the max-duration branch below clears THIS
+        // interval specifically, not whatever interval tickRef happens to
+        // point at by the time it fires. Clearing via tickRef.current
+        // there was a real bug: if two of these intervals were ever alive
+        // at once, tickRef only ever pointed at the newer one, so the
+        // OLDER interval's completion cleared the NEWER one by mistake and
+        // never stopped itself — it kept incrementing `seconds` forever,
+        // well past the DONE state.
+        const tickId: ReturnType<typeof setInterval> = setInterval(() => {
+            setSeconds((s) => {
+                const next = s + 1
+                if (maxSeconds != null && next >= maxSeconds) {
+                    if (mediaRef.current && mediaRef.current.state !== 'inactive') {
+                        mediaRef.current.stop()
+                    }
+                    clearInterval(tickId)
+                    if (tickRef.current === tickId) tickRef.current = null
+                    setStatus('recorded')
+                }
+                return next
+            })
+        }, 1000)
+        tickRef.current = tickId
+        setStatus('recording')
+    }, [])
+    // Releases a stream/AudioContext prepare() already acquired when
+    // begin() is never going to be called for it — e.g. the pupil canceled
+    // the countdown before it finished. Safe to call even if prepare()
+    // hasn't resolved yet: bumping prepareGenRef makes that in-flight call
+    // recognize itself as superseded and release whatever stream it gets
+    // handed back instead of resurrecting it into mediaRef (see
+    // prepareGenRef's own comment) — cleanupAudio() below only needs to
+    // clean up whatever, if anything, had already landed by this point.
+    const cancelPrepare = useCallback(() => {
+        prepareGenRef.current++
+        mediaRef.current = null
+        loopRef.current = null
+        cleanupAudio()
+    }, [cleanupAudio])
+    // One-shot convenience for callers that don't need the countdown gap
+    // closed (RecordSession.tsx) — identical to the old single start().
+    const start = useCallback(async (maxSeconds?: number) => {
+        const ok = await prepare()
+        if (ok) begin(maxSeconds)
+    }, [prepare, begin])
     const stop = useCallback(() => {
         if (mediaRef.current && mediaRef.current.state !== 'inactive') {
             mediaRef.current.stop()
@@ -277,5 +368,5 @@ export function useRecorder() {
         setAudioUrl(null)
         setBlob(null)
     }, [])
-    return { status, seconds, audioUrl, blob, level, levels, isNoisy, error, start, stop, reset, simulate }
+    return { status, seconds, audioUrl, blob, level, levels, isNoisy, error, start, prepare, begin, cancelPrepare, stop, reset, simulate }
 }

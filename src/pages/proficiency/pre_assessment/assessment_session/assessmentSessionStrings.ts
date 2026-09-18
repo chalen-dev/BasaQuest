@@ -91,6 +91,13 @@ export type AssessmentStrings = {
     readyLabel: string
     recordingLabel: string
     recordedLabel: string
+    // Countdown between tapping the mic button and recording actually
+    // starting — see RecorderPanel.tsx's countdown state. countdownLabel
+    // replaces readyLabel/recordingLabel in the small uppercase status
+    // line; hintCountdown replaces hintIdle in the paragraph below the
+    // button, telling the pupil a second tap cancels it.
+    countdownLabel: string
+    hintCountdown: string
     hintIdle: string
     hintRecording: string
     hintRecorded: string
@@ -154,6 +161,8 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         readyLabel: 'HANDA NA?',
         recordingLabel: 'NAGRE-RECORD…',
         recordedLabel: 'TAPOS NA — PAKINGGAN',
+        countdownLabel: 'HANDA NA…',
+        hintCountdown: 'Pindutin muli para kanselahin.',
         hintIdle: 'Pindutin ang mikropono para magsimula.',
         hintRecording: 'Pindutin ang parisukat kapag tapos ka na.',
         hintRecorded: 'Pakinggan muna ang iyong pagbasa bago ipasa sa guro.',
@@ -207,6 +216,8 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         readyLabel: 'READY?',
         recordingLabel: 'RECORDING…',
         recordedLabel: 'DONE — LISTEN BACK',
+        countdownLabel: 'GET READY…',
+        hintCountdown: 'Tap again to cancel.',
         hintIdle: 'Press the microphone to start.',
         hintRecording: 'Press the square when you are done.',
         hintRecorded: 'Listen to your reading first before submitting.',

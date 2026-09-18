@@ -26,24 +26,30 @@ import {
 // positions, specifically to exercise the word-wrap logic (short one-
 // word "sentence," a long one that should wrap to 2-3 lines, target
 // word at the start vs. in the middle vs. at the end).
-const SAMPLES: { words: string[]; targetIndex: number }[] = [
-    { words: ['Bahay'], targetIndex: 0 },
-    { words: ['The', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog', 'again', 'and', 'again'], targetIndex: 3 },
-    { words: ['Ang', 'aso', 'ay', 'tumakbo', 'nang', 'mabilis', 'sa', 'parke'], targetIndex: 6 },
-    { words: ['She', 'sells', 'seashells', 'by', 'the', 'seashore'], targetIndex: 2 },
+// targetIndices (plural) is an array so a sample can exercise multiple
+// target words per passage, same generalization CoachSentenceContent
+// itself went through -- most samples below still just use one, since
+// this harness's job is checking wrap/bend/verdict behavior, not
+// re-testing multi-target coverage on its own.
+const SAMPLES: { words: string[]; targetIndices: number[] }[] = [
+    { words: ['Bahay'], targetIndices: [0] },
+    { words: ['The', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog', 'again', 'and', 'again'], targetIndices: [3] },
+    { words: ['Ang', 'aso', 'ay', 'tumakbo', 'nang', 'mabilis', 'sa', 'parke'], targetIndices: [6] },
+    { words: ['She', 'sells', 'seashells', 'by', 'the', 'seashore'], targetIndices: [2, 5] },
 ]
 
 function contentFor(index: number, verdictMode: 'none' | 'pass' | 'fail'): CoachSentenceContent {
     const sample = SAMPLES[index]
-    if (verdictMode === 'none') return { words: sample.words, targetIndex: sample.targetIndex }
+    if (verdictMode === 'none') return { words: sample.words, targetIndices: sample.targetIndices }
+    const targetSet = new Set(sample.targetIndices)
     const verdicts: (CoachWordVerdict | null)[] = sample.words.map((_, i) => {
-        if (i === sample.targetIndex) return verdictMode === 'pass' ? 'correct' : 'miscue'
+        if (targetSet.has(i)) return verdictMode === 'pass' ? 'correct' : 'miscue'
         // Sprinkle a couple of extra miscues elsewhere so the "whole
         // sentence gets colored, not just the target word" behavior is
         // actually visible, not just the target-word case.
         return i % 3 === 1 ? 'miscue' : i % 3 === 0 ? 'correct' : null
     })
-    return { words: sample.words, targetIndex: sample.targetIndex, verdicts }
+    return { words: sample.words, targetIndices: sample.targetIndices, verdicts }
 }
 
 export default function CoachBackdropTestPage() {

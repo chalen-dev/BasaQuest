@@ -14,13 +14,20 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 
 export type CoachWordVerdict = 'correct' | 'miscue'
 
-// One sentence's worth of content to paint onto the open page. `verdicts`
-// is null/undefined before a scoring attempt exists for this word (the
-// idle/recording/scoring phases); once useScoreSentence resolves, pass
-// its per-word systemVerdict array here to color the whole sentence.
+// One passage's worth of content to paint onto the open page. `verdicts`
+// is null/undefined before a scoring attempt exists (the idle/recording/
+// scoring phases); once useScoreSentence resolves, pass its per-word
+// systemVerdict array here to color the whole passage.
+//
+// targetIndices (plural, generalized from a single targetIndex): every
+// position in `words` that's a practice-target word for this passage —
+// a target word can repeat within a passage, so every occurrence needs
+// its own entry, not just the first (same reasoning as
+// RemediationPassage.targetIndices in remediation/hooks.ts, which this
+// is built from).
 export type CoachSentenceContent = {
     words: string[]
-    targetIndex: number
+    targetIndices: number[]
     verdicts?: (CoachWordVerdict | null)[] | null
 }
 
@@ -86,6 +93,11 @@ export function renderSentence(target: SVGGElement, interactionLayer: SVGSVGElem
     const textEl = document.createElementNS(SVG_NS, 'text')
     textEl.setAttribute('class', 'coach-story-text coach-story-body')
     textEl.setAttribute('font-size', String(fontSize))
+    // Built once per render rather than an Array.includes() check per
+    // word -- same shape content.verdicts already indexes into, just a
+    // Set instead of a sparse array since targetIndices has no
+    // meaningful "gaps" to preserve positionally.
+    const targetIndexSet = new Set(content.targetIndices)
     let wordCursor = 0
     lines.forEach((line, lineIndex) => {
         const span = document.createElementNS(SVG_NS, 'tspan')
@@ -102,11 +114,20 @@ export function renderSentence(target: SVGGElement, interactionLayer: SVGSVGElem
             const wordEl = document.createElementNS(SVG_NS, 'tspan')
             wordEl.setAttribute('class', 'coach-word')
             wordEl.setAttribute('data-word', token)
-            const isTarget = index === content.targetIndex
+            // Bold marks every target-word occurrence, unconditionally --
+            // the "this was a practice word" signal, independent of
+            // verdict. Fill color follows a priority so target-highlight
+            // and verdict coloring never fight over the same attribute:
+            // verdict color wins once a verdict exists (immediate
+            // right/wrong feedback matters more than the target marker
+            // once scoring has actually run), else the target-highlight
+            // color if this is a target word, else no fill (default ink).
+            const isTarget = targetIndexSet.has(index)
             wordEl.setAttribute('font-weight', isTarget ? '700' : '400')
             const verdict = content.verdicts?.[index]
             if (verdict === 'correct') wordEl.setAttribute('fill', 'var(--coach-correct)')
             else if (verdict === 'miscue') wordEl.setAttribute('fill', 'var(--coach-miscue)')
+            else if (isTarget) wordEl.setAttribute('fill', 'var(--coach-target)')
             else wordEl.removeAttribute('fill')
             wordEl.textContent = token
             span.appendChild(wordEl)

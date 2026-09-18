@@ -79,18 +79,46 @@
 // to this scene's own story content, so it belongs with the component
 // that owns that content.
 //
+// PAGES (passage mode, replacing one-word-per-page sentence mode): one
+// "page" now means one Gemini-generated multi-word PASSAGE
+// (material.passages — see remediation/hooks.ts's RemediationPassage
+// and generate-remediation-passages/index.ts), not one isolated
+// sentence for a single weak word. Every weak word the passage covers
+// is visually marked as a target (bold + --coach-target color, see
+// coachStoryLayout.ts), not just one — CoachSentenceContent's
+// targetIndices is plural for exactly this reason. pagesFromPassages()/
+// pagesFromWords() below normalize whichever source this material
+// actually has into one common `CoachPage[]` shape (`{ content,
+// coachTip }`) ONCE, so Previous/Next, the backdrop's turnTo(), and the
+// owl's speech bubble only ever deal with "the current page" from then
+// on, never branching on material mode again themselves.
+//
+// LEGACY FALLBACK: material generated before passage mode existed has
+// no `passages` array (or passage generation failed and the teacher
+// proceeded without it on the preview screen — see AttemptResults.tsx's
+// new generation flow) — pagesFromWords() reproduces today's exact
+// original one-word-per-page behavior in that case, reusing
+// getSentenceWords()/getTargetIndex() unchanged (which themselves
+// already fall back further, to a bare one-word "sentence," for
+// material older than sentence mode or a word Gemini's sentence
+// generation failed for). So every material this route has ever
+// produced still plays correctly — only the newest rows get the actual
+// passage experience.
+//
 // WORD NAVIGATION: Previous/Next move currentIndex directly, any time —
 // not gated on anything (explicit product decision: free navigation).
 // goToWord() below is the single place that does this: it updates
 // React's currentIndex AND tells the backdrop to animate the page-turn
-// to the new word's content, together, every time.
+// to the new page's content, together, every time.
 //
-// COACH TIPS: the owl's speech-bubble text comes from getCoachTipText()
-// below — the current word's Gemini-generated coachTip
-// (remediation/hooks.ts) when present, otherwise a line from the static
+// COACH TIPS: the owl's speech-bubble text is simply `pages[currentIndex]
+// .coachTip`, already resolved by pagesFromPassages()/pagesFromWords()
+// via the shared getCoachTipText() below — the page's own Gemini-
+// generated coachTip (a RemediationPassage's own tip, or a legacy word
+// entry's) when present, otherwise a line from the static
 // STATIC_COACH_TIPS pool (remediationCoachStrings.ts), picked
-// deterministically by word index so it's stable across re-renders of
-// the same word. NOTE: the fallback pool is keyed by the UI's own
+// deterministically by page index so it's stable across re-renders of
+// the same page. NOTE: the fallback pool is keyed by the UI's own
 // display language (`lang` from useLang(), same as every STRINGS[lang]
 // lookup elsewhere in this file) — NOT by the material's content
 // language. Those are two different things (a Filipino-UI teacher
@@ -100,18 +128,17 @@
 // rebuilt, this always asks for the 'idle' tip — there's no other state
 // yet.
 //
-// SENTENCE MODE: the book shows a short Gemini-generated SENTENCE using
-// the weak word (material.words[i].sentenceWords, generated once at
-// material-generation time — see AttemptResults.tsx's attachSentences()
-// and remediation/hooks.ts's header comment), with the target word
-// visually emphasized — rendered INSIDE CoachTableBackdrop's SVG story
-// layer (via buildContent() below), not as separate DOM text.
-//
-// Materials generated before sentence mode existed (or where sentence
-// generation failed for a given word) have no sentenceWords array —
-// getSentenceWords()/getTargetIndex() below fall back to treating the
-// bare word as its own one-word "sentence" in that case, so old
-// material still plays, just without a full sentence to read.
+// HEAR IT (passage mode only removes it): a passage has several target
+// words now, so there's no longer one unambiguous word for the owl's
+// "Hear It" button to pronounce the way there was with one word per
+// page — rather than arbitrarily picking one, that button is simply not
+// rendered in passage mode. Pronouncing a SPECIFIC word is already
+// covered by the word notebook's own pronounce button (tap any word,
+// target or not, to hear just that one). Legacy word-mode pages still
+// show "Hear It" exactly as before, since they still have exactly one
+// target word — recovered generically as
+// `currentPage.content.words[currentPage.content.targetIndices[0]]`
+// rather than needing a separate raw word reference kept around.
 //
 // OWL: the mascot here is OwlMascot.tsx — the real animated inline-SVG
 // owl ported from the prototype (breathing/swaying idle loop, blinking,
@@ -204,11 +231,11 @@
 // what's actually on the page.
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Bird, NotebookText, Volume2, X } from 'lucide-react'
+import { Bird, Image as ImageIcon, NotebookText, Volume2, X } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { OwlMascot } from '../../../../components/ui/OwlMascot.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
-import { readPracticed, useRemediationMaterialQuery, type RemediationWordEntry } from '../hooks.ts'
+import { readPracticed, useRemediationMaterialQuery, type RemediationPassage, type RemediationWordEntry } from '../hooks.ts'
 import { usePronounceWord } from '../session/features/usePronounceWord.ts'
 import {
     CoachTableBackdrop,
@@ -253,20 +280,111 @@ function getTargetIndex(entry: RemediationWordEntry): number {
     return idx != null && idx >= 0 && idx < words.length ? idx : 0
 }
 
-// Builds the exact shape CoachTableBackdrop wants for a word entry.
-// (No scoring yet, so this never carries verdicts — CoachTableBackdrop
-// renders that case as plain, unstyled text.)
-function buildContent(entry: RemediationWordEntry): CoachSentenceContent {
-    return { words: getSentenceWords(entry), targetIndex: getTargetIndex(entry) }
+// The owl's speech-bubble text for the current page — prefers the
+// page's own Gemini-generated coachTip when present, otherwise a line
+// from the static pool, picked deterministically by page index so it's
+// stable across re-renders of the same page. Structural (not
+// RemediationWordEntry-specific) so the same function covers both a
+// legacy word entry's optional coachTip and a RemediationPassage's
+// required one.
+function getCoachTipText(entry: { coachTip?: string }, pageIndex: number, lang: 'fil' | 'en'): string {
+    if (entry.coachTip) return entry.coachTip
+    return getStaticCoachTip('idle', pageIndex, lang)
 }
 
-// The owl's speech-bubble text for the current word — prefers the
-// word's own Gemini-generated coachTip when present, otherwise a line
-// from the static pool, picked deterministically by word index so it's
-// stable across re-renders of the same word.
-function getCoachTipText(currentWord: RemediationWordEntry, wordIndex: number, lang: 'fil' | 'en'): string {
-    if (currentWord.coachTip) return currentWord.coachTip
-    return getStaticCoachTip('idle', wordIndex, lang)
+// TIP HIGHLIGHTING: the owl's speech-bubble coachTip is Gemini-written
+// prose (generate-remediation-passages' own prompt asks it to "reference
+// something real about the actual target words," and in practice it
+// usually just names them — e.g. "...gaya ng Noong at naglalaro...").
+// Rather than having Gemini mark spans itself (a schema/prompt change
+// that also wouldn't apply to already-saved material), this highlights
+// the CURRENT PAGE's own target words wherever they literally appear in
+// the tip text, client-side, at render time — same words, same
+// var(--coach-target) color/bold already used on the passage text
+// itself (the bubble renders inside CoachTableBackdrop's .coach-artwork,
+// which defines that variable, so no new styling to invent). Works
+// uniformly for passage mode AND legacy per-word mode, and for every
+// already-generated tip, with zero backend changes.
+
+// Strips leading/trailing punctuation a passage word can carry (see
+// generate-remediation-passages' own prompt: "punctuation can stay
+// attached to its word, e.g. 'bahay.'") so it matches the same word
+// however it's punctuated inside the tip's own prose.
+function stripPunctuation(word: string): string {
+    return word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+}
+
+// Recovers the literal target word strings for a page directly from its
+// content — content.targetIndices already marks which of content.words
+// are targets (one shared shape for both passage and legacy word mode,
+// see this file's header comment, "PAGES"), so no separate field is
+// needed just for this.
+function getTargetWordsForPage(content: CoachSentenceContent): string[] {
+    const seen = new Set<string>()
+    const words: string[] = []
+    for (const index of content.targetIndices) {
+        const word = stripPunctuation(content.words[index] ?? '')
+        const key = word.toLowerCase()
+        if (word && !seen.has(key)) {
+            seen.add(key)
+            words.push(word)
+        }
+    }
+    return words
+}
+
+function escapeRegExp(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// Splits `text` around case-insensitive, whole-word occurrences of
+// `targetWords`, rendering each highlighted span in the same accent
+// color the passage text itself uses. Longer words are tried first so
+// e.g. a target word that's a substring of another target word can't
+// steal part of its match. Unicode word-boundary lookarounds (not \b,
+// which is Latin-letter-only) so this works the same for Filipino and
+// English content. Falls back to the plain text untouched if there are
+// no target words to look for, or none of them actually appear in it.
+function renderHighlightedTip(text: string, targetWords: string[]): ReactNode {
+    const unique = Array.from(new Set(targetWords.map((w) => w.toLowerCase())))
+        .map((lower) => targetWords.find((w) => w.toLowerCase() === lower)!)
+        .sort((a, b) => b.length - a.length)
+    if (unique.length === 0) return text
+    const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(${unique.map(escapeRegExp).join('|')})(?![\\p{L}\\p{N}])`, 'giu')
+    const parts = text.split(pattern)
+    if (parts.length === 1) return text
+    return parts.map((part, i) =>
+        i % 2 === 1 ? (
+            <span key={i} className="font-extrabold" style={{ color: 'var(--coach-target)' }}>
+                {part}
+            </span>
+        ) : (
+            <span key={i}>{part}</span>
+        ),
+    )
+}
+
+// One "page" of Reading Coach Mode content, normalized from whichever
+// source this material actually has -- see this file's header comment
+// ("PAGES"). Previous/Next, the backdrop's turnTo(), and the owl's
+// speech bubble all work off this shape alone from here on, never
+// reaching back into RemediationPassage/RemediationWordEntry directly,
+// so the rest of the component doesn't need to branch on material mode
+// more than once.
+type CoachPage = { content: CoachSentenceContent; coachTip: string }
+
+function pagesFromPassages(passages: RemediationPassage[], lang: 'fil' | 'en'): CoachPage[] {
+    return passages.map((passage, index) => ({
+        content: { words: passage.passageWords, targetIndices: passage.targetIndices },
+        coachTip: getCoachTipText(passage, index, lang),
+    }))
+}
+
+function pagesFromWords(words: RemediationWordEntry[], lang: 'fil' | 'en'): CoachPage[] {
+    return words.map((entry, index) => ({
+        content: { words: getSentenceWords(entry), targetIndices: [getTargetIndex(entry)] },
+        coachTip: getCoachTipText(entry, index, lang),
+    }))
 }
 
 // The whole owl overlay's home — the left half of the stage, matching
@@ -299,9 +417,17 @@ export default function RemediationCoach() {
     const backdropRef = useRef<CoachTableBackdropHandle>(null)
 
     // Seeded once from the query, same reasoning as RemediationSession.tsx:
-    // nothing else in this file changes this material's words, so a
-    // background refetch shouldn't stomp on in-progress local state.
-    const [sessionWords, setSessionWords] = useState<RemediationWordEntry[] | null>(null)
+    // nothing else in this file changes this material's words/passages,
+    // so a background refetch shouldn't stomp on in-progress local
+    // state. Both sources are seeded together; a plain `seeded` flag
+    // (not sessionWords' own nullness, the way it worked before) tracks
+    // whether that's happened yet -- sessionPassages can be legitimately
+    // null even AFTER material has loaded (a material with no passages,
+    // not "not loaded yet"), so its nullness can't double as the
+    // loading check the way sessionWords' null default used to.
+    const [seeded, setSeeded] = useState(false)
+    const [sessionWords, setSessionWords] = useState<RemediationWordEntry[]>([])
+    const [sessionPassages, setSessionPassages] = useState<RemediationPassage[] | null>(null)
     const [currentIndex, setCurrentIndex] = useState(0)
     // True only while a page-turn animation is in flight — mirrors
     // CoachTableBackdropHandle.isBusy(), tracked locally too so
@@ -318,43 +444,95 @@ export default function RemediationCoach() {
     const [companionAnimated, setCompanionAnimated] = useState(false)
 
     useEffect(() => {
-        if (material && sessionWords === null) {
+        if (material && !seeded) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setSessionWords(material.words)
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setSessionPassages(material.passages ?? null)
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setSeeded(true)
         }
-    }, [material, sessionWords])
+    }, [material, seeded])
 
-    const currentWord = sessionWords?.[currentIndex] ?? null
+    // See this file's header comment ("PAGES"): normalizes whichever
+    // source this material actually has into one common shape. Passage
+    // mode only kicks in once there's at least one real passage -- an
+    // empty array falls back to legacy word mode the same as a wholly
+    // absent one.
+    const isPassageMode = sessionPassages != null && sessionPassages.length > 0
+    const pages: CoachPage[] = !seeded
+        ? []
+        : isPassageMode
+            ? pagesFromPassages(sessionPassages, lang)
+            : pagesFromWords(sessionWords, lang)
+
+    const currentPage = pages[currentIndex] ?? null
+    // The owl's speech-bubble text for the current page -- see this
+    // file's header comment ("COACH TIPS"). Computed here (rather than
+    // inline in the render branch below) so the reading-time auto-hide
+    // effect further down can depend on it directly.
+    const speechBubbleText = currentPage?.coachTip ?? null
+    // Highlighted version of speechBubbleText -- see "TIP HIGHLIGHTING"
+    // above. Recomputed whenever the page changes (via currentPage in the
+    // deps below); kept separate from speechBubbleText itself (a plain
+    // string) since the auto-hide effect below and the `key={speechBubbleText}`
+    // remount trick in the render branch both want the plain string, not
+    // a ReactNode.
+    const speechBubbleNode: ReactNode = currentPage && speechBubbleText
+        ? renderHighlightedTip(speechBubbleText, getTargetWordsForPage(currentPage.content))
+        : speechBubbleText
+    // Reading-time auto-hide -- ported from the prototype's
+    // showOwlMessage()/hideOwlMessage(): the bubble (and its Hear-It
+    // button, see the "coach-owl-dialogue" CSS below) fades out on its
+    // own after a reading-time budget derived from the text length,
+    // separate from and longer than OwlMascot's own shorter "talking"
+    // pulse timer. Formula verbatim from the prototype: readFor =
+    // max(talkFor+1500, min(16000, 2500+len*65)), where talkFor =
+    // max(1200, min(5500, len*48)) -- the same formula OwlMascot.tsx
+    // already uses for its talking-pulse duration. Resets whenever the
+    // tip text changes (a new word); keeps counting down in real time
+    // even while the notebook is open rather than pausing/resetting on
+    // that toggle -- simplest match for "time already spent reading it."
+    const [bubbleExpired, setBubbleExpired] = useState(false)
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setBubbleExpired(false)
+        if (!speechBubbleText) return
+        const talkFor = Math.max(1200, Math.min(5500, speechBubbleText.length * 48))
+        const readFor = Math.max(talkFor + 1500, Math.min(16000, 2500 + speechBubbleText.length * 65))
+        const timer = window.setTimeout(() => setBubbleExpired(true), readFor)
+        return () => window.clearTimeout(timer)
+    }, [speechBubbleText])
 
     const goBack = () => navigate(`/students/remediation/${studentId}`)
 
-    const isLastWord = sessionWords != null && currentIndex === sessionWords.length - 1
-    const isFirstWord = currentIndex === 0
-    const allPracticed = sessionWords != null && sessionWords.every(readPracticed)
+    const isLastPage = pages.length > 0 && currentIndex === pages.length - 1
+    const isFirstPage = currentIndex === 0
+    const allPracticed = seeded && sessionWords.every(readPracticed)
 
-    // The single place that moves to a different word — see this file's
+    // The single place that moves to a different page — see this file's
     // header comment ("WORD NAVIGATION"). Updates currentIndex and
     // drives the backdrop's page-turn animation together, every time.
     // Guarded against overlapping calls with isTurning (CoachTableBackdrop's
     // own turnTo already no-ops while busy, but without this guard
     // React's currentIndex could still advance on a call the backdrop
     // silently dropped, desyncing the two).
-    const goToWord = async (newIndex: number, direction: 'next' | 'previous') => {
-        if (!sessionWords || isTurning) return
-        const nextWord = sessionWords[newIndex]
-        if (!nextWord) return
+    const goToPage = async (newIndex: number, direction: 'next' | 'previous') => {
+        if (isTurning) return
+        const nextPage = pages[newIndex]
+        if (!nextPage) return
         setIsTurning(true)
         setCurrentIndex(newIndex)
-        await backdropRef.current?.turnTo(buildContent(nextWord), direction)
+        await backdropRef.current?.turnTo(nextPage.content, direction)
         setIsTurning(false)
     }
     const handlePrevious = () => {
-        if (isFirstWord) return
-        void goToWord(currentIndex - 1, 'previous')
+        if (isFirstPage) return
+        void goToPage(currentIndex - 1, 'previous')
     }
     const handleNext = () => {
-        if (isLastWord) return
-        void goToWord(currentIndex + 1, 'next')
+        if (isLastPage) return
+        void goToPage(currentIndex + 1, 'next')
     }
 
     // Tapping a story word opens the notebook on that word — see this
@@ -367,7 +545,7 @@ export default function RemediationCoach() {
         setCompanionAnimated(true)
     }
 
-    const isLoadingAll = isLoading || sessionWords === null
+    const isLoadingAll = isLoading || !seeded
     let content: ReactNode
 
     if (isLoadingAll) {
@@ -377,7 +555,7 @@ export default function RemediationCoach() {
                 <Skeleton className="h-[420px] flex-1 rounded-3xl" />
             </div>
         )
-    } else if (!material || error || !sessionWords) {
+    } else if (!material || error) {
         content = (
             <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center px-4 text-center">
                 <section className="flex flex-col items-center gap-3 rounded-3xl border border-gray-900/5 bg-white/90 p-8 text-center shadow-lg backdrop-blur-sm dark:border-gray-100/10 dark:bg-gray-900/90">
@@ -394,10 +572,10 @@ export default function RemediationCoach() {
                 </section>
             </div>
         )
-    } else if (allPracticed && !currentWord) {
+    } else if (allPracticed && !currentPage) {
         // Every word already practiced and the student hasn't left yet —
         // e.g. a refresh right after finishing the final word — show the
-        // completion card instead of a blank/undefined word.
+        // completion card instead of a blank/undefined page.
         content = (
             <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center gap-4 px-4 text-center">
                 <div className="flex flex-col items-center gap-4 rounded-3xl border border-gray-900/5 bg-white/90 p-10 shadow-lg backdrop-blur-sm dark:border-gray-100/10 dark:bg-gray-900/90">
@@ -414,10 +592,9 @@ export default function RemediationCoach() {
                 </div>
             </div>
         )
-    } else if (!currentWord) {
+    } else if (!currentPage) {
         content = null
     } else {
-        const speechBubbleText = getCoachTipText(currentWord, currentIndex, lang)
         const notebookOpen = companionMode === 'notebook'
 
         content = (
@@ -475,11 +652,44 @@ export default function RemediationCoach() {
                         opacity: 0;
                         pointer-events: none;
                     }
+                    /* Only start showing the dialogue once the owl has
+                    actually landed back in position -- delay matches
+                    coach-owl-enter's own duration (640ms) exactly, so the
+                    bubble/button don't render mid-jump. Gated by
+                    data-animate (same flag as the owl jump itself) so
+                    this delay never applies to the very first mount --
+                    only after a real toggle. Disappearing stays instant
+                    (no delay, no transition), matching the prototype's
+                    own #owlSpeechBubble treatment and the earlier fix. */
+                    .coach-owl-dialogue[data-animate="true"] {
+                        transition: opacity 0s linear 640ms, visibility 0s linear 640ms;
+                    }
+                    .coach-owl-dialogue[data-animate="true"][data-active="false"] {
+                        transition: none;
+                    }
+                    /* Reading-time auto-hide -- ported from the prototype's
+                    showOwlMessage()/hideOwlMessage(): once the reading-time
+                    budget for the current tip elapses (see the
+                    bubbleExpired effect above), the bubble/button fade out
+                    on their own, using the bubble's own gradual 180ms fade
+                    (matching the prototype's #owlSpeechBubble CSS
+                    transition) -- distinct from data-active's INSTANT hide
+                    above, which is only for the notebook-toggle case. The
+                    owl mascot itself is untouched; it doesn't jump away
+                    just because the message timed out, same as the
+                    prototype (hideOwlMessage only ever touches the bubble). */
+                    .coach-owl-dialogue[data-expired="true"] {
+                        opacity: 0;
+                        visibility: hidden;
+                        pointer-events: none;
+                        transition: opacity 180ms ease, visibility 0s linear 180ms;
+                    }
                     @media (prefers-reduced-motion: reduce) {
                         .coach-owl-jump[data-animate="true"] { animation: none !important; }
                         .coach-owl-jump { transition: opacity 150ms ease; }
                         .coach-owl-jump[data-active="false"] { opacity: 0; transform: none !important; }
                         .coach-owl-jump[data-active="true"] { opacity: 1; }
+                        .coach-owl-dialogue[data-animate="true"] { transition-delay: 150ms !important; }
                     }
                     /* Notebook content slot -- thin, undecorated overlay
                     (word text + pronounce + close only) positioned over
@@ -489,7 +699,7 @@ export default function RemediationCoach() {
                     #notebookContent is a plain HTML div, not a card. */
                     .coach-notebook-slot {
                         position: absolute;
-                        transition: opacity 320ms ease, transform 320ms ease;
+                        transition: opacity 260ms ease, transform 260ms ease;
                         transform: translateY(0);
                     }
                     .coach-notebook-slot[data-active="false"] {
@@ -497,8 +707,23 @@ export default function RemediationCoach() {
                         transform: translateY(12px);
                         pointer-events: none;
                     }
+                    /* Only start fading the notebook's buttons/text in
+                    once the real SVG notebook (CoachTableBackdrop's
+                    .coach-notebook-transition) has actually finished
+                    sliding into place -- delay matches that group's own
+                    transform transition duration (550ms) exactly, gated
+                    by data-animate (same flag the owl jump/dialogue use)
+                    so it never applies on first mount. Closing stays a
+                    quick, undelayed fade -- the content doesn't need to
+                    wait for the notebook to fully leave before it's gone. */
+                    .coach-notebook-slot[data-animate="true"] {
+                        transition-delay: 550ms;
+                    }
+                    .coach-notebook-slot[data-animate="true"][data-active="false"] {
+                        transition-delay: 0s;
+                    }
                     @media (prefers-reduced-motion: reduce) {
-                        .coach-notebook-slot { transition: opacity 200ms ease; }
+                        .coach-notebook-slot { transition: opacity 200ms ease; transition-delay: 0s !important; }
                         .coach-notebook-slot[data-active="false"] { transform: translateY(0) !important; }
                     }
                 `}</style>
@@ -511,9 +736,9 @@ export default function RemediationCoach() {
                 >
                     <CoachTableBackdrop
                         ref={backdropRef}
-                        initialContent={buildContent(currentWord)}
-                        previousDisabled={isFirstWord || isTurning}
-                        nextDisabled={isLastWord || isTurning}
+                        initialContent={currentPage.content}
+                        previousDisabled={isFirstPage || isTurning}
+                        nextDisabled={isLastPage || isTurning}
                         previousLabel={t.back}
                         nextLabel={t.continueButton}
                         onPrevious={handlePrevious}
@@ -541,16 +766,22 @@ export default function RemediationCoach() {
                                     />
                                 </div>
                                 {/* SPEECH BUBBLE + HEAR IT -- hides
-                                instantly, no fade, see
-                                "OWL COMPANION ANIMATION". */}
+                                instantly on notebook toggle (no fade, see
+                                "OWL COMPANION ANIMATION"), but fades out
+                                gradually on its own once the reading-time
+                                budget for this tip elapses (data-expired,
+                                see the bubbleExpired effect above and its
+                                own CSS rule below). */}
                                 <div
                                     className="coach-owl-dialogue flex w-full flex-col items-center gap-3"
                                     data-active={!notebookOpen}
-                                    aria-hidden={notebookOpen}
+                                    data-animate={companionAnimated}
+                                    data-expired={bubbleExpired}
+                                    aria-hidden={notebookOpen || bubbleExpired}
                                 >
                                     <div
                                         key={speechBubbleText}
-                                        className="animate-coach-bubble-pop relative w-full border-[3px] border-purple-500 bg-white/95 text-center shadow-[0_8px_0_0_rgba(109,40,217,0.15),0_10px_20px_rgba(109,40,217,0.12)] dark:border-indigo-300 dark:bg-indigo-950/85 dark:shadow-[0_0_18px_rgba(121,118,199,0.45)]"
+                                        className="animate-coach-bubble-pop relative w-full border-[3px] border-[var(--coach-nb-cover)] bg-white/95 text-center shadow-[0_8px_0_0_rgba(109,40,217,0.15),0_10px_20px_rgba(109,40,217,0.12)] dark:border-indigo-300 dark:bg-indigo-950/85 dark:shadow-[0_0_18px_rgba(121,118,199,0.45)]"
                                         style={{
                                             padding: 'clamp(12px, 1.6cqw, 28px) clamp(14px, 2.2cqw, 32px)',
                                             borderRadius: 'clamp(22px, 2.4cqw, 44px)',
@@ -558,23 +789,38 @@ export default function RemediationCoach() {
                                     >
                                         <span
                                             aria-hidden="true"
-                                            className="absolute -top-2 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-l-[3px] border-t-[3px] border-purple-500 bg-white/95 dark:border-indigo-300 dark:bg-indigo-950/85"
+                                            className="absolute -top-2 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-l-[3px] border-t-[3px] border-[var(--coach-nb-cover)] bg-white/95 dark:border-indigo-300 dark:bg-indigo-950/85"
                                         />
                                         <p
                                             className="font-semibold leading-snug text-stone-700 dark:text-indigo-100"
                                             style={{ fontSize: 'clamp(13px, 1.6cqw, 22px)' }}
                                         >
-                                            {speechBubbleText}
+                                            {speechBubbleNode}
                                         </p>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => speak(currentWord.word, material.language)}
-                                        className="flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-[11px] font-bold text-stone-700 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white/90 dark:bg-gray-900/60 dark:text-gray-200 dark:hover:bg-gray-900/80"
-                                    >
-                                        <Volume2 size={12} />
-                                        {t.pronounce}
-                                    </button>
+                                    {/* Only in legacy (non-passage) mode --
+                                    see this file's header comment
+                                    ("HEAR IT"). Recovers the one target
+                                    word generically from the page content
+                                    itself (content.words at its own
+                                    single targetIndices[0]) rather than
+                                    needing a separate raw word reference
+                                    kept around just for this. */}
+                                    {!isPassageMode && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                speak(
+                                                    currentPage.content.words[currentPage.content.targetIndices[0]],
+                                                    material.language,
+                                                )
+                                            }
+                                            className="flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-[11px] font-bold text-stone-700 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white/90 dark:bg-gray-900/60 dark:text-gray-200 dark:hover:bg-gray-900/80"
+                                        >
+                                            <Volume2 size={12} />
+                                            {t.pronounce}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -589,35 +835,123 @@ export default function RemediationCoach() {
                         its own -- the SVG notebook underneath provides
                         that. */}
                         <div
-                            className="coach-notebook-slot flex flex-col items-center justify-center gap-3 px-2 text-center"
+                            className="coach-notebook-slot flex flex-col"
                             data-active={notebookOpen}
+                            data-animate={companionAnimated}
                             aria-hidden={!notebookOpen}
-                            style={NOTEBOOK_CONTENT_STYLE}
+                            style={{
+                                ...NOTEBOOK_CONTENT_STYLE,
+                                gap: 'clamp(8px, 1.1cqw, 16px)',
+                                paddingLeft: 'clamp(8px, 1.1cqw, 16px)',
+                                paddingRight: 'clamp(8px, 1.1cqw, 16px)',
+                                paddingBottom: 'clamp(8px, 1.1cqw, 16px)',
+                                paddingTop: 'clamp(2px, 0.4cqw, 6px)',
+                            }}
                         >
+                            {/* Close -- top-right corner, flush against the
+                            slot's own padding (right-0 top-0, so its inset
+                            from the visual edge matches the padding every
+                            other edge already uses). Pronounce sits in the
+                            title row below, right-aligned the same way (no
+                            extra offset of its own), so it lands directly
+                            under Close -- and centered with the title text
+                            on the same line, per the notebook mockup.
+                            Sized with clamp(...cqw...) rather than fixed
+                            Tailwind spacing -- this whole slot is a
+                            percentage of the cover-fit `coach-stage` (see
+                            this file's header comment, "STAGE SIZING"),
+                            which grows/shrinks with the viewport, but
+                            fixed-px content doesn't -- it looked right only
+                            at the one window size it was eyeballed at, and
+                            shrank to looking "too tiny" at wider ones. cqw
+                            here is relative to the stage (the same
+                            container-query context the owl's speech bubble
+                            text/padding below already uses), so these track
+                            the notebook's own on-screen size at any width. */}
                             <button
                                 type="button"
                                 onClick={() => setCompanionMode('owl')}
                                 aria-label={nt.closeNotebook}
-                                className="absolute right-0 top-0 flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-white/70 text-stone-600 transition-colors duration-150 hover:bg-white dark:border-white/10 dark:bg-gray-900/60 dark:text-indigo-100"
+                                className="absolute flex items-center justify-center rounded-full border-2 border-[var(--coach-nb-soft)] bg-[var(--coach-nb-btn)] text-[var(--coach-nb-ink)] shadow-sm transition-colors duration-150 hover:border-[var(--coach-nb-accent)]"
+                                style={{
+                                    // Matches the slot's own paddingRight/
+                                    // paddingTop exactly (see the slot's
+                                    // style below) -- an absolutely
+                                    // positioned child's containing block is
+                                    // the ancestor's PADDING edge, which
+                                    // excludes the ancestor's own padding,
+                                    // so `right: 0`/`top: 0` here would sit
+                                    // outside the row's padded content
+                                    // instead of flush with it. Reusing the
+                                    // same clamp() keeps Close's right edge
+                                    // exactly above Pronounce's.
+                                    right: 'clamp(8px, 1.1cqw, 16px)',
+                                    top: 'clamp(2px, 0.4cqw, 6px)',
+                                    width: 'clamp(26px, 3.4cqw, 42px)',
+                                    height: 'clamp(26px, 3.4cqw, 42px)',
+                                }}
                             >
-                                <X size={16} />
+                                <X style={{ width: 'clamp(13px, 1.7cqw, 18px)', height: 'clamp(13px, 1.7cqw, 18px)' }} />
                             </button>
                             {selectedWord ? (
-                                <div className="flex flex-col items-center gap-3">
-                                    <h3 className="text-lg font-extrabold capitalize text-stone-800 dark:text-indigo-50">
-                                        {selectedWord}
-                                    </h3>
-                                    <button
-                                        type="button"
-                                        onClick={() => speak(selectedWord, material.language)}
-                                        className="flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 text-xs font-bold text-stone-700 shadow-sm dark:bg-gray-900/60 dark:text-gray-200"
+                                <>
+                                    <div
+                                        className="flex items-center justify-between gap-2"
+                                        style={{ paddingTop: 'clamp(32px, 4.4cqw, 50px)' }}
                                     >
-                                        <Volume2 size={13} />
-                                        {t.pronounce}
-                                    </button>
-                                </div>
+                                        <h3
+                                            className="font-extrabold capitalize leading-tight"
+                                            style={{ color: 'var(--coach-nb-ink)', fontSize: 'clamp(18px, 2.6cqw, 32px)' }}
+                                        >
+                                            {selectedWord}
+                                        </h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => speak(selectedWord, material.language)}
+                                            aria-label={t.pronounce}
+                                            className="flex shrink-0 items-center justify-center rounded-full border-2 border-[var(--coach-nb-soft)] bg-[var(--coach-nb-btn)] text-[var(--coach-nb-ink)] shadow-sm transition-colors duration-150 hover:border-[var(--coach-nb-accent)]"
+                                            style={{
+                                                width: 'clamp(26px, 3.4cqw, 42px)',
+                                                height: 'clamp(26px, 3.4cqw, 42px)',
+                                            }}
+                                        >
+                                            <Volume2 style={{ width: 'clamp(12px, 1.6cqw, 17px)', height: 'clamp(12px, 1.6cqw, 17px)' }} />
+                                        </button>
+                                    </div>
+                                    {/* Picture placeholder -- there's no
+                                    per-word illustration data yet, so this
+                                    is a permanent decorative shell (same
+                                    "shell only" spirit as the rest of the
+                                    notebook -- see header comment), not a
+                                    real image slot. Colors match the
+                                    prototype's own .word-image-placeholder
+                                    exactly (border/background var(--word-
+                                    soft)/var(--word-button), icon stroke
+                                    var(--word-accent) at .55 opacity). */}
+                                    <div
+                                        className="flex flex-1 items-center justify-center rounded-2xl border-2"
+                                        style={{ backgroundColor: 'var(--coach-nb-btn)', borderColor: 'var(--coach-nb-soft)' }}
+                                    >
+                                        <ImageIcon
+                                            strokeWidth={2}
+                                            style={{
+                                                width: 'clamp(30px, 4.6cqw, 58px)',
+                                                height: 'clamp(30px, 4.6cqw, 58px)',
+                                                color: 'var(--coach-nb-accent)',
+                                                opacity: 0.55,
+                                            }}
+                                        />
+                                    </div>
+                                </>
                             ) : (
-                                <p className="text-sm font-semibold text-stone-600 dark:text-indigo-200/80">
+                                <p
+                                    className="flex flex-1 items-center justify-center text-center font-semibold"
+                                    style={{
+                                        color: 'var(--coach-nb-ink)',
+                                        fontSize: 'clamp(11px, 1.5cqw, 16px)',
+                                        paddingTop: 'clamp(32px, 4.4cqw, 50px)',
+                                    }}
+                                >
                                     {nt.placeholder}
                                 </p>
                             )}

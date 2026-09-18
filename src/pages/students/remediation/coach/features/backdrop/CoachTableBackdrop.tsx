@@ -34,7 +34,12 @@
 // aria-pressed hardcoded "false") -- per the "take it slow" rebuild,
 // recording isn't wired up yet. When it is, aria-disabled/aria-pressed/
 // onClick should become props here, the same pattern previousDisabled/
-// nextDisabled/onPrevious already use.
+// nextDisabled/onPrevious already use. It's now also wired into
+// fadeControls() below alongside Previous/Next, so it fades out (same
+// 120ms opacity fade, no abrupt hide) while a page turn is in flight and
+// fades back in once it settles -- back to its dim `aria-disabled`
+// resting opacity (MIC_RESTING_OPACITY), not fully opaque, since it's
+// still inert either way.
 //
 // WORD NOTEBOOK: the story words rendered by coachStoryLayout.ts's
 // renderSentence() already come out as `<tspan class="coach-word"
@@ -182,6 +187,7 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
         const foldLightGradientRef = useRef<SVGLinearGradientElement>(null)
         const previousBtnRef = useRef<SVGGElement>(null)
         const nextBtnRef = useRef<SVGGElement>(null)
+        const micBtnRef = useRef<SVGGElement>(null)
 
         // Mutable engine state that must never trigger a re-render mid-turn
         // (900ms of rAF frames -- re-rendering React on every frame was
@@ -289,14 +295,28 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
             storyDefsRef.current?.querySelectorAll('[data-coach-temp-strip]').forEach((n) => n.remove())
         }, [])
 
+        // The microphone is permanently `aria-disabled` (inert until
+        // recording is wired up -- see this file's header comment,
+        // "MICROPHONE"), which the `.coach-book-control[aria-disabled="true"]`
+        // rule below already dims to this resting opacity. So unlike
+        // Previous/Next (which fade back up to fully opaque), the mic's
+        // "restored" opacity after a page turn is this dim resting value,
+        // not 1 -- fading it all the way to 1 would wrongly read as
+        // "now enabled."
+        const MIC_RESTING_OPACITY = 0.36
+
         const fadeControls = useCallback((toOpacity: number) => {
             return new Promise<void>((resolve) => {
                 const prevBtn = previousBtnRef.current
                 const nextBtn = nextBtnRef.current
+                const micBtn = micBtnRef.current
+                const micOpacity = toOpacity === 0 ? 0 : MIC_RESTING_OPACITY
                 if (prevBtn) prevBtn.style.transition = 'opacity 120ms ease'
                 if (nextBtn) nextBtn.style.transition = 'opacity 120ms ease'
+                if (micBtn) micBtn.style.transition = 'opacity 120ms ease'
                 if (prevBtn) prevBtn.style.opacity = String(toOpacity)
                 if (nextBtn) nextBtn.style.opacity = String(toOpacity)
+                if (micBtn) micBtn.style.opacity = String(micOpacity)
                 window.setTimeout(resolve, 120)
             })
         }, [])
@@ -521,6 +541,7 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                     real recording, at which point aria-disabled/aria-
                     pressed become props like previous/next's. */}
                     <g
+                        ref={micBtnRef}
                         id="coach-microphone"
                         className="coach-book-control"
                         role="button"
@@ -559,22 +580,28 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                         --coach-shine: #fff9e9; --coach-ink: #fff5e9; --coach-shade: #874013;
                         --coach-sheet: #faf1dd; --coach-sheet-light: #fff9e8; --coach-sheet-dark: #dfbb94;
                         --coach-story-ink: #68401f; --coach-correct: #0d9488; --coach-miscue: #d97706;
+                        --coach-target: #be185d;
                         --coach-mic: #ff593a; --coach-mic-low: #ff633c; --coach-selected: #00766d;
                         --coach-nb-cover: #934713; --coach-nb-border: #803b0e; --coach-nb-edge: #e6c49e;
                         --coach-nb-edge-light: #f6e4c7; --coach-nb-paper: #fdf7e7; --coach-nb-paper-low: #faf1dd;
                         --coach-nb-hole: #934713; --coach-nb-ring: #b7a083; --coach-nb-ring-light: #e4d6bd;
                         --coach-nb-ring-dark: #9a846b; --coach-nb-shadow: #71310c;
+                        --coach-nb-ink: #68401f; --coach-nb-accent: #ac6932; --coach-nb-soft: #eddbc0;
+                        --coach-nb-btn: #f6ead4;
                     }
                     .coach-artwork[data-coach-theme="night"] {
                         --coach-arrow: #7068b5; --coach-ring: #a6a0e9; --coach-disc: #cbc9f7;
                         --coach-shine: #f3ecff; --coach-ink: #f2eaff; --coach-shade: #302260;
                         --coach-sheet: #e0dfff; --coach-sheet-light: #f4efff; --coach-sheet-dark: #b2acff;
                         --coach-story-ink: #2a2154; --coach-correct: #2dd4bf; --coach-miscue: #fbbf24;
+                        --coach-target: #f472b6;
                         --coach-mic: #7739ff; --coach-mic-low: #703bff; --coach-selected: #6932ce;
                         --coach-nb-cover: #171951; --coach-nb-border: #10133f; --coach-nb-edge: #8d89e7;
                         --coach-nb-edge-light: #b9b5ff; --coach-nb-paper: #e8e5ff; --coach-nb-paper-low: #d7d5ff;
                         --coach-nb-hole: #1c1e62; --coach-nb-ring: #8c8fda; --coach-nb-ring-light: #d3d5ff;
                         --coach-nb-ring-dark: #53599f; --coach-nb-shadow: #080c30;
+                        --coach-nb-ink: #39355f; --coach-nb-accent: #6f65b5; --coach-nb-soft: #bdb7ee;
+                        --coach-nb-btn: #e3dfff;
                     }
                     .coach-art-layer { position: absolute; inset: 0; }
                     .coach-art-layer > svg { display: block; width: 100%; height: 100%; }

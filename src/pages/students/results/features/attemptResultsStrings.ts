@@ -30,9 +30,6 @@ export const STRINGS: Record<Lang, {
     summaryWcpm: (name: string, wcpm: number) => string
     summaryAgreement: (agreed: number, total: number) => string
     generateButton: string
-    generatingButton: string
-    generateSuccessToast: string
-    generateErrorToast: string
     viewRemediationButton: string
 }> = {
     fil: {
@@ -61,9 +58,6 @@ export const STRINGS: Record<Lang, {
         summaryAgreement: (agreed, total) =>
             `Sinang-ayunan mo ang ${agreed} sa ${total} salitang na-flag ng sistema bilang hindi sigurado.`,
         generateButton: 'Gumawa ng Remediation Material',
-        generatingButton: 'Ginagawa...',
-        generateSuccessToast: 'Nagawa ang bagong remediation material.',
-        generateErrorToast: 'Hindi nagawa ang remediation material. Subukan ulit.',
         viewRemediationButton: "Tingnan ang Remediation List",
     },
     en: {
@@ -92,9 +86,6 @@ export const STRINGS: Record<Lang, {
         summaryAgreement: (agreed, total) =>
             `You agreed with ${agreed} of the ${total} words the system flagged as uncertain.`,
         generateButton: 'Generate Remediation Material',
-        generatingButton: 'Generating...',
-        generateSuccessToast: 'New remediation material was generated.',
-        generateErrorToast: "Couldn't generate remediation material. Please try again.",
         viewRemediationButton: "View Pupil's Remediation List",
     },
 }

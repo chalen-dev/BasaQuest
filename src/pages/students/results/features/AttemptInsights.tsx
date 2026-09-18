@@ -34,7 +34,6 @@ type AttemptInsightsProps = {
     systemFlaggedWordsCount: number
     insightSummary: string
     onGenerateRemediation: () => void
-    isGenerating: boolean
     onViewRemediation: () => void
 }
 export const AttemptInsights: React.FC<AttemptInsightsProps> = ({
@@ -47,7 +46,6 @@ export const AttemptInsights: React.FC<AttemptInsightsProps> = ({
                                                                     systemFlaggedWordsCount,
                                                                     insightSummary,
                                                                     onGenerateRemediation,
-                                                                    isGenerating,
                                                                     onViewRemediation,
                                                                 }) => {
     const hasAnyInsight = dominantWeakness != null || wcpm != null || systemFlaggedWordsCount > 0
@@ -117,13 +115,10 @@ export const AttemptInsights: React.FC<AttemptInsightsProps> = ({
                                 <button
                                     type="button"
                                     onClick={onGenerateRemediation}
-                                    disabled={isGenerating}
-                                    className={`flex items-center justify-center gap-2 rounded-full bg-purple-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#6d28d9] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#6d28d9] dark:bg-purple-600 dark:shadow-[0_4px_0_0_#5b21b6] ${
-                                        isGenerating ? 'cursor-not-allowed opacity-60 hover:translate-y-0' : 'cursor-pointer'
-                                    }`}
+                                    className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-purple-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#6d28d9] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#6d28d9] dark:bg-purple-600 dark:shadow-[0_4px_0_0_#5b21b6]"
                                 >
                                     <Sparkles size={16} />
-                                    {isGenerating ? t.generatingButton : t.generateButton}
+                                    {t.generateButton}
                                 </button>
                             </div>
                         )}
