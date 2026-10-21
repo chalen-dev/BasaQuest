@@ -106,7 +106,17 @@ export type AssessmentStrings = {
     simulatedTake: string
     redoLabel: string
     submitLabel: string
-    submitting: string
+    // Full-panel "in flight" state (RecorderPanel.tsx) shown between
+    // tapping Submit and the upload + attempt insert actually finishing —
+    // distinct from pendingTitle/pendingDesc below, which only appears
+    // AFTER that upload has settled (submitted). Previously the only
+    // feedback during the upload itself was the Submit button dimming and
+    // its label swapping to `submitting` — easy to miss, especially on a
+    // slow connection. This mirrors the pendingTitle/pendingDesc treatment
+    // (big icon + badge + description) so mid-upload is just as
+    // unmistakable as "waiting for teacher" already was.
+    sendingTitle: string
+    sendingDesc: string
     recorderEncourage: string
     pendingTitle: string
     pendingDesc: string
@@ -171,7 +181,8 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         simulatedTake: 'Simulated na pagbasa (walang mikropono)',
         redoLabel: 'Ulitin',
         submitLabel: 'Ipasa sa Guro',
-        submitting: 'Ipinapadala…',
+        sendingTitle: 'Ipinapadala ang Pagbasa',
+        sendingDesc: 'Sandali lang — ina-upload namin ang iyong recording.',
         recorderEncourage: 'Huwag mag-alala kung may mali — susuriin muna ito ng iyong guro bago maging pinal.',
         pendingTitle: 'Hinihintay ang Guro',
         pendingDesc: 'Naipasa na ang iyong pagbasa. Susuriin ito ng iyong guro bago maging pinal ang resulta.',
@@ -226,7 +237,8 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         simulatedTake: 'Simulated reading (no microphone)',
         redoLabel: 'Redo',
         submitLabel: 'Submit to Teacher',
-        submitting: 'Sending…',
+        sendingTitle: 'Sending Your Reading',
+        sendingDesc: "Just a moment — we're uploading your recording.",
         recorderEncourage: "Don't worry about mistakes — your teacher reviews it first before it's final.",
         pendingTitle: 'Waiting for Teacher',
         pendingDesc: 'Your reading has been submitted. Your teacher will review it before the result is final.',

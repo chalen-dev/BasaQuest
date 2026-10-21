@@ -2,42 +2,43 @@
 import { createBrowserRouter, createRoutesFromElements, Navigate, Route, RouterProvider } from "react-router-dom"
 import './App.css'
 import {AdminRoute, GuestRoute, ProtectedRoute} from "./components/routes/AuthRoutes.tsx";
-import Login from "./pages/auth/Login.tsx";
-import { Dashboard } from "./pages/students/dashboard/Dashboard.tsx";
-import { ProgressDashboard } from "./pages/students/progress/ProgressDashboard.tsx";
-import PupilProgressReport from "./pages/students/reports/PupilProgressReport.tsx";
-import ClassAnalyticsReport from "./pages/students/reports/ClassAnalyticsReport.tsx";
-import { StudentList } from "./pages/students/list/StudentList.tsx";
-import ReviewList from "./pages/students/review/ReviewList.tsx";
-import TeacherReviewAttempt from "./pages/students/review/TeacherReviewAttempt.tsx";
-import AttemptResults from "./pages/students/results/AttemptResults.tsx";
-import RemediationPassagePreview from "./pages/students/results/RemediationPassagePreview.tsx";
-import ResultsList from "./pages/students/results/ResultsList.tsx";
-import RemediationList from "./pages/students/remediation/list/RemediationList.tsx";
-import StudentRemediationDetail from "./pages/students/remediation/list/StudentRemediationDetail.tsx";
+import LoginPage from "./pages/auth/LoginPage.tsx";
+import { StudentsDashboardPage } from "./pages/students/dashboard/StudentsDashboardPage.tsx";
+import { ProgressDashboardPage } from "./pages/students/progress/ProgressDashboardPage.tsx";
+import PupilProgressReportPage from "./pages/students/reports/PupilProgressReportPage.tsx";
+import ClassAnalyticsReportPage from "./pages/students/reports/ClassAnalyticsReportPage.tsx";
+import { StudentListPage } from "./pages/students/list/StudentListPage.tsx";
+import ReviewListPage from "./pages/students/review/ReviewListPage.tsx";
+import TeacherReviewAttemptPage from "./pages/students/review/TeacherReviewAttemptPage.tsx";
+import AttemptResultsPage from "./pages/students/results/AttemptResultsPage.tsx";
+import RemediationPassagePreviewPage from "./pages/students/results/RemediationPassagePreviewPage.tsx";
+import ResultsListPage from "./pages/students/results/ResultsListPage.tsx";
+import RemediationListPage from "./pages/students/remediation/list/RemediationListPage.tsx";
+import StudentRemediationDetailPage from "./pages/students/remediation/list/StudentRemediationDetailPage.tsx";
+import StudentsLayout from "./pages/students/layouts/StudentsLayout.tsx";
 import RemediationSessionLayout from "./pages/students/remediation/session/layouts/RemediationSessionLayout.tsx";
-import RemediationSession from "./pages/students/remediation/session/RemediationSession.tsx";
-import RemediationCoachLayout from "./pages/students/remediation/coach/layout/RemediationCoachLayout.tsx";
-import RemediationCoach from "./pages/students/remediation/coach/RemediationCoach.tsx";
+import RemediationSessionPage from "./pages/students/remediation/session/RemediationSessionPage.tsx";
+import RemediationCoachLayout from "./pages/students/remediation/coach/layouts/RemediationCoachLayout.tsx";
+import RemediationCoachPage from "./pages/students/remediation/coach/RemediationCoachPage.tsx";
 import CoachBackdropTestPage from "./pages/students/remediation/coach/features/CoachBackdropTestPage.tsx";
-import Register from "./pages/auth/Register.tsx";
-import {Home} from "./pages/home/Home.tsx";
+import RegisterPage from "./pages/auth/RegisterPage.tsx";
+import { HomePage } from "./pages/home/HomePage.tsx";
 import ProtectedLayout from "./pages/_layouts/ProtectedLayout.tsx";
 import PersistentBackdropLayout from "./pages/_layouts/PersistentBackdropLayout.tsx";
 import GuestLayout from "./pages/auth/layouts/GuestLayout.tsx";
 import AssessmentSessionLayout from "./pages/proficiency/pre_assessment/assessment_session/layouts/AssessmentSessionLayout.tsx";
 import AdminSessionLayout from "./pages/admin/recording/session/layouts/AdminSessionLayout.tsx";
-import MaterialSelection from "./pages/proficiency/material_selection/MaterialSelection.tsx";
-import ProficiencyAssessmentSelectStudent from "./pages/proficiency/pre_assessment/select_student/ProficiencyAssessmentSelectStudent.tsx";
-import AssessmentSession from "./pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx";
+import MaterialSelectionPage from "./pages/proficiency/material_selection/MaterialSelectionPage.tsx";
+import ProficiencyAssessmentSelectStudentPage from "./pages/proficiency/pre_assessment/select_student/ProficiencyAssessmentSelectStudentPage.tsx";
+import AssessmentSessionPage from "./pages/proficiency/pre_assessment/assessment_session/AssessmentSessionPage.tsx";
 import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
-import AdminSelectStudent from "./pages/admin/recording/select_student/AdminSelectStudent.tsx";
-import RecordSession from "./pages/admin/recording/session/RecordSession.tsx";
-import RecordingHistory from "./pages/admin/recording_history/RecordingHistory.tsx";
-import SentenceScripts from "./pages/admin/sentence_scripts/SentenceScripts.tsx";
+import AdminSelectStudentPage from "./pages/admin/recording/select_student/AdminSelectStudentPage.tsx";
+import RecordSessionPage from "./pages/admin/recording/session/RecordSessionPage.tsx";
+import RecordingHistoryPage from "./pages/admin/recording_history/RecordingHistoryPage.tsx";
+import SentenceScriptsPage from "./pages/admin/sentence_scripts/SentenceScriptsPage.tsx";
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";
 import { useDocumentTitle } from "./hooks/useDocumentTitle.ts";
-import FinetuneStudentList from "./pages/admin/students/FinetuneStudentList.tsx";
+import FinetuneStudentListPage from "./pages/admin/students/FinetuneStudentListPage.tsx";
 // MIGRATED FROM <BrowserRouter><Routes>...</Routes></BrowserRouter> TO A
 // DATA ROUTER (createBrowserRouter + RouterProvider) — required for
 // useBlocker (see src/hooks/useUnsavedChangesBlocker.ts), used on the
@@ -65,8 +66,8 @@ const router = createBrowserRouter(
             unmounts/remounts between the two auth screens */}
             <Route element={<GuestRoute />}>
                 <Route element={<GuestLayout />}>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
                 </Route>
             </Route>
             {/*Authenticated Routes — PersistentBackdropLayout stays mounted
@@ -76,27 +77,45 @@ const router = createBrowserRouter(
             <Route element={<ProtectedRoute />}>
                 <Route element={<PersistentBackdropLayout />}>
                     <Route element={<ProtectedLayout />}>
-                        <Route path="/dashboard" element={<Dashboard />} />
-                        {/* Per-pupil progress dashboard — consolidates
-                        Reading Proficiency (EN/FIL) scores + trend,
-                        pending flagged-word counts, and stale remediation
-                        material across a teacher's whole roster in one
-                        screen. See teacher_dashboard_summary migration. */}
-                        <Route path="/students/progress" element={<ProgressDashboard />} />
-                        {/* Printable reports (capstone objective) — one
-                        pupil's full picture over a period, and the
-                        teacher's whole-roster analytics snapshot. See
-                        get_pupil_progress_report/get_class_analytics_report. */}
-                        <Route path="/students/progress/:studentId/report" element={<PupilProgressReport />} />
-                        <Route path="/students/progress/class-report" element={<ClassAnalyticsReport />} />
-                        <Route path="/students" element={<StudentList />} />
-                        {/* Teacher review inbox, its per-attempt detail
-                        page, the confirmed-results list, and the
-                        remediation-material list + per-pupil detail
-                        page — see remediation/hooks.ts. */}
-                        <Route path="/students/review" element={<ReviewList />} />
-                        <Route path="/students/review/:attemptId" element={<TeacherReviewAttempt />} />
-                        <Route path="/students/review/:attemptId/results" element={<AttemptResults />} />
+                        {/* Students sub-nav group — StudentsLayout renders
+                        StudentsSubNav + the shared wide container ONCE and
+                        keeps it mounted across navigation between these
+                        routes (see StudentsLayout.tsx's own header comment
+                        for why: it used to be duplicated per-page, so its
+                        pending-review badge remounted/reset on every tab
+                        switch). Routes that DON'T show StudentsSubNav
+                        (class report, per-attempt review/results/preview,
+                        the per-pupil remediation detail page) stay outside
+                        this group, as direct ProtectedLayout children below. */}
+                        <Route element={<StudentsLayout />}>
+                            <Route path="/dashboard" element={<StudentsDashboardPage />} />
+                            {/* Per-pupil progress dashboard — consolidates
+                            Reading Proficiency (EN/FIL) scores + trend,
+                            pending flagged-word counts, and stale remediation
+                            material across a teacher's whole roster in one
+                            screen. See teacher_dashboard_summary migration. */}
+                            <Route path="/students/progress" element={<ProgressDashboardPage />} />
+                            {/* Printable report (capstone objective) — one
+                            pupil's full picture over a period. See
+                            get_pupil_progress_report. */}
+                            <Route path="/students/progress/:studentId/report" element={<PupilProgressReportPage />} />
+                            <Route path="/students" element={<StudentListPage />} />
+                            {/* Teacher review inbox, the confirmed-results
+                            list, and the remediation-material list — see
+                            remediation/hooks.ts. */}
+                            <Route path="/students/review" element={<ReviewListPage />} />
+                            <Route path="/students/results" element={<ResultsListPage />} />
+                            <Route path="/students/remediation" element={<RemediationListPage />} />
+                        </Route>
+                        {/* Teacher's whole-roster analytics snapshot — just a
+                        back button, not the full StudentsSubNav. See
+                        get_class_analytics_report. */}
+                        <Route path="/students/progress/class-report" element={<ClassAnalyticsReportPage />} />
+                        {/* Per-attempt detail pages and the per-pupil
+                        remediation detail page — none of these show
+                        StudentsSubNav (they have their own back button). */}
+                        <Route path="/students/review/:attemptId" element={<TeacherReviewAttemptPage />} />
+                        <Route path="/students/review/:attemptId/results" element={<AttemptResultsPage />} />
                         {/* Generation-preview step between "Generate
                         Remediation Material" and an actual saved row —
                         see RemediationPassagePreview.tsx's own header
@@ -104,13 +123,11 @@ const router = createBrowserRouter(
                         above (normal header) -- a review/decision
                         screen, not a focused/distraction-free session
                         like AssessmentSession or RemediationSession. */}
-                        <Route path="/students/review/:attemptId/remediation-preview" element={<RemediationPassagePreview />} />
-                        <Route path="/students/results" element={<ResultsList />} />
-                        <Route path="/students/remediation" element={<RemediationList />} />
-                        <Route path="/students/remediation/:studentId" element={<StudentRemediationDetail />} />
-                        <Route path="/home" element={<Home />} />
-                        <Route path="/reading/proficiency" element={<MaterialSelection />} />
-                        <Route path="/reading/proficiency/assessment" element={<ProficiencyAssessmentSelectStudent />} />
+                        <Route path="/students/review/:attemptId/remediation-preview" element={<RemediationPassagePreviewPage />} />
+                        <Route path="/students/remediation/:studentId" element={<StudentRemediationDetailPage />} />
+                        <Route path="/home" element={<HomePage />} />
+                        <Route path="/reading/proficiency" element={<MaterialSelectionPage />} />
+                        <Route path="/reading/proficiency/assessment" element={<ProficiencyAssessmentSelectStudentPage />} />
                         {/* Admin-only: the child-recording capture page.
                         Nested inside ProtectedRoute (must be logged in)
                         and ProtectedLayout (shares the normal header/
@@ -119,10 +136,10 @@ const router = createBrowserRouter(
                         block below instead — it needs the stripped
                         Exit-only header, not this full nav. */}
                         <Route element={<AdminRoute />}>
-                            <Route path="/admin/students" element={<FinetuneStudentList />} />
-                            <Route path="/admin/recording" element={<AdminSelectStudent />} />
-                            <Route path="/admin/recording/scripts" element={<SentenceScripts />} />
-                            <Route path="/admin/recording/history" element={<RecordingHistory />} />
+                            <Route path="/admin/students" element={<FinetuneStudentListPage />} />
+                            <Route path="/admin/recording" element={<AdminSelectStudentPage />} />
+                            <Route path="/admin/recording/scripts" element={<SentenceScriptsPage />} />
+                            <Route path="/admin/recording/history" element={<RecordingHistoryPage />} />
                         </Route>
                     </Route>
                     {/* Focused check-in session — swaps ProtectedLayout's full
@@ -131,14 +148,14 @@ const router = createBrowserRouter(
                     picked, so the session can't be navigated away from or
                     have its language changed except by an explicit Exit. */}
                     <Route element={<AssessmentSessionLayout />}>
-                        <Route path="/reading/proficiency/assessment/session" element={<AssessmentSession />} />
+                        <Route path="/reading/proficiency/assessment/session" element={<AssessmentSessionPage />} />
                     </Route>
                     {/* Teacher-led remediation drill (flashcard "Practice") —
                     same stripped-header idea as AssessmentSessionLayout
                     above, scoped to one piece of remediation material for
                     one pupil. */}
                     <Route element={<RemediationSessionLayout />}>
-                        <Route path="/students/remediation/:studentId/session/:materialId" element={<RemediationSession />} />
+                        <Route path="/students/remediation/:studentId/session/:materialId" element={<RemediationSessionPage />} />
                     </Route>
                     {/* Reading Coach Mode — its own full-bleed layout, no
                     shared header at all (see RemediationCoachLayout.tsx's
@@ -146,7 +163,7 @@ const router = createBrowserRouter(
                     above because Coach Mode's table+book scene needs the
                     entire viewport, not a header-minus-height area. */}
                     <Route element={<RemediationCoachLayout />}>
-                        <Route path="/students/remediation/:studentId/session/:materialId/coach" element={<RemediationCoach />} />
+                        <Route path="/students/remediation/:studentId/session/:materialId/coach" element={<RemediationCoachPage />} />
                     </Route>
                     {/* Same idea for the fine-tune mic-capture screen — a
                     stripped header with only an Exit button (back to the
@@ -155,7 +172,7 @@ const router = createBrowserRouter(
                     AdminRoute still nests inside for the role check. */}
                     <Route element={<AdminSessionLayout />}>
                         <Route element={<AdminRoute />}>
-                            <Route path="/admin/recording/session" element={<RecordSession />} />
+                            <Route path="/admin/recording/session" element={<RecordSessionPage />} />
                         </Route>
                     </Route>
                 </Route>

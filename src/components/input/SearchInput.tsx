@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search } from 'lucide-react';
-import { Text } from './Text';
+import { TextInput } from './TextInput';
 
 interface SearchInputProps {
     value: string;
@@ -21,7 +21,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
                 size={18}
                 className="absolute left-4 bottom-[18px] z-10 opacity-30 pointer-events-none"
             />
-            <Text
+            <TextInput
                 name="search"
                 label={label}
                 placeholder={placeholder}

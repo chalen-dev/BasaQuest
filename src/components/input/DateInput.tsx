@@ -1,6 +1,6 @@
 // File: src/components/input/DateInput.tsx
 import React from 'react';
-import { Text } from './Text';
+import { TextInput } from './TextInput';
 
 interface DateProps {
     name: string;
@@ -34,7 +34,7 @@ export const DateInput: React.FC<DateProps> = ({
                                                    type = 'date',
                                                }) => {
     return (
-        <Text
+        <TextInput
             type={type}
             name={name}
             value={value}

@@ -48,7 +48,7 @@ export type OnlineFilter = '' | 'online' | 'offline'
 
 export const PAGE_SIZE = 6
 
-// Lives here (not in StudentForm.tsx) because Vite Fast Refresh requires
+// Lives here (not in StudentAccountDrawer.tsx) because Vite Fast Refresh requires
 // files that export a React component to export *only* components —
 // mixing in a plain type/constant like this trips the
 // react-refresh/only-export-components rule. hooks.ts is already the

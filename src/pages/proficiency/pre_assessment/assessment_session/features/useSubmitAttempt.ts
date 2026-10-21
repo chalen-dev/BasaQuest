@@ -95,7 +95,23 @@ async function markAttemptFailed(attemptId: string, message: string) {
 // quietly drifting apart. Never throws — every failure path here ends
 // in markAttemptFailed so the row always lands somewhere a poller can
 // see, rather than sitting at its prior status forever.
-async function runScoring(attemptId: string, language: Lang, passageText: string): Promise<void> {
+// Defensive-only: the scoring service's own /score/:attemptId handler now
+// bounds itself with a duration-aware timeout on the actual Azure call
+// (see basaquest-scoring's azureAssess.js/index.js) rather than being able
+// to hang forever on a stalled Azure connection, so under normal operation
+// this fetch should always get a real response well before this fires.
+// This is purely a last-resort net for the fetch ITSELF never coming back
+// (a dropped connection with no clean close) — sized comfortably above the
+// backend's own worst-case timeout so the backend's real error response
+// (if any) always has a chance to arrive first. Falls back to a flat
+// 60-second assumed duration when the caller doesn't know it (useRetryScoring
+// doesn't track the original take's length) — harmless either way since the
+// backend re-measures the actual audio's duration itself regardless of what
+// this client-side estimate assumes.
+function scoringFetchTimeoutMs(durationSeconds: number | undefined): number {
+    return Math.max(30_000, (durationSeconds ?? 60) * 3000) + 30_000
+}
+async function runScoring(attemptId: string, language: Lang, passageText: string, durationSeconds?: number): Promise<void> {
     // Only English has a scoring pipeline wired up (Azure Pronunciation
     // Assessment via basaquest-scoring) — the service itself also
     // rejects non-English attempts, but skipping the call entirely here
@@ -126,23 +142,39 @@ async function runScoring(attemptId: string, language: Lang, passageText: string
         await markAttemptFailed(attemptId, 'No active session.')
         return
     }
+    // NOTE: despite how this used to read, the scoring service's
+    // /score/:attemptId handler is NOT fire-and-forget — it awaits the
+    // entire pipeline (download, transcode, the Azure call, alignment, the
+    // word-row + status writes) before responding, so this fetch stays
+    // pending for the whole scoring run, not just until it's "kicked off".
+    // That's why the pupil-facing submit flow can take a while for a long
+    // recording; see scoringFetchTimeoutMs's comment for how that's now
+    // bounded instead of able to hang indefinitely.
+    const timeoutMs = scoringFetchTimeoutMs(durationSeconds)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
     try {
         const res = await fetch(`${SCORING_SERVICE_URL}/score/${attemptId}`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${accessToken}` },
+            signal: controller.signal,
         })
         if (!res.ok) {
             const detail = await res.text().catch(() => '')
             console.error(`useSubmitAttempt: scoring request failed (${res.status})`, detail)
             await markAttemptFailed(attemptId, `Scoring request failed (${res.status}).`)
         }
-        // On success, the basaquest-scoring service itself is
-        // responsible for writing the word rows and flipping status to
-        // 'scored' asynchronously from here — this POST only kicks it
-        // off, it doesn't wait for scoring to finish.
+        // On success, the word rows + status: 'scored' were already
+        // written by the time this response arrived (see the NOTE above).
     } catch (err) {
+        const timedOut = err instanceof DOMException && err.name === 'AbortError'
         console.error('useSubmitAttempt: scoring request threw', err)
-        await markAttemptFailed(attemptId, err instanceof Error ? err.message : 'Scoring request failed.')
+        await markAttemptFailed(
+            attemptId,
+            timedOut ? `Scoring request timed out after ${Math.round(timeoutMs / 1000)}s with no response.` : err instanceof Error ? err.message : 'Scoring request failed.'
+        )
+    } finally {
+        clearTimeout(timeoutId)
     }
 }
 
@@ -174,7 +206,7 @@ export function useSubmitAttempt() {
             if (insertError) {
                 throw new Error(`Failed to create attempt: ${insertError.message}`)
             }
-            await runScoring(attemptId, args.language, args.passageText)
+            await runScoring(attemptId, args.language, args.passageText, args.durationSeconds)
             return { attemptId }
         },
     })

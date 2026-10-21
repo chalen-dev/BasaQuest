@@ -20,16 +20,23 @@ const LABEL: Record<Lang, string> = {
 
 interface HomeButtonProps {
     className?: string
+    // Opt-in larger rendering for StudentsSubNav, whose pills grew to
+    // px-5 py-2/text-base to fill the sub-nav pages' wider max-w-[1350px]
+    // container — every other caller (MaterialSelection, AttemptResultsSubNav,
+    // AdminSubNav) keeps the original 'sm' size so they're unaffected.
+    size?: 'sm' | 'md'
 }
 
-export const HomeButton: React.FC<HomeButtonProps> = ({ className = '' }) => {
+export const HomeButton: React.FC<HomeButtonProps> = ({ className = '', size = 'sm' }) => {
     const { lang } = useLang()
     return (
         <Link
             to="/home"
-            className={`inline-flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10 ${className}`}
+            className={`inline-flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10 ${
+                size === 'md' ? 'gap-2 px-5 py-2 text-base' : 'px-4 py-1.5 text-sm'
+            } ${className}`}
         >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={size === 'md' ? 18 : 16} />
             {LABEL[lang]}
         </Link>
     )

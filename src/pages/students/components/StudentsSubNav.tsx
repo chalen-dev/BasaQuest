@@ -29,33 +29,33 @@ export const StudentsSubNav: React.FC = () => {
     // active pill's already-solid look) so it stays legible over the
     // cloud layer at all times, not just on hover.
     const tabClass = ({ isActive }: { isActive: boolean }) =>
-        `flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold shadow-sm transition-colors duration-300 ${
+        `flex items-center gap-2 rounded-full px-5 py-2 text-base font-bold shadow-sm transition-colors duration-300 ${
             isActive
                 ? 'bg-gray-900 text-white dark:bg-gray-50 dark:text-gray-900'
                 : 'border border-gray-900/10 bg-white text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-100/10'
         }`
     return (
-        <nav className="mb-6 flex flex-wrap items-center gap-2">
+        <nav className="mb-7 flex flex-wrap items-center gap-2.5">
             {/* Reusing the shared HomeButton here instead of a lookalike —
                 it used to sit on its own line above this row (extra
                 vertical space); folding it in as the first pill removes
                 that gap while keeping a single source of truth for the
                 "back to home" styling. */}
-            <HomeButton />
-            <span className="h-5 w-px bg-gray-900/10 dark:bg-gray-100/10" aria-hidden="true" />
+            <HomeButton size="md" />
+            <span className="h-6 w-px bg-gray-900/10 dark:bg-gray-100/10" aria-hidden="true" />
             <NavLink to="/dashboard" end className={tabClass}>
-                <LayoutDashboard size={15} />
+                <LayoutDashboard size={18} />
                 {t.dashboard}
             </NavLink>
             {/* Progress — per-pupil consolidated view across tracks (see
                 progress/ProgressDashboard.tsx), distinct from Dashboard's
                 teacher-wide totals + activity feed above. */}
             <NavLink to="/students/progress" className={tabClass}>
-                <TrendingUp size={15} />
+                <TrendingUp size={18} />
                 {t.progress}
             </NavLink>
             <NavLink to="/students" end className={tabClass}>
-                <Users size={15} />
+                <Users size={18} />
                 {t.list}
             </NavLink>
             {/* Badge mirrors ProtectedHeader's "Students" pill badge —
@@ -65,11 +65,11 @@ export const StudentsSubNav: React.FC = () => {
                 destination for those pending attempts. */}
             <div className="relative">
                 <NavLink to="/students/review" className={tabClass}>
-                    <ClipboardCheck size={15} />
+                    <ClipboardCheck size={18} />
                     {t.review}
                 </NavLink>
                 {!!pendingCount && pendingCount > 0 && (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-bold text-white">
                         {pendingCount > 9 ? '9+' : pendingCount}
                     </span>
                 )}
@@ -78,7 +78,7 @@ export const StudentsSubNav: React.FC = () => {
                 has ALREADY confirmed, browsable after the fact. No badge
                 here (nothing is "pending" about a finished result). */}
             <NavLink to="/students/results" className={tabClass}>
-                <ListChecks size={15} />
+                <ListChecks size={18} />
                 {t.results}
             </NavLink>
             {/* Remediation — pupils with generated remediation material
@@ -86,7 +86,7 @@ export const StudentsSubNav: React.FC = () => {
                 prefix so both the list and the per-pupil detail page
                 (/students/remediation/:studentId) keep this pill active. */}
             <NavLink to="/students/remediation" className={tabClass}>
-                <Sparkles size={15} />
+                <Sparkles size={18} />
                 {t.remediation}
             </NavLink>
         </nav>

@@ -16,11 +16,13 @@
 //
 // `submitting` (from AssessmentSession.tsx's useSubmitAttempt call) covers
 // the window between tapping "Submit to Teacher" and the upload + attempt
-// insert (+ scoring kick-off, for English) actually finishing — Redo and
-// Submit both disable during that window so a pupil can't fire a second
-// upload or yank the recording out from under an in-flight one, and the
-// Submit label swaps to t.submitting so it's clear something's happening
-// rather than looking like a dead click.
+// insert (+ scoring kick-off, for English) actually finishing — the whole
+// panel swaps to a dedicated full-panel "sending" state during that
+// window (see the submitting branch below, styled like the
+// pendingTitle/pendingDesc "waiting for teacher" state below it) instead
+// of just dimming the Submit button, so a pupil on a slow connection gets
+// an unmistakable signal rather than something that could pass for a
+// dead click.
 //
 // LISTEN-BACK PLAYER: once recorded, the take is played back through the
 // shared AudioPlayer (components/ui/AudioPlayer.tsx) instead of a native
@@ -63,7 +65,7 @@
 // prepare() already acquired) instead of arming recording, so a mis-tap
 // can't force an unwanted take.
 import { useEffect, useRef, useState } from 'react'
-import { Hourglass, Mic, RotateCcw, Send, TriangleAlert } from 'lucide-react'
+import { Hourglass, Loader2, Mic, RotateCcw, Send, TriangleAlert } from 'lucide-react'
 import { Owl } from '../../../../../components/ui/Owl.tsx'
 import { Hint } from '../../../../../components/ui/Hint.tsx'
 import { AudioPlayer } from '../../../../../components/ui/AudioPlayer.tsx'
@@ -91,6 +93,31 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
     // canceled/superseded countdown can never act on the current one.
     const preparePromiseRef = useRef<Promise<boolean> | null>(null)
     const isCountingDown = countdown !== null
+    // PRE-WARM: kick off prepare() (getUserMedia + MediaRecorder/
+    // AudioContext setup) the MOMENT this panel mounts — i.e. as soon as
+    // the pupil reaches the recording screen — instead of only starting
+    // it on the mic tap. Previously the countdown and prepare() ran in
+    // parallel (see PREPARE / BEGIN SPLIT in useRecorder.ts), which
+    // already removed the gap between "countdown ends" and "recording
+    // starts", but the pupil still felt a lag on the very FIRST tap of a
+    // session: that's when getUserMedia's browser permission prompt (and
+    // the AudioContext/analyser setup behind it) is slowest, and it was
+    // only starting right as the countdown appeared. Doing it here means
+    // permission has usually already been granted/denied by the time the
+    // pupil actually taps the mic, so handleMicClick below has nothing
+    // left to wait on for that first take. `preparePromiseRef.current` is
+    // cleared once handleMicClick's countdown actually hands it off to
+    // begin() (see the intervalId branch below), so every take AFTER the
+    // first (Redo) still gets its own fresh prepare() the same way it
+    // always did — reusing a spent/closed stream from a finished
+    // recording would throw. No unmount cleanup needed here: if the
+    // pupil never taps the mic and leaves this screen, useRecorder's own
+    // unmount effect already releases whatever stream/AudioContext this
+    // pre-warm acquired.
+    useEffect(() => {
+        preparePromiseRef.current = rec.prepare()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
     useEffect(() => {
         return () => {
             if (countdownTickRef.current != null) clearInterval(countdownTickRef.current)
@@ -127,14 +154,16 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
             clearInterval(countdownTickRef.current)
             countdownTickRef.current = null
         }
-        // Kick off the slow async part (getUserMedia + MediaRecorder/
-        // AudioContext setup) in the BACKGROUND the instant the countdown
-        // starts, instead of only after it finishes — see useRecorder.ts's
-        // PREPARE / BEGIN SPLIT comment. By the time the visible countdown
-        // reaches 0, this has normally already resolved, so begin() (a
-        // synchronous call) can start capture immediately, with no gap
-        // between the countdown ending and recording actually starting.
-        const preparePromise = rec.prepare()
+        // Reuse the PRE-WARM prepare() call kicked off on mount (see above)
+        // if it's still there — getUserMedia was already requested before
+        // the pupil ever tapped the mic, so there's nothing left to kick
+        // off here for the first take. Falls back to a fresh prepare() for
+        // every take after the first (preparePromiseRef.current is cleared
+        // once a take actually begins, below) — same BACKGROUND-during-
+        // countdown behavior the PREPARE / BEGIN SPLIT comment in
+        // useRecorder.ts describes, just not pre-warmed since there's no
+        // "screen just loaded" moment to hide it behind on a redo.
+        const preparePromise = preparePromiseRef.current ?? rec.prepare()
         preparePromiseRef.current = preparePromise
         // Fail fast: if the mic turns out to be unavailable, don't make
         // the pupil sit through the rest of a countdown that's heading
@@ -145,6 +174,11 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
         // resolves.
         preparePromise.then((ok) => {
             if (ok || preparePromiseRef.current !== preparePromise) return
+            // Clear the ref so a retry tap (e.g. after granting mic
+            // permission in the browser's site settings) issues its own
+            // fresh prepare() instead of reusing this same failed promise
+            // forever.
+            preparePromiseRef.current = null
             if (countdownTickRef.current != null) clearInterval(countdownTickRef.current)
             countdownTickRef.current = null
             setCountdown(null)
@@ -180,6 +214,15 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                 // visible pause at all.
                 preparePromise.then((ok) => {
                     setCountdown(null)
+                    // This prepare() — pre-warmed or fresh — is now spent
+                    // either way: on success its stream gets torn down the
+                    // moment this take stops (see useRecorder.ts's mr.onstop
+                    // -> cleanupAudio()), and on failure there's nothing
+                    // live to reuse. Clearing the ref means the NEXT tap
+                    // (Redo) always kicks off its own fresh prepare() rather
+                    // than reusing this one's now-closed stream, which
+                    // begin() would otherwise fail to start.
+                    preparePromiseRef.current = null
                     if (ok) rec.begin(MAX_RECORDING_SECONDS)
                     // If !ok, rec.status/rec.error already reflect the
                     // failure (set inside prepare()) — the existing
@@ -203,6 +246,21 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                         {t.pendingTitle}
                     </span>
                     <p className="max-w-sm text-base font-medium text-gray-600 dark:text-gray-400">{t.pendingDesc}</p>
+                </div>
+            ) : submitting ? (
+                // In-flight upload, between tapping Submit and it actually
+                // finishing — see assessmentSessionStrings.ts's
+                // sendingTitle/sendingDesc header comment for why this got
+                // its own full-panel state instead of just a dimmed
+                // button label.
+                <div className="flex flex-col items-center gap-4 py-4 text-center">
+                    <span className="flex h-20 w-20 items-center justify-center rounded-full bg-teal-500/15 text-teal-600 dark:bg-teal-400/15 dark:text-teal-300">
+                        <Loader2 size={34} className="animate-spin" />
+                    </span>
+                    <span className="rounded-full bg-teal-500/15 px-4 py-1.5 text-sm font-bold uppercase tracking-wide text-teal-700 dark:bg-teal-400/15 dark:text-teal-300">
+                        {t.sendingTitle}
+                    </span>
+                    <p className="max-w-sm text-base font-medium text-gray-600 dark:text-gray-400">{t.sendingDesc}</p>
                 </div>
             ) : (
                 <>
@@ -290,8 +348,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                             <div className="relative flex-1">
                                 <button
                                     onClick={rec.reset}
-                                    disabled={submitting}
-                                    className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10 ${submitting ? 'cursor-not-allowed opacity-40 hover:bg-transparent dark:hover:bg-transparent' : ''}`}
+                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
                                 >
                                     <RotateCcw size={17} />
                                     {t.redoLabel}
@@ -301,11 +358,10 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                             <div className="relative flex-[2]">
                                 <button
                                     onClick={onSubmit}
-                                    disabled={submitting}
-                                    className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-5 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59] ${submitting ? 'cursor-not-allowed opacity-60 hover:translate-y-0 active:translate-y-0' : ''}`}
+                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-5 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
                                 >
                                     <Send size={17} />
-                                    {submitting ? t.submitting : t.submitLabel}
+                                    {t.submitLabel}
                                 </button>
                                 <Hint id="assessment-submit-button" text={t.submitHint} placement="top" align="end" autoHideMs={6000} />
                             </div>

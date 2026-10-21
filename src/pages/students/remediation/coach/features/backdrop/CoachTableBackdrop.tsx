@@ -17,7 +17,7 @@
 // SCOPE: per your original design, this component owns ONLY the table +
 // book + page-turn animation + Previous/Next/Microphone buttons. The owl
 // and the speech bubble are NOT here -- RemediationCoach.tsx renders
-// those itself (using the real OwlMascot.tsx component, not prototype
+// those itself (using the real AnimatedOwl.tsx component, not prototype
 // SVG art) as an absolutely-positioned overlay on top of this backdrop,
 // passed in via `children`.
 //

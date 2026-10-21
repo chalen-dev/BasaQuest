@@ -26,19 +26,19 @@ export type ProgressRowStrings = {
 }
 
 function TrendIcon({ trend, t }: { trend: Trend; t: ProgressRowStrings }) {
-    if (trend === 'up') return <TrendingUp size={14} className="text-teal-600 dark:text-teal-400" aria-label={t.trendUpAria} />
-    if (trend === 'down') return <TrendingDown size={14} className="text-rose-600 dark:text-rose-400" aria-label={t.trendDownAria} />
-    if (trend === 'flat') return <Minus size={14} className="text-gray-400 dark:text-gray-500" aria-label={t.trendFlatAria} />
+    if (trend === 'up') return <TrendingUp size={16} className="text-teal-600 dark:text-teal-400" aria-label={t.trendUpAria} />
+    if (trend === 'down') return <TrendingDown size={16} className="text-rose-600 dark:text-rose-400" aria-label={t.trendDownAria} />
+    if (trend === 'flat') return <Minus size={16} className="text-gray-400 dark:text-gray-500" aria-label={t.trendFlatAria} />
     return null
 }
 
 function ScoreCell({ score, trend, t }: { score: number | null; trend: Trend; t: ProgressRowStrings }) {
     if (score == null) {
-        return <span className="text-sm font-semibold text-gray-400 dark:text-gray-500">—</span>
+        return <span className="text-base font-semibold text-gray-400 dark:text-gray-500">—</span>
     }
     return (
-        <span className="inline-flex items-center gap-1.5">
-            <span className="text-sm font-extrabold text-gray-900 dark:text-gray-50">{Math.round(score)}%</span>
+        <span className="inline-flex items-center gap-2">
+            <span className="text-base font-extrabold text-gray-900 dark:text-gray-50">{Math.round(score)}%</span>
             <TrendIcon trend={trend} t={t} />
         </span>
     )
@@ -46,7 +46,7 @@ function ScoreCell({ score, trend, t }: { score: number | null; trend: Trend; t:
 
 function ComingSoonBadge({ label }: { label: string }) {
     return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-900/15 px-2.5 py-0.5 text-xs font-semibold text-gray-400 dark:border-gray-100/15 dark:text-gray-500">
+        <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-900/15 px-3 py-1 text-sm font-semibold text-gray-400 dark:border-gray-100/15 dark:text-gray-500">
             {label}
         </span>
     )
@@ -60,11 +60,11 @@ function MockScoreCell({ studentId, track, t }: { studentId: string; track: 'com
     const { score, trend } = mockTrackScore(studentId, track)
     return (
         <span className="inline-flex flex-col leading-tight">
-            <span className="inline-flex items-center gap-1.5">
-                <span className="text-sm font-extrabold text-gray-900 dark:text-gray-50">{score}%</span>
+            <span className="inline-flex items-center gap-2">
+                <span className="text-base font-extrabold text-gray-900 dark:text-gray-50">{score}%</span>
                 <TrendIcon trend={trend} t={t} />
             </span>
-            <span className="text-[9px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">{t.exampleLabel}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">{t.exampleLabel}</span>
         </span>
     )
 }
@@ -107,34 +107,34 @@ export const ProgressRow: React.FC<ProgressRowProps> = ({ row, t, onSelect, onVi
                     : undefined
             }
             style={{ borderLeftColor: accent, borderLeftWidth: 6 }}
-            className={`flex w-full flex-col gap-3 rounded-2xl border-2 border-gray-900/5 bg-white p-4 text-left shadow-sm transition-all duration-200 dark:border-gray-100/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:gap-4 ${
+            className={`flex w-full flex-col gap-3.5 rounded-2xl border-2 border-gray-900/5 bg-white p-5 text-left shadow-sm transition-all duration-200 dark:border-gray-100/10 dark:bg-gray-900 sm:flex-row sm:items-center sm:gap-5 ${
                 clickable ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md' : ''
             }`}
         >
             <span
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-base font-extrabold"
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-lg font-extrabold"
                 style={{ background: `${accent}22`, color: accent }}
             >
-                {row.full_name?.[0]?.toUpperCase() ?? row.username?.[0]?.toUpperCase() ?? <UserRound size={18} />}
+                {row.full_name?.[0]?.toUpperCase() ?? row.username?.[0]?.toUpperCase() ?? <UserRound size={20} />}
             </span>
 
-            <div className="min-w-0 sm:w-48 sm:shrink-0">
+            <div className="min-w-0 sm:w-56 sm:shrink-0">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-extrabold text-gray-900 dark:text-gray-50">
+                    <span className="truncate text-base font-extrabold text-gray-900 dark:text-gray-50">
                         {row.full_name || row.username}
                     </span>
                     {row.grade_level != null && (
-                        <span className="shrink-0 rounded-full bg-gray-900/5 px-2 py-0.5 text-[11px] font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                        <span className="shrink-0 rounded-full bg-gray-900/5 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                             {t.gradeLabel(row.grade_level)}
                         </span>
                     )}
                 </div>
-                <div className="mt-0.5 truncate text-xs font-medium text-gray-500 dark:text-gray-400">
+                <div className="mt-1 truncate text-sm font-medium text-gray-500 dark:text-gray-400">
                     {row.section || t.noSection}
                 </div>
             </div>
 
-            <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+            <div className="grid flex-1 grid-cols-2 gap-3.5 sm:grid-cols-4 sm:gap-5">
                 <ScoreCell score={row.en_latest_accuracy} trend={enTrend} t={t} />
                 <ScoreCell score={row.fil_latest_accuracy} trend={filTrend} t={t} />
                 {SHOW_MOCK_COMPREHENSION_HISTORY ? (
@@ -149,21 +149,21 @@ export const ProgressRow: React.FC<ProgressRowProps> = ({ row, t, onSelect, onVi
                 )}
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:w-40 sm:justify-end">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:w-48 sm:justify-end">
                 {!hasAnyAttempt && (
-                    <span className="rounded-full bg-gray-900/5 px-2.5 py-0.5 text-xs font-semibold text-gray-500 dark:bg-gray-100/10 dark:text-gray-400">
+                    <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-semibold text-gray-500 dark:bg-gray-100/10 dark:text-gray-400">
                         {t.noAttemptsYet}
                     </span>
                 )}
                 {row.pending_flagged_word_count > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                        <Flag size={12} />
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 px-3 py-1 text-sm font-semibold text-rose-600 dark:text-rose-400">
+                        <Flag size={14} />
                         {t.flaggedWords(row.pending_flagged_word_count)}
                     </span>
                 )}
                 {row.has_stale_remediation && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                        <Sparkles size={12} />
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                        <Sparkles size={14} />
                         {t.needsPractice}
                     </span>
                 )}
@@ -176,15 +176,15 @@ export const ProgressRow: React.FC<ProgressRowProps> = ({ row, t, onSelect, onVi
                     e.stopPropagation()
                     onViewReport()
                 }}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors duration-200 hover:bg-teal-500/10 hover:text-teal-600 dark:text-gray-400 dark:hover:bg-teal-400/15 dark:hover:text-teal-400"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors duration-200 hover:bg-teal-500/10 hover:text-teal-600 dark:text-gray-400 dark:hover:bg-teal-400/15 dark:hover:text-teal-400"
             >
-                <FileText size={16} />
+                <FileText size={19} />
             </button>
 
             {clickable ? (
-                <ChevronRight size={18} className="hidden shrink-0 text-gray-400 dark:text-gray-500 sm:block" />
+                <ChevronRight size={20} className="hidden shrink-0 text-gray-400 dark:text-gray-500 sm:block" />
             ) : (
-                <Clock size={18} className="hidden shrink-0 text-gray-300 dark:text-gray-600 sm:block" />
+                <Clock size={20} className="hidden shrink-0 text-gray-300 dark:text-gray-600 sm:block" />
             )}
         </div>
     )
