@@ -1,6 +1,9 @@
 // File: scripts/client.ts
 import dotenv from 'dotenv'
-dotenv.config({ path: '.env.local' })
+// ENV_FILE picks which project a script talks to: unset = the local stack
+// (.env.local); ENV_FILE=.env.cloud.local points the same scripts at the
+// deployed Supabase project instead (see docs/DEPLOYMENT.md).
+dotenv.config({ path: process.env.ENV_FILE ?? '.env.local' })
 
 import { createClient } from '@supabase/supabase-js'
 

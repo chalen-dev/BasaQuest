@@ -39,7 +39,22 @@ function loadAdminAccounts(): SeedAccount[] {
 
 export async function seedUsers() {
     console.log('Seeding users...')
-    const accounts: SeedAccount[] = [...DEMO_TEACHERS, ...loadAdminAccounts()]
+    await createAccounts([...DEMO_TEACHERS, ...loadAdminAccounts()])
+}
+
+// For a deployed project: only the real admin accounts from
+// SEED_ADMIN_ACCOUNTS_JSON, never the throwaway demo teachers (their
+// password is public in this repo). Refuses to fall back to the default
+// dev admin, whose password is "basaquest".
+export async function seedAdminsOnly() {
+    console.log('Seeding admin accounts only...')
+    if (!process.env.SEED_ADMIN_ACCOUNTS_JSON) {
+        throw new Error('Set SEED_ADMIN_ACCOUNTS_JSON in your env file first — refusing to create the default dev admin.')
+    }
+    await createAccounts(loadAdminAccounts())
+}
+
+async function createAccounts(accounts: SeedAccount[]) {
     for (const u of accounts) {
         const email = `${u.username}@basaquest.local`
         const { data, error } = await supabase.auth.admin.createUser({
