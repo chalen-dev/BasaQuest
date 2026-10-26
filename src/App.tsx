@@ -34,6 +34,7 @@ import AssessmentSessionPage from "./pages/proficiency/pre_assessment/assessment
 import StudentSessionBridge from "./pages/auth/StudentSessionBridge.tsx";
 import AdminSelectStudentPage from "./pages/admin/recording/select_student/AdminSelectStudentPage.tsx";
 import RecordSessionPage from "./pages/admin/recording/session/RecordSessionPage.tsx";
+import AnnotateRecordingPage from "./pages/admin/recording/annotate/AnnotateRecordingPage.tsx";
 import RecordingHistoryPage from "./pages/admin/recording_history/RecordingHistoryPage.tsx";
 import SentenceScriptsPage from "./pages/admin/sentence_scripts/SentenceScriptsPage.tsx";
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";
@@ -173,6 +174,7 @@ const router = createBrowserRouter(
                     <Route element={<AdminSessionLayout />}>
                         <Route element={<AdminRoute />}>
                             <Route path="/admin/recording/session" element={<RecordSessionPage />} />
+                            <Route path="/admin/recording/annotate/:recordingId" element={<AnnotateRecordingPage />} />
                         </Route>
                     </Route>
                 </Route>

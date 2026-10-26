@@ -59,10 +59,12 @@
 //    row status='discarded' with notes=<picked reasons>. A clip like
 //    this is unusable for anything downstream.
 //
-// 2. Word-level tagging — for a take that IS usable, the admin can tap
-//    individual words in the sentence to cycle them
-//    correct -> mispronounced -> omitted, and add any extra words the
-//    student said that aren't in the reference sentence ("insertions").
+// 2. Word-level tagging — for a take that IS usable, "Save & annotate"
+//    saves it and opens AnnotateRecordingPage, where the admin marks
+//    individual words correct / omitted / mispronounced (typing what was
+//    actually said), and adds any extra words the student said that
+//    aren't in the reference sentence ("insertions"). "Save & next"
+//    skips that and saves the take as clean.
 //    This is what actually distinguishes the two things this recording
 //    pilot feeds into the Filipino miscue-detection model
 //    (basaquest-filipino-miscue-detection): a clean take with no word
@@ -73,11 +75,11 @@
 //    what the model's own predictions get checked against, not a
 //    training pair anymore (the audio no longer matches the reference
 //    sentence's phonemes 1:1). Word-level tags are written to the
-//    separate student_recording_word_flags table, keyed by the new
-//    recording's id. A whole-clip flag always wins — no point tagging
-//    individual words on a take that's being thrown out entirely, so
-//    the word-tagging UI hides itself once any whole-clip chip is
-//    active.
+//    separate student_recording_word_flags table, keyed by the
+//    recording's id, by the annotate page. A whole-clip flag always wins
+//    — no point tagging individual words on a take that's being thrown
+//    out entirely, so "Save & annotate" is replaced by the flagged save
+//    once any whole-clip chip is active.
 //
 // A DIFFERENT admin already having this student's recorder open right
 // now (not a permanent lock, just "someone's mid-session") gets a
@@ -95,12 +97,11 @@
 //
 // Split across a few files to keep this one to "wire the pieces together
 // and lay out two panels": the actual save sequence (upload -> replace
-// old row -> insert -> word-flags -> invalidate -> reset/advance) lives
-// in hooks/useSaveRecording.ts, and the two recorder-panel sub-UIs
-// (whole-clip flag chips, word-level tagging) live in
-// components/QualityFlagChips.tsx and components/WordTaggingPanel.tsx.
+// old row -> insert -> invalidate -> reset/advance or annotate) lives
+// in hooks/useSaveRecording.ts, and the recorder-panel sub-UI
+// (whole-clip flag chips) lives in components/QualityFlagChips.tsx.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Mic, Check, RotateCcw, Loader2, ShieldAlert, ArrowLeft, TriangleAlert, Flag, Tag, Radio, Lock } from 'lucide-react'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { useProfile } from '../../../../hooks/useProfile'
@@ -115,7 +116,6 @@ import { useRecordingSessionsPresence } from '../../_hooks/useRecordingSessions.
 import { useTheme } from '../../../../contexts/ThemeContext'
 import { useSaveRecording } from './hooks/useSaveRecording'
 import { QualityFlagChips } from './components/QualityFlagChips'
-import { WordTaggingPanel } from './components/WordTaggingPanel'
 // Short takes, so the near-limit color cue kicks in for the last third of
 // the cap rather than assessment's proportionally tiny final ~5%.
 const RECORD_MAX_SECONDS = 15
@@ -135,6 +135,7 @@ export default function RecordSessionPage() {
     const { user } = useAuth()
     const { profile } = useProfile()
     const { theme } = useTheme()
+    const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const studentId = searchParams.get('student') ?? ''
     // Sets are admin-editable now (see SentenceScripts.tsx) — no longer a
@@ -148,7 +149,6 @@ export default function RecordSessionPage() {
     const { data: setsData, isLoading: loadingSentenceSets } = useReadingSentenceSetsQuery()
     const sentenceSetLabels = useMemo(() => new Map((setsData ?? []).map((s) => [s.key, s.label])), [setsData])
     const { data: sentencesData, isLoading: loadingSentences, error: sentencesQueryError } = useReadingSentencesQuery()
-    const sentencesBySet = sentencesData ?? {}
     const sentencesError = sentencesQueryError instanceof Error ? sentencesQueryError.message : null
     const { data: studentsData, isLoading: loadingStudents } = useFinetuneStudentsQuery()
     const students = useMemo(() => studentsData ?? [], [studentsData])
@@ -176,17 +176,20 @@ export default function RecordSessionPage() {
     // Which quality-flag reasons are toggled on for the take currently
     // sitting in "recorded" state, waiting to be saved.
     const [flagReasons, setFlagReasons] = useState<string[]>([])
-    // Word-level tags for the take currently sitting in "recorded" state.
-    // wordFlags is keyed by index into `words` (the current sentence
-    // split on whitespace); insertions are free-text extra words the
-    // student said that aren't in the reference sentence at all, so they
-    // have no index to key against.
-    const [wordFlags, setWordFlags] = useState<Record<number, 'mispronunciation' | 'omission'>>({})
-    const [insertions, setInsertions] = useState<string[]>([])
-    const [insertionDraft, setInsertionDraft] = useState('')
-    const sentences = sentencesBySet[sentenceSet] ?? []
+    const sentences = useMemo(() => sentencesData?.[sentenceSet] ?? [], [sentencesData, sentenceSet])
     const current = sentences[sentenceIndex]
-    const words = useMemo(() => (current ? current.text.split(/\s+/).filter(Boolean) : []), [current])
+    // Returning from the annotate page lands here with ?n=<sentence
+    // number> so the admin continues where they left off instead of
+    // restarting at sentence 1. Applied once, as soon as the script's
+    // sentences have loaded; past the last sentence it clamps to the last.
+    const jumpToNumber = Number(searchParams.get('n')) || null
+    const jumpedRef = useRef(false)
+    useEffect(() => {
+        if (jumpedRef.current || !jumpToNumber || sentences.length === 0) return
+        jumpedRef.current = true
+        const i = sentences.findIndex((x) => x.number === jumpToNumber)
+        setSentenceIndex(i >= 0 ? i : sentences.length - 1)
+    }, [jumpToNumber, sentences])
     const selectedStudent = useMemo(() => students.find((s) => s.id === studentId) ?? null, [students, studentId])
     // Real-time "is someone else already recording this student right
     // now" check, AND (on this page only) announcing that WE are now
@@ -230,37 +233,9 @@ export default function RecordSessionPage() {
     // this is what actually blocks a retake now, not any student-level
     // flag. Unlocking happens on RecordingHistory.tsx, not here.
     const isCurrentRecordingLocked = !!existingRecording?.locked
-    const hasWordLevelIssues = Object.keys(wordFlags).length > 0 || insertions.length > 0
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const toggleFlag = useCallback((key: string) => {
         setFlagReasons((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
-    }, [])
-    // Tap-to-cycle: correct -> mispronounced -> omitted -> correct.
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
-    const cycleWordFlag = useCallback((index: number) => {
-        setWordFlags((prev) => {
-            const next = { ...prev }
-            const flag = next[index]
-            if (!flag) {
-                next[index] = 'mispronunciation'
-            } else if (flag === 'mispronunciation') {
-                next[index] = 'omission'
-            } else {
-                delete next[index]
-            }
-            return next
-        })
-    }, [])
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
-    const addInsertion = useCallback(() => {
-        const word = insertionDraft.trim()
-        if (!word) return
-        setInsertions((prev) => [...prev, word])
-        setInsertionDraft('')
-    }, [insertionDraft])
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
-    const removeInsertion = useCallback((index: number) => {
-        setInsertions((prev) => prev.filter((_, i) => i !== index))
     }, [])
     // Bundles the "this take is no longer current" resets shared between
     // goToSentence and a successful save (see useSaveRecording.ts) — kept
@@ -269,9 +244,6 @@ export default function RecordSessionPage() {
     const clearTakeState = useCallback(() => {
         setExistingSignedUrl(null)
         setFlagReasons([])
-        setWordFlags({})
-        setInsertions([])
-        setInsertionDraft('')
     }, [])
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const incrementSavedCount = useCallback(() => {
@@ -318,16 +290,16 @@ export default function RecordSessionPage() {
         existingRecording,
         seconds,
         flagReasons,
-        wordFlags,
-        insertions,
-        words,
-        hasWordLevelIssues,
         sentenceIndex,
         sentencesLength: sentences.length,
         reset,
         setSentenceIndex,
         clearTakeState,
         incrementSavedCount,
+        onSavedForAnnotation: (recordingId) =>
+            navigate(
+                `/admin/recording/annotate/${recordingId}?student=${encodeURIComponent(studentId)}&set=${encodeURIComponent(sentenceSet)}`,
+            ),
     })
     // Releases whatever prepare() already acquired (or is about to) and
     // resets the countdown UI — used both by the mic button's own cancel
@@ -362,9 +334,6 @@ export default function RecordSessionPage() {
     const handleRetake = useCallback(() => {
         reset()
         setFlagReasons([])
-        setWordFlags({})
-        setInsertions([])
-        setInsertionDraft('')
     }, [reset])
     // Same countdown-then-record sequencing as RecorderPanel.tsx's
     // handleMicClick — see that file's MIC COUNTDOWN comment for the full
@@ -710,6 +679,14 @@ export default function RecordSessionPage() {
                                 ) : (
                                     <p className="text-sm text-gray-500 dark:text-gray-400">Couldn't load the saved recording.</p>
                                 )}
+                                {existingRecording && existingRecording.status !== 'discarded' && (
+                                    <Link
+                                        to={`/admin/recording/annotate/${existingRecording.id}?student=${encodeURIComponent(studentId)}&set=${encodeURIComponent(sentenceSet)}`}
+                                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-violet-500 px-6 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#6d28d9] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#6d28d9] dark:bg-violet-600 dark:shadow-[0_4px_0_0_#5b21b6]"
+                                    >
+                                        <Tag size={18} /> Annotate words
+                                    </Link>
+                                )}
                                 {isCurrentRecordingLocked && (
                                     <p className="mt-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
                                         Unlock it from Recording History before recording a new take.
@@ -720,18 +697,6 @@ export default function RecordSessionPage() {
                         {!showSavedPanel && <Waveform active={isRecording} levels={levels} />}
                         {isRecorded && audioUrl && <AudioPlayer src={audioUrl} className="w-full" />}
                         {isRecorded && <QualityFlagChips flagReasons={flagReasons} onToggle={toggleFlag} />}
-                        {isRecorded && flagReasons.length === 0 && words.length > 0 && (
-                            <WordTaggingPanel
-                                words={words}
-                                wordFlags={wordFlags}
-                                onCycleWord={cycleWordFlag}
-                                insertions={insertions}
-                                onRemoveInsertion={removeInsertion}
-                                insertionDraft={insertionDraft}
-                                onInsertionDraftChange={setInsertionDraft}
-                                onAddInsertion={addInsertion}
-                            />
-                        )}
                         {!isRecorded && (
                             <button
                                 onClick={handleMicClick}
@@ -790,36 +755,35 @@ export default function RecordSessionPage() {
                                     <RotateCcw size={17} />
                                     Retake
                                 </button>
-                                <button
-                                    onClick={handleSave}
-                                    disabled={saving || !hasConsent}
-                                    className={`flex flex-[2] cursor-pointer items-center justify-center gap-2 rounded-full px-5 py-3 text-base font-bold text-white transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 ${
-                                        flagReasons.length > 0
-                                            ? 'bg-amber-500 shadow-[0_4px_0_0_#b45309] active:shadow-[0_1px_0_0_#b45309] dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]'
-                                            : hasWordLevelIssues
-                                                ? 'bg-violet-500 shadow-[0_4px_0_0_#6d28d9] active:shadow-[0_1px_0_0_#6d28d9] dark:bg-violet-600 dark:shadow-[0_4px_0_0_#5b21b6]'
-                                                : 'bg-teal-500 shadow-[0_4px_0_0_#0f766e] active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]'
-                                    }`}
-                                >
-                                    {saving ? (
-                                        <Loader2 size={17} className="animate-spin" />
-                                    ) : flagReasons.length > 0 ? (
-                                        <Flag size={17} />
-                                    ) : hasWordLevelIssues ? (
-                                        <Tag size={17} />
-                                    ) : (
-                                        <Check size={17} />
-                                    )}
-                                    {saving
-                                        ? 'Saving…'
-                                        : flagReasons.length > 0
-                                            ? 'Save as flagged & next'
-                                            : hasWordLevelIssues
-                                                ? 'Save as labeled & next'
-                                                : existingRecording
-                                                    ? 'Replace & next'
-                                                    : 'Save & next'}
-                                </button>
+                                {flagReasons.length > 0 ? (
+                                    <button
+                                        onClick={() => handleSave()}
+                                        disabled={saving || !hasConsent}
+                                        className="flex flex-[2] cursor-pointer items-center justify-center gap-2 rounded-full bg-amber-500 px-5 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#b45309] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#b45309] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]"
+                                    >
+                                        {saving ? <Loader2 size={17} className="animate-spin" /> : <Flag size={17} />}
+                                        {saving ? 'Saving…' : 'Save as flagged & next'}
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={() => handleSave()}
+                                            disabled={saving || !hasConsent}
+                                            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-teal-500/60 px-5 py-3 text-base font-bold text-teal-700 transition-colors duration-150 hover:bg-teal-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:text-teal-300"
+                                        >
+                                            {saving ? <Loader2 size={17} className="animate-spin" /> : <Check size={17} />}
+                                            {existingRecording ? 'Replace & next' : 'Save & next'}
+                                        </button>
+                                        <button
+                                            onClick={() => handleSave({ annotate: true })}
+                                            disabled={saving || !hasConsent}
+                                            className="flex flex-[1.4] cursor-pointer items-center justify-center gap-2 rounded-full bg-violet-500 px-5 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#6d28d9] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#6d28d9] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-violet-600 dark:shadow-[0_4px_0_0_#5b21b6]"
+                                        >
+                                            {saving ? <Loader2 size={17} className="animate-spin" /> : <Tag size={17} />}
+                                            {saving ? 'Saving…' : 'Save & annotate'}
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         )}
                     </section>

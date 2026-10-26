@@ -5,7 +5,7 @@
 // else, so there's nothing to lock out beyond navigation). Just the brand
 // mark, dark-mode toggle, and an Exit button with a confirmation, back to
 // the student picker.
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { useTheme } from '../../../../../contexts/ThemeContext'
 import { Owl } from '../../../../../components/ui/Owl'
@@ -13,8 +13,16 @@ import { ThemeToggleButton } from '../../../../../components/buttons/ThemeToggle
 import { showConfirmation } from '../../../../../helpers/swalHelpers'
 export default function AdminSessionHeader() {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const { theme } = useTheme()
     const handleExit = async () => {
+        // The annotate page opened from the recordings list isn't a
+        // recording session — Exit there just goes back to that list.
+        if (searchParams.get('from') === 'history') {
+            const student = searchParams.get('student')
+            navigate(student ? `/admin/recording/history?student=${encodeURIComponent(student)}` : '/admin/recording/history')
+            return
+        }
         const confirmed = await showConfirmation(
             'Exit the recording session?',
             "You'll return to the student picker. Any unsaved take will be lost.",

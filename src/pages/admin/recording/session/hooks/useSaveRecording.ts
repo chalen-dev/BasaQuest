@@ -1,10 +1,11 @@
 // File: src/pages/admin/recording/session/hooks/useSaveRecording.ts
 // Owns the full "Save & next" sequence for RecordSession.tsx: uploads the
 // take's audio blob, replaces any existing recording for this sentence,
-// inserts the new student_recordings row (with whole-clip flag notes or
-// word-level status as appropriate), writes word-level ground-truth rows
-// when the take has tagged mistakes, invalidates the relevant queries,
-// then clears local per-take state and advances to the next sentence.
+// inserts the new student_recordings row (flagged or clean), invalidates
+// the relevant queries, then either advances to the next sentence or —
+// when asked to annotate — hands the new recording id to the caller, which
+// opens the word-annotation page (AnnotateRecordingPage). Word-level tags
+// are written there, not here.
 //
 // Pulled out of RecordSession.tsx because this was the single largest,
 // most self-contained chunk of that file (~130 lines) — everything it
@@ -30,16 +31,13 @@ type UseSaveRecordingParams = {
     existingRecording: ExistingRecordingLike
     seconds: number
     flagReasons: string[]
-    wordFlags: Record<number, 'mispronunciation' | 'omission'>
-    insertions: string[]
-    words: string[]
-    hasWordLevelIssues: boolean
     sentenceIndex: number
     sentencesLength: number
     reset: () => void
     setSentenceIndex: Dispatch<SetStateAction<number>>
     clearTakeState: () => void
     incrementSavedCount: () => void
+    onSavedForAnnotation: (recordingId: string) => void
 }
 export function useSaveRecording({
                                      theme,
@@ -52,21 +50,18 @@ export function useSaveRecording({
                                      existingRecording,
                                      seconds,
                                      flagReasons,
-                                     wordFlags,
-                                     insertions,
-                                     words,
-                                     hasWordLevelIssues,
                                      sentenceIndex,
                                      sentencesLength,
                                      reset,
                                      setSentenceIndex,
                                      clearTakeState,
                                      incrementSavedCount,
+                                     onSavedForAnnotation,
                                  }: UseSaveRecordingParams) {
     const queryClient = useQueryClient()
     const [saving, setSaving] = useState(false)
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
-    const handleSave = useCallback(async () => {
+    const handleSave = useCallback(async (options?: { annotate?: boolean }) => {
         if (!hasConsent) return // Save button is disabled in this case anyway
         if (!audioUrl || !userId || !current) return
         setSaving(true)
@@ -113,11 +108,11 @@ export function useSaveRecording({
                 : null
 
             // Status mapping — see the student_recording_word_flags migration
-            // comment: discarded (whole-clip unusable) beats evaluation (real
-            // tagged word mistakes -> GOP-scorer ground truth) beats
-            // fine_tuning (clean read -> straight (audio, reference-phonemes)
-            // training pair).
-            const recordingStatus = isFlagged ? 'discarded' : hasWordLevelIssues ? 'evaluation' : 'fine_tuning'
+            // comment: discarded (whole-clip unusable) or fine_tuning (clean
+            // read -> straight (audio, reference-phonemes) training pair).
+            // A take with tagged word mistakes becomes 'evaluation' later,
+            // when AnnotateRecordingPage saves its tags.
+            const recordingStatus = isFlagged ? 'discarded' : 'fine_tuning'
 
             const { data: insertedRow, error: insertErr } = await supabase
                 .from('student_recordings')
@@ -137,50 +132,27 @@ export function useSaveRecording({
             // noinspection ExceptionCaughtLocallyJS -- intentional: short-circuits to the shared catch block below
             if (insertErr) throw insertErr
 
-            // Word-level ground-truth rows only make sense for a take that
-            // wasn't thrown out whole-clip.
-            if (!isFlagged && hasWordLevelIssues && insertedRow) {
-                const wordFlagRows = [
-                    ...Object.entries(wordFlags).map(([indexStr, errorType]) => ({
-                        recording_id: insertedRow.id,
-                        word_index: Number(indexStr),
-                        word_text: words[Number(indexStr)] ?? null,
-                        error_type: errorType,
-                    })),
-                    // Insertions have no fixed reference position — placed
-                    // after every real word, in the order they were added.
-                    ...insertions.map((word, i) => ({
-                        recording_id: insertedRow.id,
-                        word_index: words.length + i + 1,
-                        word_text: null,
-                        error_type: 'insertion' as const,
-                        notes: word,
-                    })),
-                ]
-                const { error: wordFlagErr } = await supabase.from('student_recording_word_flags').insert(wordFlagRows)
-                if (wordFlagErr) {
-                    console.error('RecordSession: failed to save word-level flags', wordFlagErr)
-                    showToast('Recording saved, but the word-level tags failed to save.', 'warning', theme === 'dark')
-                }
-            }
-
             await queryClient.invalidateQueries({ queryKey: studentRecordingsKey(studentId) })
             await queryClient.invalidateQueries({ queryKey: studentRecordingCountsKey })
 
             incrementSavedCount()
             reset()
             clearTakeState()
+            // A flagged (discarded) take can't be word-annotated, so it
+            // skips straight to the next sentence even if annotate was asked.
+            if (options?.annotate && !isFlagged && insertedRow) {
+                onSavedForAnnotation(insertedRow.id)
+                return
+            }
             showToast(
                 isFlagged
                     ? `Saved sentence ${current.number} (flagged: ${flagNotes}).`
-                    : hasWordLevelIssues
-                        ? `Saved sentence ${current.number} as labeled evaluation data.`
-                        : existingRecording
-                            ? `Replaced the recording for sentence ${current.number}.`
-                            : `Saved sentence ${current.number} for fine-tuning.`,
+                    : existingRecording
+                        ? `Replaced the recording for sentence ${current.number}.`
+                        : `Saved sentence ${current.number} for fine-tuning.`,
                 isFlagged ? 'warning' : 'success',
                 theme === 'dark',
-                { timer: isFlagged || hasWordLevelIssues ? 2200 : 1500 },
+                { timer: isFlagged ? 2200 : 1500 },
             )
             if (sentenceIndex < sentencesLength - 1) {
                 setSentenceIndex((i) => i + 1)
@@ -201,10 +173,6 @@ export function useSaveRecording({
         existingRecording,
         seconds,
         flagReasons,
-        wordFlags,
-        insertions,
-        words,
-        hasWordLevelIssues,
         queryClient,
         theme,
         sentenceIndex,
@@ -213,6 +181,7 @@ export function useSaveRecording({
         setSentenceIndex,
         clearTakeState,
         incrementSavedCount,
+        onSavedForAnnotation,
     ])
     return { handleSave, saving }
 }

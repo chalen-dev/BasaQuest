@@ -87,6 +87,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import JSZip from 'jszip'
+import { buildAnnotationExport, fetchWordFlagsByRecording } from '../_hooks/recordingAnnotationExport.ts'
 import {
     ArrowLeft,
     ArrowRight,
@@ -98,6 +99,7 @@ import {
     Lock,
     LockOpen,
     CheckCircle2,
+    Tag,
 } from 'lucide-react'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
@@ -122,6 +124,29 @@ const CONTENT_OFFSET_CLASS = 'pl-96'
 // the existing single-file Download button's approach.
 function safeNamePart(value: string) {
     return value.replace(/[^a-zA-Z0-9_-]+/g, '_')
+}
+
+// Saves a blob through a temporary <a download>, same trick the audio
+// download uses — shared here so the sidecar JSON doesn't repeat it.
+function saveBlobAs(blob: Blob, filename: string) {
+    const blobUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = blobUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(blobUrl)
+}
+
+const DOWNLOAD_BATCH_SIZE = 6
+
+async function mapInBatches<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+    const results: R[] = []
+    for (let i = 0; i < items.length; i += size) {
+        results.push(...(await Promise.all(items.slice(i, i + size).map(fn))))
+    }
+    return results
 }
 
 function extensionFor(storagePath: string) {
@@ -156,6 +181,26 @@ export default function RecordingHistoryPage() {
     const [isDownloadingAll, setIsDownloadingAll] = useState(false)
     const downloadPopoverRef = useRef<HTMLDivElement>(null)
     const current = recordings[index] ?? null
+    // Keep the sidebar row for the open recording in view — with a long
+    // list, Prev/Next or a deep link (?recording=) would otherwise leave
+    // the highlighted row scrolled out of sight.
+    const currentId = current?.id
+    useEffect(() => {
+        if (!currentId) return
+        document.getElementById(`recording-row-${currentId}`)?.scrollIntoView({ block: 'nearest' })
+    }, [currentId])
+    // Coming back from the annotate page lands here with ?recording=<id>,
+    // so the admin sees the recording they just edited rather than
+    // starting at the first one. Applied once, when the list has loaded.
+    const openRecordingId = searchParams.get('recording')
+    const openedRef = useRef(false)
+    useEffect(() => {
+        if (openedRef.current || !openRecordingId || recordings.length === 0) return
+        openedRef.current = true
+        const i = recordings.findIndex((r) => r.id === openRecordingId)
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (i >= 0) setIndex(i)
+    }, [openRecordingId, recordings])
     // Clamp the index if the list shrinks (e.g., right after a delete) so
     // it doesn't end up pointing past the end.
     useEffect(() => {
@@ -266,6 +311,16 @@ export default function RecordingHistoryPage() {
             link.click()
             link.remove()
             URL.revokeObjectURL(blobUrl)
+            // Sidecar annotations — only when the take actually has tags, so
+            // a clean recording still downloads as a single file.
+            const flags = (await fetchWordFlagsByRecording([current.id])).get(current.id) ?? []
+            if (flags.length > 0) {
+                const entry = buildAnnotationExport(current, filename, flags)
+                saveBlobAs(
+                    new Blob([JSON.stringify(entry, null, 2)], { type: 'application/json' }),
+                    `${safeNamePart(rawName)}.json`,
+                )
+            }
         } catch (err) {
             showToast(err instanceof Error ? err.message : 'Failed to download audio.', 'error', theme === 'dark')
         } finally {
@@ -284,20 +339,26 @@ export default function RecordingHistoryPage() {
         setShowDownloadPopover(false)
         setIsDownloadingAll(true)
         try {
-            const urls = await Promise.all(targets.map((r) => signedUrlMutation.mutateAsync(r.storage_path)))
-            const blobs = await Promise.all(
-                urls.map(async (url) => {
-                    const res = await fetch(url)
-                    if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`)
-                    return res.blob()
-                }),
-            )
+            // In small batches rather than all at once — a student with
+            // dozens of recordings would otherwise fire dozens of signed-URL
+            // + audio requests simultaneously.
+            const blobs = await mapInBatches(targets, DOWNLOAD_BATCH_SIZE, async (r) => {
+                const url = await signedUrlMutation.mutateAsync(r.storage_path)
+                const res = await fetch(url)
+                if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`)
+                return res.blob()
+            })
+            const flagsByRecording = await fetchWordFlagsByRecording(targets.map((r) => r.id))
             const zip = new JSZip()
-            targets.forEach((r, i) => {
+            const annotationEntries = targets.map((r, i) => {
                 const ext = extensionFor(r.storage_path)
                 const entryName = `${i + 1}_${safeNamePart(setLabel(r.sentence_set))}_sentence${r.sentence_number}.${ext}`
                 zip.file(entryName, blobs[i])
+                return buildAnnotationExport(r, entryName, flagsByRecording.get(r.id) ?? [])
             })
+            // One manifest for the whole bundle, matched to each audio file
+            // by its `file` field.
+            zip.file('annotations.json', JSON.stringify(annotationEntries, null, 2))
             const zipBlob = await zip.generateAsync({ type: 'blob' })
             const scopeLabel = scope === 'all' ? 'all' : safeNamePart(setLabel(targets[0].sentence_set))
             const zipFilename = `${safeNamePart(student?.full_name ?? 'recordings')}_${scopeLabel}_recordings.zip`
@@ -386,6 +447,7 @@ export default function RecordingHistoryPage() {
                                     return (
                                         <button
                                             key={r.id}
+                                            id={`recording-row-${r.id}`}
                                             type="button"
                                             onClick={() => setIndex(i)}
                                             aria-current={isCurrent}
@@ -531,6 +593,15 @@ export default function RecordingHistoryPage() {
                                                 {isDownloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                                                 Download
                                             </button>
+                                            {current.status !== 'discarded' && (
+                                                <Link
+                                                    to={`/admin/recording/annotate/${current.id}?student=${encodeURIComponent(studentId)}&set=${encodeURIComponent(current.sentence_set)}&from=history`}
+                                                    className="flex cursor-pointer items-center gap-1.5 rounded-full bg-violet-500/15 px-3.5 py-2 text-xs font-bold text-violet-700 transition-colors duration-150 hover:bg-violet-500/25 dark:text-violet-300"
+                                                >
+                                                    <Tag size={14} />
+                                                    Annotate
+                                                </Link>
+                                            )}
                                             <button
                                                 type="button"
                                                 onClick={handleToggleLock}
