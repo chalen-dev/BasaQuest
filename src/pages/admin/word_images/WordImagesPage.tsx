@@ -50,6 +50,31 @@ const chipClass = (active: boolean) =>
             : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
     }`
 
+// One colour per language, used on the word tags and on the language filter
+// chips so a tag can be matched to its chip at a glance. Full class names are
+// spelled out so Tailwind can see them.
+const LANGUAGE_STYLE = {
+    en: {
+        tag: 'bg-blue-500/15 text-blue-700 dark:bg-blue-400/20 dark:text-blue-300',
+        dot: 'bg-blue-500 dark:bg-blue-400',
+        chipOn: 'bg-blue-600 text-white dark:bg-blue-500',
+        chipOff:
+            'border border-blue-500/40 text-blue-700 hover:bg-blue-500/10 dark:border-blue-400/40 dark:text-blue-300',
+    },
+    fil: {
+        tag: 'bg-amber-500/20 text-amber-800 dark:bg-amber-400/20 dark:text-amber-300',
+        dot: 'bg-amber-500 dark:bg-amber-400',
+        chipOn: 'bg-amber-400 text-gray-900 dark:bg-amber-400',
+        chipOff:
+            'border border-amber-500/50 text-amber-800 hover:bg-amber-500/10 dark:border-amber-400/40 dark:text-amber-300',
+    },
+} as const
+
+const languageChipClass = (language: 'en' | 'fil', active: boolean) =>
+    `flex cursor-pointer items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-150 ${
+        active ? LANGUAGE_STYLE[language].chipOn : LANGUAGE_STYLE[language].chipOff
+    }`
+
 const inputClass =
     'w-full rounded-xl border-2 border-gray-900/10 bg-white px-3 py-2 text-sm font-semibold text-gray-900 outline-none focus:border-teal-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-50'
 
@@ -353,8 +378,20 @@ export default function WordImagesPage() {
                                 type="button"
                                 aria-pressed={language === c.key}
                                 onClick={() => resetPage(setLanguage)(c.key)}
-                                className={chipClass(language === c.key)}
+                                className={
+                                    c.key === 'all'
+                                        ? chipClass(language === c.key)
+                                        : languageChipClass(c.key, language === c.key)
+                                }
                             >
+                                {c.key !== 'all' && (
+                                    <span
+                                        aria-hidden="true"
+                                        className={`h-2.5 w-2.5 rounded-full ${
+                                            language === c.key ? 'bg-current' : LANGUAGE_STYLE[c.key].dot
+                                        }`}
+                                    />
+                                )}
                                 {c.label}
                             </button>
                         ))}
@@ -447,11 +484,7 @@ export default function WordImagesPage() {
                                         {g.words.map((w) => (
                                             <span
                                                 key={w.id}
-                                                className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-bold ${
-                                                    w.language === 'en'
-                                                        ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
-                                                        : 'bg-teal-500/15 text-teal-700 dark:text-teal-300'
-                                                }`}
+                                                className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-bold ${LANGUAGE_STYLE[w.language].tag}`}
                                                 title={w.language === 'en' ? 'English' : 'Filipino'}
                                             >
                                                 {w.word}
