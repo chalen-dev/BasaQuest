@@ -12,6 +12,7 @@
     "storage:clear": "tsx scripts/clear-storage.ts",
     "word-images:import": "tsx scripts/word-images/import-word-images.ts",
     "word-images:copy": "tsx scripts/word-images/copy-bank.ts",
+    "word-images:compare": "tsx scripts/word-images/compare-banks.ts",
     "seed:cloud": "tsx scripts/seed/cloud.ts",
     "seed:testdata": "tsx scripts/seed/test-data.ts",
     "unseed:testdata": "tsx scripts/seed/remove-test-data.ts",
