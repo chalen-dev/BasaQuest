@@ -233,6 +233,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { useNavigate, useParams } from 'react-router-dom'
 import { Bird, Image as ImageIcon, NotebookText, Volume2, X } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext.tsx'
+import { useWordImageQuery } from '../../../../hooks/useWordImage.ts'
 import { AnimatedOwl } from '../../../../components/ui/AnimatedOwl.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import { readPracticed, useRemediationMaterialQuery, type RemediationPassage, type RemediationWordEntry } from '../hooks.ts'
@@ -442,6 +443,9 @@ export default function RemediationCoachPage() {
     // ANIMATION" in this file's header comment) so it never plays on
     // first mount.
     const [companionAnimated, setCompanionAnimated] = useState(false)
+    // Picture for the word open in the notebook; null (no row) keeps the
+    // placeholder box below.
+    const { data: wordImage } = useWordImageQuery(selectedWord, material?.language)
 
     useEffect(() => {
         if (material && !seeded) {
@@ -918,29 +922,35 @@ export default function RemediationCoachPage() {
                                             <Volume2 style={{ width: 'clamp(12px, 1.6cqw, 17px)', height: 'clamp(12px, 1.6cqw, 17px)' }} />
                                         </button>
                                     </div>
-                                    {/* Picture placeholder -- there's no
-                                    per-word illustration data yet, so this
-                                    is a permanent decorative shell (same
-                                    "shell only" spirit as the rest of the
-                                    notebook -- see header comment), not a
-                                    real image slot. Colors match the
-                                    prototype's own .word-image-placeholder
+                                    {/* Word picture (word_images table, see
+                                    useWordImage.ts). Words with no picture
+                                    keep the prototype's placeholder: colors
+                                    match its own .word-image-placeholder
                                     exactly (border/background var(--word-
                                     soft)/var(--word-button), icon stroke
                                     var(--word-accent) at .55 opacity). */}
                                     <div
-                                        className="flex flex-1 items-center justify-center rounded-2xl border-2"
+                                        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border-2"
                                         style={{ backgroundColor: 'var(--coach-nb-btn)', borderColor: 'var(--coach-nb-soft)' }}
                                     >
-                                        <ImageIcon
-                                            strokeWidth={2}
-                                            style={{
-                                                width: 'clamp(30px, 4.6cqw, 58px)',
-                                                height: 'clamp(30px, 4.6cqw, 58px)',
-                                                color: 'var(--coach-nb-accent)',
-                                                opacity: 0.55,
-                                            }}
-                                        />
+                                        {wordImage ? (
+                                            <img
+                                                src={wordImage.url}
+                                                alt={selectedWord ?? ''}
+                                                title={wordImage.credit ?? undefined}
+                                                className="h-full w-full object-contain p-2"
+                                            />
+                                        ) : (
+                                            <ImageIcon
+                                                strokeWidth={2}
+                                                style={{
+                                                    width: 'clamp(30px, 4.6cqw, 58px)',
+                                                    height: 'clamp(30px, 4.6cqw, 58px)',
+                                                    color: 'var(--coach-nb-accent)',
+                                                    opacity: 0.55,
+                                                }}
+                                            />
+                                        )}
                                     </div>
                                 </>
                             ) : (

@@ -40,6 +40,8 @@ import SentenceScriptsPage from "./pages/admin/sentence_scripts/SentenceScriptsP
 import { useSessionPresence } from "./hooks/useSessionPresence.ts";
 import { useDocumentTitle } from "./hooks/useDocumentTitle.ts";
 import FinetuneStudentListPage from "./pages/admin/students/FinetuneStudentListPage.tsx";
+import WordImagesPage from "./pages/admin/word_images/WordImagesPage.tsx";
+import PictureCreditsPage from "./pages/credits/PictureCreditsPage.tsx";
 // MIGRATED FROM <BrowserRouter><Routes>...</Routes></BrowserRouter> TO A
 // DATA ROUTER (createBrowserRouter + RouterProvider) — required for
 // useBlocker (see src/hooks/useUnsavedChangesBlocker.ts), used on the
@@ -127,6 +129,7 @@ const router = createBrowserRouter(
                         <Route path="/students/review/:attemptId/remediation-preview" element={<RemediationPassagePreviewPage />} />
                         <Route path="/students/remediation/:studentId" element={<StudentRemediationDetailPage />} />
                         <Route path="/home" element={<HomePage />} />
+                        <Route path="/credits" element={<PictureCreditsPage />} />
                         <Route path="/reading/proficiency" element={<MaterialSelectionPage />} />
                         <Route path="/reading/proficiency/assessment" element={<ProficiencyAssessmentSelectStudentPage />} />
                         {/* Admin-only: the child-recording capture page.
@@ -138,6 +141,7 @@ const router = createBrowserRouter(
                         Exit-only header, not this full nav. */}
                         <Route element={<AdminRoute />}>
                             <Route path="/admin/students" element={<FinetuneStudentListPage />} />
+                            <Route path="/admin/word-images" element={<WordImagesPage />} />
                             <Route path="/admin/recording" element={<AdminSelectStudentPage />} />
                             <Route path="/admin/recording/scripts" element={<SentenceScriptsPage />} />
                             <Route path="/admin/recording/history" element={<RecordingHistoryPage />} />

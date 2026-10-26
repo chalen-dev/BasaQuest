@@ -1,6 +1,6 @@
 
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Shield, Mic, BookOpen, BarChart3, ArrowRight } from 'lucide-react'
 import { Owl } from '../../components/ui/Owl.tsx'
 import { useLang } from '../../contexts/LangContext'
@@ -239,6 +239,11 @@ export const HomePage: React.FC = () => {
                     </div>
                 </>
             )}
+            <p className="mt-12 text-center text-sm font-semibold text-gray-500 dark:text-gray-400">
+                <Link to="/credits" className="hover:underline">
+                    {lang === 'fil' ? 'Mga kredito ng larawan' : 'Picture credits'}
+                </Link>
+            </p>
         </div>
     )
 }

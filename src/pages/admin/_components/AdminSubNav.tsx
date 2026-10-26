@@ -1,7 +1,7 @@
 // File: src/pages/admin/components/AdminSubNav.tsx
 import React from 'react'
 import { NavLink } from 'react-router-dom'
-import { Mic, Users, ScrollText } from 'lucide-react'
+import { Mic, Users, ScrollText, Images } from 'lucide-react'
 import { HomeButton } from '../../../components/buttons/HomeButton'
 export const AdminSubNav: React.FC = () => {
     const tabClass = ({ isActive }: { isActive: boolean }) =>
@@ -31,7 +31,11 @@ export const AdminSubNav: React.FC = () => {
             </NavLink>
             <NavLink to="/admin/students" className={tabClass}>
                 <Users size={15} />
-                Students
+                Students and Recordings
+            </NavLink>
+            <NavLink to="/admin/word-images" className={tabClass}>
+                <Images size={15} />
+                Word Pictures
             </NavLink>
         </nav>
     )

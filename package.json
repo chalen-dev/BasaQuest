@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "seed": "tsx scripts/seed/index.ts",
     "storage:clear": "tsx scripts/clear-storage.ts",
+    "word-images:import": "tsx scripts/word-images/import-word-images.ts",
     "db:reset": "supabase db reset",
     "db:fresh": "npm run storage:clear && npm run db:reset && npm run seed"
   },
