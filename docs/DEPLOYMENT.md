@@ -79,7 +79,9 @@ npx supabase db push
 
 `db push` applies every file in `supabase/migrations/`: tables, security
 rules, the `word-images` and recording buckets, and the daily recording-purge
-job. If it complains about the `pg_cron` or `pg_net` extension, enable both in
+job. It includes `protect_profile_columns`, a security fix that stops any
+signed-in user from changing their own `role` (without it, a student could
+make themselves an admin with one request) — don't skip it. If it complains about the `pg_cron` or `pg_net` extension, enable both in
 **Database → Extensions** in the dashboard and run `db push` again.
 
 ## 4. Auth settings (important)
@@ -92,11 +94,14 @@ In **Authentication** in the dashboard:
    off in `supabase/config.toml`.)
 2. **URL Configuration:** set **Site URL** to your website address once you
    have it (step 9) and add it under **Redirect URLs**.
-3. Decide about open sign-ups. The app has a public **Register** page; with
-   sign-ups enabled anyone who finds the site can create an account. For a
-   private review site you can turn sign-ups off under **Authentication →
-   Sign In / Providers** after your admins exist (the Register page will then
-   stop working, which is probably what you want).
+3. **Turn off open sign-ups (strongly recommended).** The app has a public
+   **Register** page, and every new account starts as a *teacher*. Teachers
+   can view the fine-tuning recordings, so anyone who finds the site could
+   register and read them. Under **Authentication → Sign In / Providers**,
+   switch off "Allow new users to sign up" once your admins exist (step 5).
+   The Register page will then stop working, which is what you want for a
+   private review site. Existing accounts and accounts created by an admin or
+   a teacher through the app keep working.
 
 ## 5. Create your admin accounts and the reference data
 
