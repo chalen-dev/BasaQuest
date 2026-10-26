@@ -20,6 +20,7 @@ import type { AttemptDetail, AttemptWord } from '../hooks'
 import type { AttemptWordReviewStrings } from './attemptWordReviewStrings'
 import { ScorePill } from './AttemptWordReviewShared'
 import { AudioPlayer } from '../../../../components/ui/AudioPlayer.tsx'
+import { DifficultyStars } from '../../../../components/ui/DifficultyStars.tsx'
 
 type ResultsSummaryCardProps = {
     attempt: AttemptDetail
@@ -67,6 +68,7 @@ export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t
                     )}
                 </div>
                 <div className="flex flex-wrap items-center justify-start gap-2 border-t border-dashed border-gray-900/10 pt-3 dark:border-gray-100/10">
+                    <DifficultyStars text={attempt.passage_text} language={attempt.language} size={14} />
                     {showScores && (
                         <>
                             <ScorePill label={t.accuracy} value={attempt.accuracy_score} />

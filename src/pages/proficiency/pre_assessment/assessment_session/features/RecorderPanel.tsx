@@ -73,6 +73,7 @@ import type { AssessmentStrings } from '../assessmentSessionStrings.ts'
 import { formatSeconds, MAX_RECORDING_SECONDS } from '../assessmentSessionStrings.ts'
 import type { useRecorder } from './useRecorder.ts'
 import { Waveform } from './Waveform.tsx'
+import { MicPermissionHelp } from './MicPermissionHelp.tsx'
 const MIC_COUNTDOWN_SECONDS = 3
 type RecorderPanelProps = {
     t: AssessmentStrings
@@ -332,6 +333,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                     <p className="min-h-[24px] text-center text-base font-semibold text-gray-600 dark:text-gray-400">
                         {isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : isRecorded ? t.hintRecorded : t.hintIdle}
                     </p>
+                    {!isRecorded && !isRecording && <MicPermissionHelp t={t} failed={!!rec.error} />}
                     {rec.error && !isRecorded && (
                         <div className="w-full rounded-2xl bg-gray-900/5 p-4 text-center text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                             {t.micUnavailable}

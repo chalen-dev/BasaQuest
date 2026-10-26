@@ -42,13 +42,13 @@ const EXIT_STRINGS: Record<Lang, { label: string; title: string; text: string; c
     fil: {
         label: 'Lumabas',
         title: 'Lumabas sa pagsusuri?',
-        text: 'Mawawala ang kasalukuyang talata. Puwede kang bumalik at magsimula ulit.',
+        text: 'Sigurado ka bang gusto mong lumabas? Walang mase-save sa pagbasang ito. Puwede kang bumalik at magsimula ulit anumang oras.',
         confirm: 'Oo, lumabas',
     },
     en: {
         label: 'Exit',
         title: 'Exit the check-in?',
-        text: 'The current passage will be lost. You can come back and start again.',
+        text: 'Are you sure you want to exit? Nothing from this reading will be saved. You can come back and start again any time.',
         confirm: 'Yes, exit',
     },
 }

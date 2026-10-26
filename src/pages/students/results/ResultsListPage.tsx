@@ -42,6 +42,7 @@ import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { Pagination } from '../../../components/ui/Pagination'
 import { Skeleton } from '../../../components/ui/Skeleton'
+import { DifficultyStars } from '../../../components/ui/DifficultyStars'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { REVIEW_PAGE_SIZE, useReviewedAttemptsQuery } from '../review/hooks'
 const STRINGS: Record<Lang, {
@@ -213,6 +214,7 @@ export const ResultsListPage: React.FC = () => {
                                         <span className="rounded-full bg-gray-900/5 px-3.5 py-1.5 text-base font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                                             {attempt.language === 'fil' ? t.filipinoLabel : t.englishLabel}
                                         </span>
+                                        <DifficultyStars text={attempt.passage_text} language={attempt.language} size={16} className="!px-3.5 !py-2" />
                                     </div>
                                     {attempt.passage_title && (
                                         <div className="mt-1 truncate text-base font-semibold text-gray-500 dark:text-gray-400">

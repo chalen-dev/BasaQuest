@@ -15,7 +15,9 @@ export type Passage = {
     passage: string
 }
 
-export type Step = 'intro' | 'loading' | 'passage' | 'error'
+// 'review' is the teacher's read-through of a generated passage, only used
+// for an assisted ("Now") session.
+export type Step = 'intro' | 'loading' | 'review' | 'passage' | 'error'
 
 // Hard cap on a single take, in seconds, so a forgotten-running mic can't
 // produce an unbounded recording. NOT derived from any real Azure/Deepgram
@@ -127,11 +129,40 @@ export type AssessmentStrings = {
     readAllHint: string
     noisyEnvironmentWarning: string
     micHint: string
+    // Shown while the browser's microphone prompt is open, and when the mic
+    // was blocked (see features/MicPermissionHelp.tsx).
+    micAskTitle: string
+    micAskBody: string
+    micAllowButton: string
+    micBlockedTitle: string
+    micBlockedBody: string
     clearHighlightsHint: string
     pageNavHint: string
     prevPageHint: string
     redoHint: string
     submitHint: string
+    // Teacher's read-through of a generated passage before the session
+    // starts (see features/PassageReview.tsx).
+    reviewKicker: string
+    reviewTitle: string
+    reviewDesc: string
+    reviewTitleLabel: string
+    reviewTextLabel: string
+    difficultyLabel: string
+    difficultyScale: string
+    difficultyNote: string
+    fitEasier: (grade: number) => string
+    fitFits: (grade: number) => string
+    fitHarder: (grade: number) => string
+    gradeNotSet: (grade: number) => string
+    wordCount: (n: number) => string
+    readConfirm: string
+    approveStart: string
+    regenerateLabel: string
+    regenerateConfirmTitle: string
+    regenerateConfirmText: string
+    regenerateConfirmButton: string
+    editedBadge: string
     // Assisted ("Now" mode) inline review — the teacher stays on this
     // screen after submitting instead of getting the permanent "waiting
     // for teacher" card, since the teacher IS the one reviewing here.
@@ -193,11 +224,36 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         readAllHint: 'Basahin ang bawat pahina — patuloy lang ang pag-record.',
         noisyEnvironmentWarning: 'Medyo maingay sa paligid — subukang maghanap ng mas tahimik na lugar.',
         micHint: 'Pindutin ang mikropono para magsimulang magbasa nang malakas! 🎙️',
+        micAskTitle: 'Payagan ang mikropono',
+        micAskBody: 'Magtatanong ang browser kung puwedeng gamitin ang mikropono. Pindutin ang unang button, ang may dilaw na bilog (tulad ng nasa larawan).',
+        micAllowButton: 'Allow while visiting the site',
+        micBlockedTitle: 'Naka-block ang mikropono',
+        micBlockedBody: 'Pindutin ang icon sa tabi ng address ng website sa itaas (ang kandado o ang maliit na slider), piliin ang Microphone, at itakda sa Allow. Pagkatapos, i-refresh ang page.',
         clearHighlightsHint: 'Puwede mong tapikin ang mga salita para markahan ito — pindutin dito para tanggalin lahat! 🖍️',
         pageNavHint: 'Marami pang pahina! Gamitin ang mga buton na ito para lumipat — patuloy lang ang pag-record. 📖',
         prevPageHint: 'Puwede ka ring bumalik sa naunang pahina para muling basahin! ⬅️',
         redoHint: 'Hindi kontento sa recording? Pindutin dito para ulitin! 🔁',
         submitHint: 'Tapos ka na? Pindutin dito para ipasa sa iyong guro! ✅',
+        reviewKicker: 'Bago magsimula',
+        reviewTitle: 'Suriin ang talata',
+        reviewDesc: 'Basahin muna ang talatang ito. Puwede mo itong baguhin, o gumawa ng bago, bago mo ito ipabasa sa bata.',
+        reviewTitleLabel: 'Pamagat',
+        reviewTextLabel: 'Talata',
+        difficultyLabel: 'Hirap ng talata',
+        difficultyScale: '1 = madali · 5 = mahirap',
+        difficultyNote: 'Tantiya lamang ito mula sa haba ng mga pangungusap at salita. Ang sarili mong pagbasa ang masusunod.',
+        fitEasier: (g) => `Mas madali kaysa karaniwan para sa Baitang ${g}`,
+        fitFits: (g) => `Angkop sa Baitang ${g}`,
+        fitHarder: (g) => `Mas mahirap kaysa karaniwan para sa Baitang ${g}`,
+        gradeNotSet: (g) => `Walang nakatakdang baitang ang batang ito, kaya Baitang ${g} ang ginamit.`,
+        wordCount: (n) => `${n} salita`,
+        readConfirm: 'Nabasa ko ang talata at angkop ito para sa batang ito.',
+        approveStart: 'Aprubahan at simulan',
+        regenerateLabel: 'Gumawa ng bago',
+        regenerateConfirmTitle: 'Gumawa ng bagong talata?',
+        regenerateConfirmText: 'Mawawala ang kasalukuyang talata at ang anumang binago mo rito.',
+        regenerateConfirmButton: 'Oo, gumawa ng bago',
+        editedBadge: 'Binago mo',
         scoringTitle: 'Sinusuri ang Pagbasa',
         scoringDesc: 'Ilang segundo lang ito — sinusuri ng sistema ang bawat salita bago mo ito ma-kumpirma.',
         scoringFailedTitle: 'Nagkaproblema sa Pagsusuri',
@@ -249,11 +305,36 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         readAllHint: 'Read each page — recording keeps going.',
         noisyEnvironmentWarning: "It's a bit noisy right now — try to find a quieter spot.",
         micHint: 'Press the microphone to start reading aloud! 🎙️',
+        micAskTitle: 'Allow the microphone',
+        micAskBody: 'Your browser is asking to use the microphone. Press the first button, the one with the yellow ring (like in the picture).',
+        micAllowButton: 'Allow while visiting the site',
+        micBlockedTitle: 'The microphone is blocked',
+        micBlockedBody: 'Click the icon next to the website address at the top (the lock or the little sliders), choose Microphone, and set it to Allow. Then refresh the page.',
         clearHighlightsHint: 'You can tap words to mark them — press here to clear them all! 🖍️',
         pageNavHint: 'There are more pages! Use these buttons to flip through — recording keeps going. 📖',
         prevPageHint: 'You can go back to reread earlier pages too! ⬅️',
         redoHint: 'Not happy with your take? Tap here to record again! 🔁',
         submitHint: 'All done? Tap here to send it to your teacher! ✅',
+        reviewKicker: 'Before you start',
+        reviewTitle: 'Check the passage',
+        reviewDesc: 'Read this passage first. You can edit it, or generate a new one, before the pupil reads it.',
+        reviewTitleLabel: 'Title',
+        reviewTextLabel: 'Passage',
+        difficultyLabel: 'Passage difficulty',
+        difficultyScale: '1 = easy · 5 = difficult',
+        difficultyNote: 'This is an estimate from sentence and word length. Your own reading comes first.',
+        fitEasier: (g) => `Easier than usual for Grade ${g}`,
+        fitFits: (g) => `Suits Grade ${g}`,
+        fitHarder: (g) => `Harder than usual for Grade ${g}`,
+        gradeNotSet: (g) => `This pupil has no grade set, so Grade ${g} was used.`,
+        wordCount: (n) => `${n} words`,
+        readConfirm: 'I have read this passage and it suits this pupil.',
+        approveStart: 'Approve and start',
+        regenerateLabel: 'Generate a new one',
+        regenerateConfirmTitle: 'Generate a new passage?',
+        regenerateConfirmText: 'The current passage, and anything you changed in it, will be replaced.',
+        regenerateConfirmButton: 'Yes, generate a new one',
+        editedBadge: 'Edited',
         scoringTitle: 'Scoring the Reading',
         scoringDesc: "This only takes a few seconds — the system is scoring each word before you confirm the results.",
         scoringFailedTitle: 'Scoring Ran Into a Problem',

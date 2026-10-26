@@ -12,6 +12,8 @@ export type PendingReviewAttempt = {
     student_id: string
     language: 'en' | 'fil'
     passage_title: string | null
+    // Only for rating the passage's difficulty in the list.
+    passage_text: string
     grade_level: string | null
     status: AttemptStatus
     accuracy_score: number | null
@@ -30,6 +32,7 @@ export type ReviewedAttempt = {
     student_id: string
     language: 'en' | 'fil'
     passage_title: string | null
+    passage_text: string
     grade_level: string | null
     status: AttemptStatus
     accuracy_score: number | null
@@ -126,7 +129,7 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
             const to = from + REVIEW_PAGE_SIZE - 1
             const { data: attempts, error, count } = await supabase
                 .from('assessment_attempts')
-                .select('id, student_id, language, passage_title, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, purge_after', { count: 'exact' })
+                .select('id, student_id, language, passage_title, passage_text, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, purge_after', { count: 'exact' })
                 .eq('teacher_id', teacherId as string)
                 .eq('status', 'scored')
                 .is('reviewed_at', null)
@@ -162,7 +165,7 @@ export function useReviewedAttemptsQuery({ teacherId, page }: ReviewedAttemptsAr
             const to = from + REVIEW_PAGE_SIZE - 1
             const { data: attempts, error, count } = await supabase
                 .from('assessment_attempts')
-                .select('id, student_id, language, passage_title, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, reviewed_at, purge_after', { count: 'exact' })
+                .select('id, student_id, language, passage_title, passage_text, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, reviewed_at, purge_after', { count: 'exact' })
                 .eq('teacher_id', teacherId as string)
                 .not('reviewed_at', 'is', null)
                 .order('reviewed_at', { ascending: false })

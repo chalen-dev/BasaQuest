@@ -178,6 +178,7 @@ import { useUnsavedChangesBlocker } from '../../../../hooks/useUnsavedChangesBlo
 import { useRecorder } from './features/useRecorder.ts'
 import { useSubmitAttempt, useRetryScoring } from './features/useSubmitAttempt.ts'
 import { PassagePanel } from './features/PassagePanel.tsx'
+import { PassageReview } from './features/PassageReview.tsx'
 import { RecorderPanel } from './features/RecorderPanel.tsx'
 import {
     PLACEHOLDER_PASSAGES,
@@ -208,13 +209,17 @@ const PASSAGE_CACHE_PREFIX = 'bq_passage_cache:'
 function passageCacheKey(lang: Lang, studentKey: string): string {
     return `${PASSAGE_CACHE_PREFIX}${lang}:${studentKey}`
 }
-function readCachedPassage(lang: Lang, studentKey: string): Passage | null {
+// `approved` is false while an assisted session's passage is still waiting
+// for the teacher's read-through (the 'review' step), so a reload lands back
+// on that step; a cache entry written before this existed counts as approved.
+type CachedPassage = Passage & { approved: boolean }
+function readCachedPassage(lang: Lang, studentKey: string): CachedPassage | null {
     try {
         const raw = sessionStorage.getItem(passageCacheKey(lang, studentKey))
         if (!raw) return null
-        const parsed = JSON.parse(raw) as Partial<Passage>
+        const parsed = JSON.parse(raw) as Partial<CachedPassage>
         if (typeof parsed?.title === 'string' && typeof parsed?.passage === 'string') {
-            return { title: parsed.title, passage: parsed.passage }
+            return { title: parsed.title, passage: parsed.passage, approved: parsed.approved !== false }
         }
         return null
     } catch {
@@ -223,9 +228,9 @@ function readCachedPassage(lang: Lang, studentKey: string): Passage | null {
         return null
     }
 }
-function writeCachedPassage(lang: Lang, studentKey: string, passage: Passage): void {
+function writeCachedPassage(lang: Lang, studentKey: string, passage: Passage, approved: boolean): void {
     try {
-        sessionStorage.setItem(passageCacheKey(lang, studentKey), JSON.stringify(passage))
+        sessionStorage.setItem(passageCacheKey(lang, studentKey), JSON.stringify({ ...passage, approved }))
     } catch {
         // Storage full or unavailable — the passage still works for this
         // session, it just won't survive a reload. Not worth surfacing.
@@ -291,15 +296,21 @@ export const AssessmentSessionPage: React.FC = () => {
         },
         silent: true,
     })
-    const generatePassage = async () => {
+    // An assisted session starts with the teacher reading the passage
+    // ('review', see PassageReview.tsx); a pupil's own session goes
+    // straight to the passage.
+    const stepAfterGenerate: Step = isAssisted ? 'review' : 'passage'
+    // `fresh` skips the cache: the teacher's "generate a new one" must not
+    // hand the same passage back.
+    const generatePassage = async (fresh = false) => {
         if (!assessmentLang) return
         // Cache check first — a Start click after a reload wiped local
         // state (but not sessionStorage) should never re-spend credits
         // on a passage that already exists. See PASSAGE CACHING comment.
-        const cached = readCachedPassage(assessmentLang, passageCacheStudentKey)
+        const cached = fresh ? null : readCachedPassage(assessmentLang, passageCacheStudentKey)
         if (cached) {
-            setPassage(cached)
-            setStep('passage')
+            setPassage({ title: cached.title, passage: cached.passage })
+            setStep(cached.approved ? 'passage' : 'review')
             return
         }
         setStep('loading')
@@ -307,8 +318,8 @@ export const AssessmentSessionPage: React.FC = () => {
             await new Promise((resolve) => setTimeout(resolve, 400))
             const placeholder = PLACEHOLDER_PASSAGES[assessmentLang]
             setPassage(placeholder)
-            writeCachedPassage(assessmentLang, passageCacheStudentKey, placeholder)
-            setStep('passage')
+            writeCachedPassage(assessmentLang, passageCacheStudentKey, placeholder, !isAssisted)
+            setStep(stepAfterGenerate)
             return
         }
         try {
@@ -319,8 +330,8 @@ export const AssessmentSessionPage: React.FC = () => {
                 throw error ?? new Error('Malformed response')
             }
             setPassage(data)
-            writeCachedPassage(assessmentLang, passageCacheStudentKey, data)
-            setStep('passage')
+            writeCachedPassage(assessmentLang, passageCacheStudentKey, data, !isAssisted)
+            setStep(stepAfterGenerate)
         } catch (err) {
             console.error('AssessmentSession: failed to generate passage', err)
             setStep('error')
@@ -342,8 +353,8 @@ export const AssessmentSessionPage: React.FC = () => {
         const cached = readCachedPassage(assessmentLang, passageCacheStudentKey)
         // eslint-disable-next-line react-hooks/set-state-in-effect
         if (cached) {
-            setPassage(cached)
-            setStep('passage')
+            setPassage({ title: cached.title, passage: cached.passage })
+            setStep(cached.approved ? 'passage' : 'review')
         } else {
             setPassage(null)
             setStep('intro')
@@ -389,6 +400,13 @@ export const AssessmentSessionPage: React.FC = () => {
     // a reading has actually been turned in, the next check-in for this
     // student+language should get a genuinely fresh passage rather than
     // keep serving the one just recorded against.
+    // The teacher read the passage (and maybe edited it): keep that version
+    // as the one this session uses, and remember it was approved.
+    const handleApprovePassage = (approved: Passage) => {
+        setPassage(approved)
+        writeCachedPassage(assessmentLang, passageCacheStudentKey, approved, true)
+        setStep('passage')
+    }
     const handleSubmit = async () => {
         if (!passage) return
         if (!rec.blob) {
@@ -573,7 +591,7 @@ export const AssessmentSessionPage: React.FC = () => {
                             </div>
                         </div>
                         <button
-                            onClick={generatePassage}
+                            onClick={() => generatePassage()}
                             className="mx-auto flex cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59] sm:mx-0"
                         >
                             <BookOpenCheck size={18} />
@@ -620,13 +638,24 @@ export const AssessmentSessionPage: React.FC = () => {
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.errorTitle}</h2>
                     <p className="max-w-md text-sm font-medium text-gray-600 dark:text-gray-400">{t.errorDesc}</p>
                     <button
-                        onClick={generatePassage}
+                        onClick={() => generatePassage()}
                         className="flex cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
                     >
                         <RefreshCw size={16} />
                         {t.retry}
                     </button>
                 </section>
+            )}
+            {step === 'review' && passage && (
+                <PassageReview
+                    t={t}
+                    passage={passage}
+                    lang={assessmentLang}
+                    gradeLevel={gradeLevel}
+                    gradeMissing={activeProfile?.grade_level == null}
+                    onApprove={handleApprovePassage}
+                    onRegenerate={() => generatePassage(true)}
+                />
             )}
             {showPassageStep && passage && !showInlineReview && (
                 <div className="grid gap-6 lg:h-[calc(100vh-14rem)] lg:grid-cols-[1.6fr_1fr]">

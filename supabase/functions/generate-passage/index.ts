@@ -23,10 +23,10 @@ function gradeSpec(grade: number): GradeSpec {
     const table: Record<number, GradeSpec> = {
         1: { minWords: 30, maxWords: 50, note: 'very short, simple sentences (3-6 words), common sight words, mostly one- and two-syllable words, easy to sound out aloud' },
         2: { minWords: 50, maxWords: 80, note: 'short sentences (5-8 words), simple past/present tense, familiar everyday words, comfortable to read aloud' },
-        3: { minWords: 80, maxWords: 120, note: 'sentences of moderate length, a few three-syllable words, school or community settings' },
-        4: { minWords: 120, maxWords: 160, note: 'varied sentence structure, some descriptive vocabulary, still natural to read aloud without tongue-twisters' },
-        5: { minWords: 160, maxWords: 200, note: 'longer sentences, some multi-syllabic vocabulary, a narrative with a clear problem and resolution' },
-        6: { minWords: 200, maxWords: 240, note: 'longer paragraphs, richer vocabulary, age-appropriate figurative language' },
+        3: { minWords: 80, maxWords: 120, note: 'sentences of moderate length (7-12 words each), a few three-syllable words, school or community settings' },
+        4: { minWords: 120, maxWords: 160, note: 'varied sentence structure with most sentences 8-14 words and none over 18, some descriptive vocabulary, still natural to read aloud without tongue-twisters' },
+        5: { minWords: 160, maxWords: 200, note: 'longer sentences (10-16 words each), some multi-syllabic vocabulary, a narrative with a clear problem and resolution' },
+        6: { minWords: 200, maxWords: 240, note: 'longer paragraphs with sentences of 12-18 words, richer vocabulary, age-appropriate figurative language' },
     }
     return table[g]
 }

@@ -60,6 +60,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Lang } from '../../../../../components/buttons/LangToggle.tsx'
 import { useTheme } from '../../../../../contexts/ThemeContext.tsx'
 import { Hint } from '../../../../../components/ui/Hint.tsx'
+import { DifficultyStars } from '../../../../../components/ui/DifficultyStars.tsx'
 import type { AssessmentStrings, Passage } from '../assessmentSessionStrings.ts'
 type PassagePanelProps = {
     t: AssessmentStrings
@@ -196,6 +197,7 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
                 <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                     {assessmentLang === 'fil' ? t.filipinoLabel : t.englishLabel}
                 </span>
+                <DifficultyStars text={passage.passage} language={assessmentLang} size={16} />
                 <div className="flex-1" />
                 {hasHighlights && (
                     <div className="relative">
