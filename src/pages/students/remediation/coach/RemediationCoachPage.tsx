@@ -231,12 +231,19 @@
 // what's actually on the page.
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Bird, Image as ImageIcon, NotebookText, Volume2, X } from 'lucide-react'
+import { Bird, NotebookText, Volume2 } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useWordImageQuery } from '../../../../hooks/useWordImage.ts'
 import { AnimatedOwl } from '../../../../components/ui/AnimatedOwl.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
-import { readPracticed, useRemediationMaterialQuery, type RemediationPassage, type RemediationWordEntry } from '../hooks.ts'
+import {
+    readPracticed,
+    useRemediationMaterialQuery,
+    type NameKind,
+    type PassageName,
+    type RemediationPassage,
+    type RemediationWordEntry,
+} from '../hooks.ts'
 import { usePronounceWord } from '../session/features/usePronounceWord.ts'
 import {
     CoachTableBackdrop,
@@ -244,6 +251,7 @@ import {
     type CoachTableBackdropHandle,
 } from './features/backdrop/CoachTableBackdrop.tsx'
 import { STRINGS, getStaticCoachTip } from './features/remediationCoachStrings.ts'
+import { CoachNotebookSlot } from './features/CoachNotebookSlot.tsx'
 
 // Which companion is currently showing in OWL_AREA_STYLE -- see this
 // file's header comment ("WORD NOTEBOOK"). Kept local to this file
@@ -255,17 +263,44 @@ type CompanionMode = 'owl' | 'notebook'
 // NOT added to remediationCoachStrings.ts's shared STRINGS record (this
 // file doesn't have a current copy of that file to safely edit it into,
 // and these three lines don't need to live anywhere else yet).
-const NOTEBOOK_STRINGS: Record<'fil' | 'en', { openNotebook: string; closeNotebook: string; placeholder: string }> = {
+const NOTEBOOK_STRINGS: Record<
+    'fil' | 'en',
+    { openNotebook: string; closeNotebook: string; placeholder: string; names: Record<NameKind, string> }
+> = {
     en: {
         openNotebook: 'Open word notebook',
         closeNotebook: 'Bring back the owl',
         placeholder: 'Tap a word in the story to explore it.',
+        names: {
+            girl: "A girl's name",
+            boy: "A boy's name",
+            person: "A person's name",
+            place: 'The name of a place',
+            animal: "An animal's name",
+        },
     },
     fil: {
         openNotebook: 'Buksan ang kuwaderno ng salita',
         closeNotebook: 'Ibalik ang kuwago',
         placeholder: 'Pindutin ang isang salita sa kuwento para tingnan ito.',
+        names: {
+            girl: 'Pangalan ng babae',
+            boy: 'Pangalan ng lalaki',
+            person: 'Pangalan ng tao',
+            place: 'Pangalan ng lugar',
+            animal: 'Pangalan ng hayop',
+        },
     },
+}
+
+// Which picture from the word bank stands in for each kind of name (the
+// English bank keys: pictures for "girl", "boy", "person", "map", "animal").
+const NAME_PICTURE_WORD: Record<NameKind, string> = {
+    girl: 'girl',
+    boy: 'boy',
+    person: 'person',
+    place: 'map',
+    animal: 'animal',
 }
 
 // Falls back to a one-word "sentence" for material generated before
@@ -372,13 +407,36 @@ function renderHighlightedTip(text: string, targetWords: string[]): ReactNode {
 // reaching back into RemediationPassage/RemediationWordEntry directly,
 // so the rest of the component doesn't need to branch on material mode
 // more than once.
-type CoachPage = { content: CoachSentenceContent; coachTip: string }
+type CoachPage = { content: CoachSentenceContent; coachTip: string; names?: PassageName[] }
 
 function pagesFromPassages(passages: RemediationPassage[], lang: 'fil' | 'en'): CoachPage[] {
     return passages.map((passage, index) => ({
         content: { words: passage.passageWords, targetIndices: passage.targetIndices },
         coachTip: getCoachTipText(passage, index, lang),
+        names: passage.names,
     }))
+}
+
+// What kind of name a tapped token is, if any. Gemini's own tags (judged
+// from the passage's context) win. Passages without tags — generated before
+// names existed — fall back to a capitalization rule: a capitalized word in
+// the middle of a sentence is probably a name. That rule only guesses
+// (`guessed`), so a word the bank already has its own picture for
+// ("Saturday") keeps it; see the notebook picture logic below.
+type NameMatch = { kind: NameKind; guessed: boolean }
+const SENTENCE_END = /[.!?…]["')\]]*$/
+function nameMatchFor(page: CoachPage | null, word: string): NameMatch | null {
+    if (!page) return null
+    const words = page.content.words
+    const tagged = page.names?.find((n) => words[n.index] === word)
+    if (tagged) return { kind: tagged.kind, guessed: false }
+    if (page.names && page.names.length > 0) return null
+    const i = words.indexOf(word)
+    if (i <= 0 || SENTENCE_END.test(words[i - 1])) return null
+    const letters = stripPunctuation(word)
+    const first = letters.charAt(0)
+    const looksCapitalized = letters.length > 1 && first !== first.toLowerCase() && first === first.toUpperCase()
+    return looksCapitalized ? { kind: 'person', guessed: true } : null
 }
 
 function pagesFromWords(words: RemediationWordEntry[], lang: 'fil' | 'en'): CoachPage[] {
@@ -392,20 +450,6 @@ function pagesFromWords(words: RemediationWordEntry[], lang: 'fil' | 'en'): Coac
 // where CoachTableBackdrop's book cover art starts. See this file's
 // header comment ("SIZING/CENTERING").
 const OWL_AREA_STYLE: CSSProperties = { left: '0%', top: '0%', width: '50%', height: '100%' }
-
-// Where the notebook's word/pronounce/close content sits, laid directly
-// over NOTEBOOK_ART's blank page inside CoachTableBackdrop's own SVG
-// (see that file's header comment, "NOTEBOOK ART"). These percentages
-// are the notebook's own local paper rect (roughly x:170-727, y:190-800
-// out of the art's 0-880-ish local coordinate space) run through the
-// exact same transform NOTEBOOK_ART's wrapping group uses
-// (translate(54 83) scale(0.82)) and converted to percentages of the
-// 1670x941 stage viewBox -- not re-derived at runtime the way the
-// prototype's own positionSlot() reads a live transform matrix, because
-// our stage is always uniformly scaled by CSS (see coach-stage's
-// max()/aspect-ratio sizing below), so a fixed percentage stays correct
-// at any viewport size without that runtime math.
-const NOTEBOOK_CONTENT_STYLE: CSSProperties = { left: '11.6%', top: '25.4%', width: '27.3%', height: '53.2%' }
 
 export default function RemediationCoachPage() {
     const { studentId, materialId } = useParams<{ studentId: string; materialId: string }>()
@@ -445,7 +489,19 @@ export default function RemediationCoachPage() {
     const [companionAnimated, setCompanionAnimated] = useState(false)
     // Picture for the word open in the notebook; null (no row) keeps the
     // placeholder box below.
-    const { data: wordImage } = useWordImageQuery(selectedWord, material?.language)
+    // Set when the tapped token is a name (Gemini's tag, or the
+    // capitalization guess for untagged passages) — see nameMatchFor().
+    const [selectedName, setSelectedName] = useState<NameMatch | null>(null)
+    // A word Gemini tagged as a name never looks up its own picture ("Maya"
+    // the girl must not get the maya bird). A merely guessed name does look
+    // it up, and keeps that picture if the bank has one.
+    const { data: wordImage } = useWordImageQuery(
+        selectedName && !selectedName.guessed ? null : selectedWord,
+        material?.language,
+    )
+    const { data: namePicture } = useWordImageQuery(selectedName ? NAME_PICTURE_WORD[selectedName.kind] : null, 'en')
+    const showNameCard = !!selectedName && (!selectedName.guessed || !wordImage)
+    const notebookImage = showNameCard ? namePicture : wordImage
 
     useEffect(() => {
         if (material && !seeded) {
@@ -544,7 +600,12 @@ export default function RemediationCoachPage() {
     // a tap can't land on a word from the page that's about to leave.
     const handleWordSelect = (word: string) => {
         if (isTurning) return
-        setSelectedWord(word)
+        // Trim the sentence's own punctuation ("home." -> "home") so the
+        // notebook title and pronounce button get just the word; inner
+        // apostrophes/hyphens stay. Falls back to the raw token if that
+        // leaves nothing.
+        setSelectedWord(stripPunctuation(word) || word)
+        setSelectedName(nameMatchFor(currentPage, word))
         setCompanionMode('notebook')
         setCompanionAnimated(true)
     }
@@ -695,41 +756,6 @@ export default function RemediationCoachPage() {
                         .coach-owl-jump[data-active="true"] { opacity: 1; }
                         .coach-owl-dialogue[data-animate="true"] { transition-delay: 150ms !important; }
                     }
-                    /* Notebook content slot -- thin, undecorated overlay
-                    (word text + pronounce + close only) positioned over
-                    NOTEBOOK_ART's blank page. No border/shadow/background
-                    of its own -- the real SVG notebook underneath already
-                    provides all of that, matching how the prototype's own
-                    #notebookContent is a plain HTML div, not a card. */
-                    .coach-notebook-slot {
-                        position: absolute;
-                        transition: opacity 260ms ease, transform 260ms ease;
-                        transform: translateY(0);
-                    }
-                    .coach-notebook-slot[data-active="false"] {
-                        opacity: 0;
-                        transform: translateY(12px);
-                        pointer-events: none;
-                    }
-                    /* Only start fading the notebook's buttons/text in
-                    once the real SVG notebook (CoachTableBackdrop's
-                    .coach-notebook-transition) has actually finished
-                    sliding into place -- delay matches that group's own
-                    transform transition duration (550ms) exactly, gated
-                    by data-animate (same flag the owl jump/dialogue use)
-                    so it never applies on first mount. Closing stays a
-                    quick, undelayed fade -- the content doesn't need to
-                    wait for the notebook to fully leave before it's gone. */
-                    .coach-notebook-slot[data-animate="true"] {
-                        transition-delay: 550ms;
-                    }
-                    .coach-notebook-slot[data-animate="true"][data-active="false"] {
-                        transition-delay: 0s;
-                    }
-                    @media (prefers-reduced-motion: reduce) {
-                        .coach-notebook-slot { transition: opacity 200ms ease; transition-delay: 0s !important; }
-                        .coach-notebook-slot[data-active="false"] { transform: translateY(0) !important; }
-                    }
                 `}</style>
                 <div
                     className="coach-stage relative"
@@ -829,143 +855,21 @@ export default function RemediationCoachPage() {
                             </div>
                         </div>
 
-                        {/* WORD NOTEBOOK CONTENT -- shell only, see this
-                        file's header comment. Sits directly over
-                        NOTEBOOK_ART's blank page (CoachTableBackdrop.tsx
-                        renders and slides the actual SVG notebook itself;
-                        this is only the thin HTML content layered on top
-                        of it, same as the prototype's own #notebookContent
-                        over its own SVG notebook). No card/border/shadow of
-                        its own -- the SVG notebook underneath provides
-                        that. */}
-                        <div
-                            className="coach-notebook-slot flex flex-col"
-                            data-active={notebookOpen}
-                            data-animate={companionAnimated}
-                            aria-hidden={!notebookOpen}
-                            style={{
-                                ...NOTEBOOK_CONTENT_STYLE,
-                                gap: 'clamp(8px, 1.1cqw, 16px)',
-                                paddingLeft: 'clamp(8px, 1.1cqw, 16px)',
-                                paddingRight: 'clamp(8px, 1.1cqw, 16px)',
-                                paddingBottom: 'clamp(8px, 1.1cqw, 16px)',
-                                paddingTop: 'clamp(2px, 0.4cqw, 6px)',
-                            }}
-                        >
-                            {/* Close -- top-right corner, flush against the
-                            slot's own padding (right-0 top-0, so its inset
-                            from the visual edge matches the padding every
-                            other edge already uses). Pronounce sits in the
-                            title row below, right-aligned the same way (no
-                            extra offset of its own), so it lands directly
-                            under Close -- and centered with the title text
-                            on the same line, per the notebook mockup.
-                            Sized with clamp(...cqw...) rather than fixed
-                            Tailwind spacing -- this whole slot is a
-                            percentage of the cover-fit `coach-stage` (see
-                            this file's header comment, "STAGE SIZING"),
-                            which grows/shrinks with the viewport, but
-                            fixed-px content doesn't -- it looked right only
-                            at the one window size it was eyeballed at, and
-                            shrank to looking "too tiny" at wider ones. cqw
-                            here is relative to the stage (the same
-                            container-query context the owl's speech bubble
-                            text/padding below already uses), so these track
-                            the notebook's own on-screen size at any width. */}
-                            <button
-                                type="button"
-                                onClick={() => setCompanionMode('owl')}
-                                aria-label={nt.closeNotebook}
-                                className="absolute flex items-center justify-center rounded-full border-2 border-[var(--coach-nb-soft)] bg-[var(--coach-nb-btn)] text-[var(--coach-nb-ink)] shadow-sm transition-colors duration-150 hover:border-[var(--coach-nb-accent)]"
-                                style={{
-                                    // Matches the slot's own paddingRight/
-                                    // paddingTop exactly (see the slot's
-                                    // style below) -- an absolutely
-                                    // positioned child's containing block is
-                                    // the ancestor's PADDING edge, which
-                                    // excludes the ancestor's own padding,
-                                    // so `right: 0`/`top: 0` here would sit
-                                    // outside the row's padded content
-                                    // instead of flush with it. Reusing the
-                                    // same clamp() keeps Close's right edge
-                                    // exactly above Pronounce's.
-                                    right: 'clamp(8px, 1.1cqw, 16px)',
-                                    top: 'clamp(2px, 0.4cqw, 6px)',
-                                    width: 'clamp(26px, 3.4cqw, 42px)',
-                                    height: 'clamp(26px, 3.4cqw, 42px)',
-                                }}
-                            >
-                                <X style={{ width: 'clamp(13px, 1.7cqw, 18px)', height: 'clamp(13px, 1.7cqw, 18px)' }} />
-                            </button>
-                            {selectedWord ? (
-                                <>
-                                    <div
-                                        className="flex items-center justify-between gap-2"
-                                        style={{ paddingTop: 'clamp(32px, 4.4cqw, 50px)' }}
-                                    >
-                                        <h3
-                                            className="font-extrabold capitalize leading-tight"
-                                            style={{ color: 'var(--coach-nb-ink)', fontSize: 'clamp(18px, 2.6cqw, 32px)' }}
-                                        >
-                                            {selectedWord}
-                                        </h3>
-                                        <button
-                                            type="button"
-                                            onClick={() => speak(selectedWord, material.language)}
-                                            aria-label={t.pronounce}
-                                            className="flex shrink-0 items-center justify-center rounded-full border-2 border-[var(--coach-nb-soft)] bg-[var(--coach-nb-btn)] text-[var(--coach-nb-ink)] shadow-sm transition-colors duration-150 hover:border-[var(--coach-nb-accent)]"
-                                            style={{
-                                                width: 'clamp(26px, 3.4cqw, 42px)',
-                                                height: 'clamp(26px, 3.4cqw, 42px)',
-                                            }}
-                                        >
-                                            <Volume2 style={{ width: 'clamp(12px, 1.6cqw, 17px)', height: 'clamp(12px, 1.6cqw, 17px)' }} />
-                                        </button>
-                                    </div>
-                                    {/* Word picture (word_images table, see
-                                    useWordImage.ts). Words with no picture
-                                    keep the prototype's placeholder: colors
-                                    match its own .word-image-placeholder
-                                    exactly (border/background var(--word-
-                                    soft)/var(--word-button), icon stroke
-                                    var(--word-accent) at .55 opacity). */}
-                                    <div
-                                        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border-2"
-                                        style={{ backgroundColor: 'var(--coach-nb-btn)', borderColor: 'var(--coach-nb-soft)' }}
-                                    >
-                                        {wordImage ? (
-                                            <img
-                                                src={wordImage.url}
-                                                alt={selectedWord ?? ''}
-                                                title={wordImage.credit ?? undefined}
-                                                className="h-full w-full object-contain p-2"
-                                            />
-                                        ) : (
-                                            <ImageIcon
-                                                strokeWidth={2}
-                                                style={{
-                                                    width: 'clamp(30px, 4.6cqw, 58px)',
-                                                    height: 'clamp(30px, 4.6cqw, 58px)',
-                                                    color: 'var(--coach-nb-accent)',
-                                                    opacity: 0.55,
-                                                }}
-                                            />
-                                        )}
-                                    </div>
-                                </>
-                            ) : (
-                                <p
-                                    className="flex flex-1 items-center justify-center text-center font-semibold"
-                                    style={{
-                                        color: 'var(--coach-nb-ink)',
-                                        fontSize: 'clamp(11px, 1.5cqw, 16px)',
-                                        paddingTop: 'clamp(32px, 4.4cqw, 50px)',
-                                    }}
-                                >
-                                    {nt.placeholder}
-                                </p>
-                            )}
-                        </div>
+                        {/* WORD NOTEBOOK CONTENT -- see this file's header
+                        comment and CoachNotebookSlot.tsx (shared with the
+                        admin's Preview in coach page). */}
+                        <CoachNotebookSlot
+                            open={notebookOpen}
+                            animate={companionAnimated}
+                            word={selectedWord}
+                            image={notebookImage}
+                            caption={showNameCard && selectedName ? nt.names[selectedName.kind] : null}
+                            onClose={() => setCompanionMode('owl')}
+                            onPronounce={(word) => speak(word, material.language)}
+                            closeLabel={nt.closeNotebook}
+                            pronounceLabel={t.pronounce}
+                            placeholderText={nt.placeholder}
+                        />
                     </CoachTableBackdrop>
                 </div>
 

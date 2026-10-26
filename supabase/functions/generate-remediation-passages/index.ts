@@ -71,6 +71,11 @@ function gradeSpec(grade: number): GradeSpec {
     }
     return table[g]
 }
+// Kinds of proper name Gemini may tag in a passage. The Reading Coach shows
+// a matching picture for a tapped name (girl, boy, person, map, animal)
+// instead of looking it up as an ordinary word — see RemediationCoachPage.
+const NAME_KINDS = ['girl', 'boy', 'person', 'place', 'animal'] as const
+type NameKind = (typeof NAME_KINDS)[number]
 function buildPrompt(words: string[], lang: 'fil' | 'en', gradeLevel: number): string {
     const g = Math.min(6, Math.max(1, Math.round(gradeLevel)))
     const spec = gradeSpec(g)
@@ -87,6 +92,13 @@ For EACH passage, produce:
 2. "targetWords": exactly which of the input words this specific passage is practicing, in their exact given form.
 3. "targetIndices": the 0-based position within THIS passage's word tokens of EVERY occurrence of every one of its target words — if a target word appears more than once in the passage, mark every occurrence, not just the first.
 4. "coachTip": one short, warm coaching tip (roughly 10-25 words) addressed directly to the pupil, about the target words in THIS passage collectively — e.g. a sound they share, how to sound one out, something to listen for. Never generic ("do your best") — it must reference something real about the actual target words.
+5. "names": every token in the passage that is a proper name, as { "index": the token's 0-based position in passageWords, "kind": one of ${NAME_KINDS.map((k) => `"${k}"`).join(', ')} }. Decide the kind from the CONTEXT of the passage, not from the name alone:
+   - "girl": a girl's or woman's name — the passage makes clear she is female (she/her, "nanay", "ate", "Lola", "Ma'am").
+   - "boy": a boy's or man's name — the passage makes clear he is male (he/his, "tatay", "kuya", "Lolo", "Sir").
+   - "person": a person's name where the passage does not make the gender clear.
+   - "place": the name of a specific place — a town, barangay, school, province, country, park or landmark (e.g. "Maynila", "Baguio", "Sto. Niño Elementary").
+   - "animal": the given name of a pet or animal character (e.g. a dog called "Bantay").
+   Only real proper names qualify. Ordinary words are NEVER names, even when capitalized at the start of a sentence, and a word that is both a name and a common word (e.g. "Maya", also a bird) counts as a name only when the passage uses it as one. If the passage has no names, return an empty array.
 
 Requirements:
 - Content: warm, wholesome, everyday, culturally familiar to a Filipino child (home, school, barangay, nature, family, friendship) — never scary, violent, or sad.
@@ -103,8 +115,20 @@ const RESPONSE_SCHEMA = {
             targetWords: { type: 'ARRAY', items: { type: 'STRING' }, description: 'The input words this passage targets, in their exact given form.' },
             targetIndices: { type: 'ARRAY', items: { type: 'INTEGER' }, description: 'Every 0-based position within passageWords that is an occurrence of one of targetWords.' },
             coachTip: { type: 'STRING', description: 'A short reading-coach tip about this passage\'s target words, addressed to the pupil.' },
+            names: {
+                type: 'ARRAY',
+                description: 'Every proper name in the passage with its kind, judged from context. Empty if there are none.',
+                items: {
+                    type: 'OBJECT',
+                    properties: {
+                        index: { type: 'INTEGER', description: '0-based position of the name within passageWords.' },
+                        kind: { type: 'STRING', description: `One of: ${NAME_KINDS.join(', ')}.` },
+                    },
+                    required: ['index', 'kind'],
+                },
+            },
         },
-        required: ['passageWords', 'targetWords', 'targetIndices', 'coachTip'],
+        required: ['passageWords', 'targetWords', 'targetIndices', 'coachTip', 'names'],
     },
 } as const
 function jsonResponse(body: unknown, status: number) {
@@ -113,7 +137,40 @@ function jsonResponse(body: unknown, status: number) {
         headers: { ...corsHeaders, 'content-type': 'application/json' },
     })
 }
-type PassageItem = { passageWords: string[]; targetWords: string[]; targetIndices: number[]; coachTip: string }
+type PassageItem = {
+    passageWords: string[]
+    targetWords: string[]
+    targetIndices: number[]
+    coachTip: string
+    names?: { index: number; kind: NameKind }[]
+}
+// Name tags are a nicety, never a reason to throw a whole passage away: keep
+// only the entries that point at a real token with a known kind, and drop the
+// field entirely when nothing valid is left.
+function sanitizeNames(passage: PassageItem): PassageItem {
+    const raw = (passage as { names?: unknown }).names
+    const seen = new Set<number>()
+    const names: { index: number; kind: NameKind }[] = []
+    if (Array.isArray(raw)) {
+        for (const entry of raw) {
+            const e = entry as { index?: unknown; kind?: unknown }
+            if (
+                Number.isInteger(e?.index) &&
+                (e.index as number) >= 0 &&
+                (e.index as number) < passage.passageWords.length &&
+                typeof e.kind === 'string' &&
+                (NAME_KINDS as readonly string[]).includes(e.kind) &&
+                !seen.has(e.index as number)
+            ) {
+                seen.add(e.index as number)
+                names.push({ index: e.index as number, kind: e.kind as NameKind })
+            }
+        }
+    }
+    const { names: _discard, ...rest } = passage
+    void _discard
+    return names.length > 0 ? { ...rest, names } : rest
+}
 function isValidPassageList(input: unknown): input is PassageItem[] {
     if (!Array.isArray(input) || input.length === 0) return false
     return input.every((item) => {
@@ -173,7 +230,7 @@ Deno.serve(async (req: Request) => {
                         responseMimeType: 'application/json',
                         responseSchema: RESPONSE_SCHEMA,
                         temperature: 0.8,
-                        maxOutputTokens: 550 * targetPassageCount + 300,
+                        maxOutputTokens: 650 * targetPassageCount + 300,
                     },
                 }),
             },
@@ -195,7 +252,7 @@ Deno.serve(async (req: Request) => {
             console.error('generate-remediation-passages: malformed Gemini payload', JSON.stringify(geminiData))
             return jsonResponse({ error: 'Got an unexpected response while generating passages. Please try again.' }, 502)
         }
-        return jsonResponse(parsed, 200)
+        return jsonResponse(parsed.map(sanitizeNames), 200)
     } catch (err) {
         console.error('generate-remediation-passages: unexpected error', err)
         return jsonResponse({ error: 'Something went wrong generating passages.' }, 500)

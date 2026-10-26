@@ -98,7 +98,17 @@ export type RemediationPassage = {
     // Mode's owl speech bubble is "current passage" now, not "current
     // word," so there's no remaining use for a per-word tip).
     coachTip: string
+    // Proper names Gemini spotted in this passage, judged from its context
+    // (see generate-remediation-passages' prompt): index is the 0-based
+    // position in passageWords. The Reading Coach shows a matching picture
+    // (girl, boy, person, map, animal) for a tapped name instead of looking
+    // it up as an ordinary word. Absent on passages generated before this
+    // existed or that contain no names — the coach falls back to a
+    // capitalization rule for those.
+    names?: PassageName[]
 }
+export type NameKind = 'girl' | 'boy' | 'person' | 'place' | 'animal'
+export type PassageName = { index: number; kind: NameKind }
 export type RemediationMaterial = {
     id: string
     attempt_id: string | null
