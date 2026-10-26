@@ -1,7 +1,16 @@
 // File: scripts/seed/users.seeder.ts
 import { supabase } from '../client.ts'
 
-type SeedAccount = { username: string; name: string; password: string; role: 'teacher' | 'admin' }
+// An account has EITHER a plain password or a bcrypt passwordHash (made with
+// `npm run hash-password`), so a teammate can hand over a hash instead of
+// the password itself and you never see what it is.
+type SeedAccount = {
+    username: string
+    name: string
+    password?: string
+    passwordHash?: string
+    role: 'teacher' | 'admin'
+}
 
 // Teacher demo accounts — throwaway demo data (same as your README already
 // documents), so these stay hardcoded.
@@ -26,8 +35,17 @@ function loadAdminAccounts(): SeedAccount[] {
     const raw = process.env.SEED_ADMIN_ACCOUNTS_JSON
     if (!raw) return DEFAULT_ADMIN_ACCOUNTS
     try {
-        const parsed = JSON.parse(raw) as { username: string; name: string; password: string }[]
+        const parsed = JSON.parse(raw) as { username: string; name: string; password?: string; passwordHash?: string }[]
         if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('must be a non-empty JSON array')
+        for (const a of parsed) {
+            if (!a.username || !a.name) throw new Error('every account needs a username and a name')
+            if (!!a.password === !!a.passwordHash) {
+                throw new Error(`${a.username}: give exactly one of "password" or "passwordHash"`)
+            }
+            if (a.passwordHash && !/^\$2[aby]\$\d\d\$.{53}$/.test(a.passwordHash)) {
+                throw new Error(`${a.username}: passwordHash isn't a bcrypt hash (it should look like $2b$12$...)`)
+            }
+        }
         return parsed.map((a) => ({ ...a, role: 'admin' as const }))
     } catch (err) {
         console.error(
@@ -59,7 +77,7 @@ async function createAccounts(accounts: SeedAccount[]) {
         const email = `${u.username}@basaquest.local`
         const { data, error } = await supabase.auth.admin.createUser({
             email,
-            password: u.password,
+            ...(u.passwordHash ? { password_hash: u.passwordHash } : { password: u.password }),
             email_confirm: true,
             user_metadata: { username: u.username, name: u.name },
         })

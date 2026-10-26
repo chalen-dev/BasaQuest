@@ -117,6 +117,53 @@ recording sentence sets. It deliberately does **not** run the normal
 Adding another admin later: add them to `SEED_ADMIN_ACCOUNTS_JSON` and run the
 command again (accounts that already exist just print an error and are skipped).
 
+### Letting a teammate choose a password you never see
+
+A teammate can send you a **password hash** instead of a password. A hash is a
+scrambled form of the password that Supabase accepts directly; you can create
+their account from it without ever knowing the password.
+
+**Easiest (no install):** send the teammate the single file
+`tools/hash-password.html`. They double-click it, which opens it in their
+browser, fill in the form and press **Make hash**. Two buttons then appear: **Copy line** (just the
+three lines) and **Copy message** (a ready-to-send note for the group chat
+that includes those lines). It uses the very same
+library and settings as the command below (bcryptjs, strength 12), runs
+entirely inside the browser, and its security policy blocks every network
+request, so the password can't leave the page. They can even turn off the
+internet first. Rebuild the file after upgrading bcryptjs with
+`npm run build:hash-tool`.
+
+**Or with the project installed**, on the teammate's computer:
+
+```powershell
+npm run hash-password
+```
+
+Either way you get three plain lines:
+
+```
+Username: johndoe
+Name: John Doe
+Password hash: $2b$12$...
+```
+
+They send you those lines (a private message, not a public channel). You turn
+them into one entry in `SEED_ADMIN_ACCOUNTS_JSON`, using `passwordHash` where a
+plain account would have `password` (each account uses one or the other, never both):
+
+```
+SEED_ADMIN_ACCOUNTS_JSON=[{"username":"chael","name":"Chael Lusaya","password":"..."},{"username":"johndoe","name":"John Doe","passwordHash":"$2b$12$..."}]
+```
+
+Then run `seed:cloud` as above. They log in with the password they typed.
+
+Notes: a hash is not the password, but anyone holding it can try to guess the
+password offline, so the password should be long and unique (the script
+requires at least 10 characters; a passphrase of several words is better).
+Changing a password later means making a new hash and updating the account
+(there is no change-password screen in the app).
+
 ## 6. Deploy the edge functions and set their secrets
 
 ```powershell

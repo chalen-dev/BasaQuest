@@ -13,6 +13,8 @@
     "word-images:import": "tsx scripts/word-images/import-word-images.ts",
     "word-images:copy": "tsx scripts/word-images/copy-bank.ts",
     "seed:cloud": "tsx scripts/seed/cloud.ts",
+    "hash-password": "tsx scripts/hash-password.ts",
+    "build:hash-tool": "node scripts/build-hash-tool.mjs",
     "db:reset": "supabase db reset",
     "db:fresh": "npm run storage:clear && npm run db:reset && npm run seed"
   },
@@ -36,6 +38,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "bcryptjs": "^3.0.3",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
