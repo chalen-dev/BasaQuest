@@ -1,7 +1,7 @@
 // File: scripts/word-images/import-word-images.ts
 // Fills the word_images table + word-images bucket from a CSV word list.
 //
-//   npm run word-images:import -- scripts/word-images/sample-words.csv [--dry-run] [--limit 20] [--force] [--exact] [--plurals]
+//   npm run word-images:import -- scripts/word-images/sample-words.csv [--dry-run] [--limit 20] [--force] [--exact] [--plurals] [--wikimedia]
 //
 // CSV columns: english_word,filipino_word  (filipino_word may be blank for
 // English-only rows). Pictures are found by the ENGLISH meaning — no open
@@ -27,8 +27,8 @@ type WordRow = { english: string; filipino: string; forms: string }
 type Found = {
     bytes: Uint8Array
     contentType: string
-    ext: 'png' | 'svg'
-    source: 'arasaac' | 'openmoji'
+    ext: 'png' | 'svg' | 'jpg'
+    source: 'arasaac' | 'openmoji' | 'wikimedia'
     credit: string
     sourceUrl: string
 }
@@ -131,6 +131,92 @@ async function findOpenMoji(term: string): Promise<Found | null> {
     return { bytes, contentType: 'image/svg+xml', ext: 'svg', source: 'openmoji', credit: OPENMOJI_CREDIT, sourceUrl }
 }
 
+// --wikimedia: last resort for words ARASAAC and OpenMoji don't have (mostly
+// Philippine things: jeepney, adobo, barong). Only files under a licence that
+// allows reuse with credit are accepted — CC0, public domain, CC BY and
+// CC BY-SA, never NC/ND — and the author, licence and file page are stored as
+// the credit. Photos are an automatic best guess: they land unreviewed.
+const WIKIMEDIA_AGENT = 'BasaQuestCapstone/1.0 (educational, non-commercial reading app)'
+const OK_LICENCE = /^(CC0|Public domain|PD|CC[ -]BY(-SA)?[ -]\d)/i
+const BAD_LICENCE = /\b(NC|ND)\b|GFDL|fair use|non-?commercial/i
+// Titles that are almost never the thing itself, plus anything unsuitable for
+// a children's reading app.
+const BAD_TITLE =
+    /\b(map|flag|logo|poster|diagram|stamp|banner|coat of arms|sign|screenshot|portrait|statue|nude|naked|sex|bikini|gay|lgbt|protest|rally|drawing of)\b/i
+
+type CommonsPage = {
+    title: string
+    index?: number
+    imageinfo?: {
+        thumburl?: string
+        thumbwidth?: number
+        thumbheight?: number
+        descriptionurl: string
+        extmetadata?: Record<string, { value: string }>
+    }[]
+}
+
+// Wikimedia asks bots to go slowly and answers "too many requests" (429) when
+// they don't. Wait between calls and retry a limited one, so a rate limit is
+// never mistaken for "no picture exists".
+async function wikimediaFetch(url: string): Promise<Response> {
+    for (let attempt = 1; ; attempt++) {
+        await new Promise((r) => setTimeout(r, 1200))
+        const res = await fetch(url, { headers: { 'User-Agent': WIKIMEDIA_AGENT } })
+        if (res.status !== 429 || attempt >= 5) return res
+        const wait = Number(res.headers.get('retry-after')) || 10 * attempt
+        console.log(`    (Wikimedia asked us to slow down, waiting ${wait}s)`)
+        await new Promise((r) => setTimeout(r, wait * 1000))
+    }
+}
+
+const stripHtml = (s: string) => s.replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim()
+
+async function findWikimedia(term: string): Promise<Found | null> {
+    const params = new URLSearchParams({
+        action: 'query',
+        format: 'json',
+        generator: 'search',
+        gsrsearch: `${term} filetype:bitmap|drawing`,
+        gsrnamespace: '6',
+        gsrlimit: '15',
+        prop: 'imageinfo',
+        iiprop: 'url|extmetadata',
+        iiurlwidth: '512',
+        iiextmetadatafilter: 'LicenseShortName|Artist',
+    })
+    const res = await wikimediaFetch(`https://commons.wikimedia.org/w/api.php?${params}`)
+    if (!res.ok) throw new Error(`Wikimedia search failed (${res.status}) for "${term}"`)
+    const json = (await res.json()) as { query?: { pages?: Record<string, CommonsPage> } }
+    const pages = Object.values(json.query?.pages ?? {}).sort((a, b) => (a.index ?? 99) - (b.index ?? 99))
+
+    const words = term.toLowerCase().split(/\s+/)
+    for (const page of pages) {
+        const info = page.imageinfo?.[0]
+        if (!info?.thumburl) continue
+        const title = page.title.replace(/^File:/, '').replace(/\.[a-z0-9]+$/i, '')
+        const lower = title.toLowerCase()
+        // The file name must mention the word, and not look like a map, sign...
+        if (!words.every((w) => lower.includes(w)) || BAD_TITLE.test(title)) continue
+        if ((info.thumbwidth ?? 0) < 300 || (info.thumbheight ?? 0) < 250) continue
+        const licence = stripHtml(info.extmetadata?.LicenseShortName?.value ?? '')
+        if (!OK_LICENCE.test(licence) || BAD_LICENCE.test(licence)) continue
+        const artist = stripHtml(info.extmetadata?.Artist?.value ?? '').slice(0, 120) || 'Unknown author'
+        const ext = /\.png$/i.test(info.thumburl) ? 'png' : 'jpg'
+        const res2 = await wikimediaFetch(info.thumburl)
+        if (!res2.ok) continue
+        return {
+            bytes: new Uint8Array(await res2.arrayBuffer()),
+            contentType: ext === 'png' ? 'image/png' : 'image/jpeg',
+            ext,
+            source: 'wikimedia',
+            credit: `"${title}" by ${artist}, ${licence}, via Wikimedia Commons`,
+            sourceUrl: info.descriptionurl,
+        }
+    }
+    return null
+}
+
 async function main() {
     const args = process.argv.slice(2)
     const csvPath = args.find((a) => !a.startsWith('--'))
@@ -141,6 +227,7 @@ async function main() {
     // its own keywords, never the search engine's loosest first guess.
     const exactOnly = args.includes('--exact')
     autoPlurals = args.includes('--plurals')
+    const useWikimedia = args.includes('--wikimedia')
     const limitIdx = args.indexOf('--limit')
     const limit = limitIdx >= 0 ? Number(args[limitIdx + 1]) : Infinity
 
@@ -188,7 +275,15 @@ async function main() {
             }
         }
 
-        const found = (await findArasaac(row.english, exactOnly)) ?? (await findOpenMoji(row.english))
+        const found =
+            (await findArasaac(row.english, exactOnly)) ??
+            (await findOpenMoji(row.english)) ??
+            (useWikimedia
+                ? await findWikimedia(row.english).catch((err: Error) => {
+                      console.log(`    ${err.message}`)
+                      return null
+                  })
+                : null)
         if (!found) {
             console.log(`  ✗ ${row.english}: no match`)
             missing.push(row)
