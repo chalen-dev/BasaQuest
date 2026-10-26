@@ -101,6 +101,7 @@ For EACH passage, produce:
    Only real proper names qualify. Ordinary words are NEVER names, even when capitalized at the start of a sentence, and a word that is both a name and a common word (e.g. "Maya", also a bird) counts as a name only when the passage uses it as one. If the passage has no names, return an empty array.
 
 Requirements:
+- Language: write ONLY in ${language}, including the coachTip. Do not mix in words from any other language${lang === 'fil' ? ' (no English words such as "school", "mother" or "happy"; use the Filipino word instead)' : ' (no Filipino or Tagalog words such as "nanay", "bahay" or "po")'}. Proper names of people and places are the only exception. If a word in the list is not in ${language}, still keep it as a target but do not add other words from its language.
 - Content: warm, wholesome, everyday, culturally familiar to a Filipino child (home, school, barangay, nature, family, friendship) — never scary, violent, or sad.
 - Plain, natural spoken rhythm — a child that age should be able to read each passage aloud comfortably. Never force an unnatural sentence just to cram in vocabulary.
 - Every word in the input list must appear as a target word in at least one passage you return.

@@ -43,6 +43,7 @@ Write the passage in ${language}. Requirements:
 - Reading level: ${spec.note}.
 - Content: warm, wholesome, culturally familiar to a Filipino child (home, barangay, school, sari-sari store, palengke, fiesta, nature, friendship, family) — never scary, violent, or sad.
 - Write in plain prose, natural spoken rhythm — avoid tongue-twisters, unusual proper names, or words a child that age wouldn't know how to pronounce.
+- Language: write ONLY in ${language}, in both the title and the passage. Do not mix in words from any other language${lang === 'fil' ? ' (no English words such as "school", "mother" or "happy"; use the Filipino word instead)' : ' (no Filipino or Tagalog words such as "nanay", "bahay" or "po")'}. Proper names of people and places are the only exception.
 - Give the passage a short, friendly title.
 
 Return ONLY the JSON object matching the response schema. No text outside the JSON.`

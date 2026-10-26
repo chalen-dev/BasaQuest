@@ -43,6 +43,7 @@ For EACH word in this list, produce:
 Words to cover, in order: ${JSON.stringify(words)}
 Requirements per item:
 - Content: warm, wholesome, everyday, culturally familiar to a Filipino child (home, school, barangay, nature, family, friendship) — never scary, violent, or sad.
+- Language: write ONLY in ${language}, sentence and coachTip alike. Do not mix in words from any other language${lang === 'fil' ? ' (no English words such as "school", "mother" or "happy"; use the Filipino word instead)' : ' (no Filipino or Tagalog words such as "nanay", "bahay" or "po")'}. Proper names of people and places are the only exception.
 - Plain, natural spoken rhythm — a child that age should be able to read the sentence aloud comfortably.
 - The sentence MUST contain the exact target word (matching case-insensitively is fine, but don't substitute a different form of the word).
 - "sentenceWords" is the sentence split into individual word tokens in reading order (punctuation can stay attached to its word, e.g. "bahay." is one token).
