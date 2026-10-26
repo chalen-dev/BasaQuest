@@ -7,12 +7,13 @@
 // replace or approve applies to all of its words at once.
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Eye, ImagePlus, Loader2, Pencil, Plus, Replace, Trash2, Undo2, X } from 'lucide-react'
+import { Check, Eye, FlaskConical, ImagePlus, Loader2, Pencil, Plus, Replace, Trash2, Undo2, X } from 'lucide-react'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
 import { SearchInput } from '../../../components/input/SearchInput'
 import { Pagination } from '../../../components/ui/Pagination'
 import { AdminSubNav } from '../_components/AdminSubNav'
+import { CueTester } from './CueTester'
 import {
     useAddPictureMutation,
     useAddWordToPictureMutation,
@@ -163,6 +164,7 @@ export default function WordImagesPage() {
     const [status, setStatus] = useState<StatusFilter>('review')
     const [page, setPage] = useState(0)
     const [adding, setAdding] = useState(false)
+    const [testing, setTesting] = useState(false)
     const [newEnglish, setNewEnglish] = useState('')
     const [newFilipino, setNewFilipino] = useState('')
     const [newFile, setNewFile] = useState<File | null>(null)
@@ -324,14 +326,25 @@ export default function WordImagesPage() {
                             </Link>
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => setAdding((a) => !a)}
-                        className="flex w-fit shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 active:translate-y-1 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
-                    >
-                        {adding ? <X size={16} /> : <Plus size={16} />}
-                        {adding ? 'Cancel' : 'Add picture'}
-                    </button>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                        <button
+                            type="button"
+                            aria-pressed={testing}
+                            onClick={() => setTesting((t) => !t)}
+                            className="flex w-fit cursor-pointer items-center gap-1.5 rounded-full border-2 border-violet-500/40 px-5 py-2.5 text-sm font-bold text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
+                        >
+                            <FlaskConical size={16} />
+                            {testing ? 'Close tester' : 'Test cue words'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setAdding((a) => !a)}
+                            className="flex w-fit cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 active:translate-y-1 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                        >
+                            {adding ? <X size={16} /> : <Plus size={16} />}
+                            {adding ? 'Cancel' : 'Add picture'}
+                        </button>
+                    </div>
                 </div>
 
                 {!isLoading && !error && groups.length > 0 && (
@@ -427,6 +440,8 @@ export default function WordImagesPage() {
                         </div>
                     </form>
                 )}
+
+                {testing && <CueTester groups={groups} />}
 
                 <div className="mt-5">
                     <SearchInput value={search} onChange={resetPage(setSearch)} label="Search" placeholder="Word…" />

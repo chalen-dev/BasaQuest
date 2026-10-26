@@ -43,17 +43,31 @@ export function contextAround(key: string, context: string[] | undefined) {
 // One row: use it. Several: the sense with the most cue words nearby, then the
 // one marked default, otherwise none (a wrong picture is worse than no picture).
 export function pickPicture<T extends { cues: string[]; is_default: boolean }>(rows: T[], nearby: string[]): T | null {
-    if (rows.length === 0) return null
-    if (rows.length === 1) return rows[0]
+    return explainPick(rows, nearby).pick
+}
+
+export type PickReason = 'only' | 'cues' | 'default' | 'none'
+
+// Same choice as pickPicture, plus why: which cue words each row matched. The
+// admin cue-word tester shows this so a wrong pick can be traced to its cues.
+export function explainPick<T extends { cues: string[]; is_default: boolean }>(
+    rows: T[],
+    nearby: string[],
+): { pick: T | null; reason: PickReason; matches: { row: T; matched: string[] }[] } {
     const near = new Set(nearby)
+    const matches = rows.map((row) => ({ row, matched: row.cues.filter((cue) => near.has(cue)) }))
+    if (rows.length === 0) return { pick: null, reason: 'none', matches }
+    if (rows.length === 1) return { pick: rows[0], reason: 'only', matches }
     let best: T | null = null
     let bestScore = 0
-    for (const row of rows) {
-        const score = row.cues.filter((cue) => near.has(cue)).length
+    for (const { row, matched } of matches) {
+        const score = matched.length
         if (score > bestScore || (score > 0 && score === bestScore && row.is_default && !best?.is_default)) {
             best = row
             bestScore = score
         }
     }
-    return best ?? rows.find((row) => row.is_default) ?? null
+    if (best) return { pick: best, reason: 'cues', matches }
+    const fallback = rows.find((row) => row.is_default) ?? null
+    return { pick: fallback, reason: fallback ? 'default' : 'none', matches }
 }
