@@ -89,13 +89,14 @@ export const RegisterPage: React.FC = () => {
 
     return (
         <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-6">
-            <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-gray-900/5 bg-white shadow-xl transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900">
+            <div className="relative z-10 w-full max-w-md overflow-hidden md:max-w-2xl rounded-3xl border border-gray-900/5 bg-white shadow-xl transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900">
                 <AuthHeaderBanner />
                 <div className="px-6 pb-6 pt-5">
                     <h1 className="mb-1 text-xl font-extrabold text-gray-900 transition-colors duration-300 dark:text-gray-50">{t.welcome}</h1>
                     <p className="mb-5 text-sm font-medium text-gray-500 transition-colors duration-300 dark:text-gray-400">{t.tagline}</p>
                     <AuthTabs active="register" labels={{ login: t.login, register: t.register }} />
-                    <form onSubmit={handleSubmit}>
+                    {/* One column on a phone; two columns on a wider screen so the form stays short. */}
+                    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
                         <TextInput
                             name="username"
                             label={t.username}
@@ -137,7 +138,7 @@ export const RegisterPage: React.FC = () => {
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="w-full rounded-full bg-orange-500 px-4 py-3.5 text-base font-bold text-white shadow-[0_4px_0_0_#c2410c] transition-[background-color,box-shadow,transform] duration-300 active:translate-y-1 active:shadow-[0_1px_0_0_#c2410c] disabled:opacity-60 dark:bg-orange-600 dark:shadow-[0_4px_0_0_#9a3412]"
+                            className="w-full rounded-full bg-orange-500 px-4 py-3.5 md:col-span-2 text-base font-bold text-white shadow-[0_4px_0_0_#c2410c] transition-[background-color,box-shadow,transform] duration-300 active:translate-y-1 active:shadow-[0_1px_0_0_#c2410c] disabled:opacity-60 dark:bg-orange-600 dark:shadow-[0_4px_0_0_#9a3412]"
                         >
                             {submitting ? t.submitting : t.submit}
                         </button>
