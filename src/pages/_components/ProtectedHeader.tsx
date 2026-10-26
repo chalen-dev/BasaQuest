@@ -46,6 +46,12 @@ const TAGLINE: Record<Lang, string> = {
     en: 'Learning Platform',
 }
 
+// The small label under the username, taken from the profile's role.
+const ROLE_LABEL: Record<Lang, Record<string, string>> = {
+    fil: { student: 'Estudyante', teacher: 'Guro', admin: 'Admin' },
+    en: { student: 'Student', teacher: 'Teacher', admin: 'Admin' },
+}
+
 const HEADER_STRINGS: Record<Lang, {
     logoutTitle: string
     logoutText: string
@@ -190,7 +196,9 @@ export default function ProtectedHeader() {
                         )}
                         <div className="hidden text-right leading-tight sm:block">
                             <div className="text-sm font-bold text-gray-900 dark:text-gray-50">{username}</div>
-                            <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Estudyante</div>
+                            <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                                {profile ? (ROLE_LABEL[lang][profile.role] ?? profile.role) : ''}
+                            </div>
                         </div>
                     </div>
                 </Tooltip>
