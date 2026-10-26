@@ -65,8 +65,10 @@ async function main() {
         const i = args.indexOf(flag)
         return i >= 0 ? args[i + 1] : undefined
     }
-    const fromFile = get('--from')
-    const toFile = get('--to')
+    // On Windows, npm can swallow the --from / --to flags and pass only their
+    // values, so two bare arguments (from, then to) are accepted as well.
+    const fromFile = get('--from') ?? args[0]
+    const toFile = get('--to') ?? args[1]
     if (!fromFile || !toFile) throw new Error('Usage: copy-bank.ts --from <env file> --to <env file>')
     if (fromFile === toFile) throw new Error('--from and --to are the same file.')
 
