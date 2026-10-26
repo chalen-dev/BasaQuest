@@ -13,16 +13,18 @@
 process.env.ENV_FILE ??= '.env.cloud.local'
 
 async function run() {
+    const { createAccounts } = await import('./users.seeder.ts')
+    const { seedTestStudents } = await import('./students.seeder.ts')
+    const { seedAssessmentAttempts } = await import('./assessment_attempts.seeder.ts')
+    // Loading the client reads the env file, so the password can only be checked after it.
+    const { supabase } = await import('../client.ts')
+
     const password = process.env.SEED_TEST_PASSWORD ?? ''
     if (password.length < 12 || password.toLowerCase() === 'basaquest') {
         throw new Error(
             'Set SEED_TEST_PASSWORD in your env file first: a private password of at least 12 characters (not "basaquest").',
         )
     }
-    const { createAccounts } = await import('./users.seeder.ts')
-    const { seedTestStudents } = await import('./students.seeder.ts')
-    const { seedAssessmentAttempts } = await import('./assessment_attempts.seeder.ts')
-    const { supabase } = await import('../client.ts')
 
     console.log(`Seeding test data into ${process.env.VITE_SUPABASE_URL}`)
     await createAccounts([
