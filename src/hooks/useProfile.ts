@@ -17,11 +17,15 @@ export type Profile = {
 
 export function useProfile() {
     const { user } = useAuth()
+    // Key the effect on the id, not the user object: Supabase hands out a new
+    // object whenever the tab regains focus or the token refreshes, and
+    // re-fetching then would flash the loading state and remount the page.
+    const userId = user?.id
     const [profile, setProfile] = useState<Profile | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        if (!user) {
+        if (!userId) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setProfile(null)
             setLoading(false)
@@ -32,7 +36,7 @@ export function useProfile() {
         supabase
             .from('profiles')
             .select('id, username, full_name, role, avatar_url, grade_level, section, teacher_id, is_non_reader')
-            .eq('id', user.id)
+            .eq('id', userId)
             .single()
             .then(({ data, error }) => {
                 if (cancelled) return
@@ -47,7 +51,7 @@ export function useProfile() {
         return () => {
             cancelled = true
         }
-    }, [user])
+    }, [userId])
 
     return { profile, loading }
 }
