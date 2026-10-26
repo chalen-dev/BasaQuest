@@ -10,15 +10,18 @@ type SeedAccount = {
     password?: string
     passwordHash?: string
     role: 'teacher' | 'admin'
+    // Test accounts are tagged is_test so they can be told apart from real
+    // ones and removed later (npm run unseed:testdata).
+    isTest?: boolean
 }
 
 // Teacher demo accounts — throwaway demo data (same as your README already
 // documents), so these stay hardcoded.
 const DEMO_TEACHERS: SeedAccount[] = [
-    { username: 'guro', name: 'Teacher Guro', password: 'basaquest', role: 'teacher' },
-    { username: 'maria', name: 'Maria Santos', password: 'basaquest', role: 'teacher' },
-    { username: 'ramon', name: 'Ramon Cruz', password: 'basaquest', role: 'teacher' },
-    { username: 'liza', name: 'Liza Reyes', password: 'basaquest', role: 'teacher' },
+    { username: 'guro', name: 'Teacher Guro', password: 'basaquest', role: 'teacher', isTest: true },
+    { username: 'maria', name: 'Maria Santos', password: 'basaquest', role: 'teacher', isTest: true },
+    { username: 'ramon', name: 'Ramon Cruz', password: 'basaquest', role: 'teacher', isTest: true },
+    { username: 'liza', name: 'Liza Reyes', password: 'basaquest', role: 'teacher', isTest: true },
 ]
 
 // Admin accounts are more sensitive, so real names/passwords come from an
@@ -72,7 +75,7 @@ export async function seedAdminsOnly() {
     await createAccounts(loadAdminAccounts())
 }
 
-async function createAccounts(accounts: SeedAccount[]) {
+export async function createAccounts(accounts: SeedAccount[]) {
     for (const u of accounts) {
         const email = `${u.username}@basaquest.local`
         const { data, error } = await supabase.auth.admin.createUser({
@@ -93,6 +96,7 @@ async function createAccounts(accounts: SeedAccount[]) {
             .update({
                 full_name: u.name,
                 role: u.role,
+                ...(u.isTest ? { is_test: true } : {}),
             })
             .eq('id', data.user!.id)
         console.log(profileError ? `  ✗ profile for ${u.username}: ${profileError.message}` : `  ✓ ${u.username} (${u.role})`)

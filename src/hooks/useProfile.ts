@@ -13,6 +13,8 @@ export type Profile = {
     section: string | null
     teacher_id: string | null
     is_non_reader: boolean
+    // Test accounts (and their pupils) carry this tag; see npm run seed:testdata.
+    is_test: boolean
 }
 
 export function useProfile() {
@@ -35,7 +37,7 @@ export function useProfile() {
         setLoading(true)
         supabase
             .from('profiles')
-            .select('id, username, full_name, role, avatar_url, grade_level, section, teacher_id, is_non_reader')
+            .select('id, username, full_name, role, avatar_url, grade_level, section, teacher_id, is_non_reader, is_test')
             .eq('id', userId)
             .single()
             .then(({ data, error }) => {

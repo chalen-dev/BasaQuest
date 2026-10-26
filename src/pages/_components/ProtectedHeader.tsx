@@ -180,6 +180,14 @@ export default function ProtectedHeader() {
                         <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-orange-500 font-bold text-white shadow-sm dark:border-gray-900">
                             {username[0]?.toUpperCase()}
                         </div>
+                        {profile?.is_test && (
+                            <span
+                                title="Test account: its data is fake and will be removed"
+                                className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-gray-900"
+                            >
+                                Test
+                            </span>
+                        )}
                         <div className="hidden text-right leading-tight sm:block">
                             <div className="text-sm font-bold text-gray-900 dark:text-gray-50">{username}</div>
                             <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Estudyante</div>

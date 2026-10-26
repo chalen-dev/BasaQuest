@@ -13,6 +13,8 @@
     "word-images:import": "tsx scripts/word-images/import-word-images.ts",
     "word-images:copy": "tsx scripts/word-images/copy-bank.ts",
     "seed:cloud": "tsx scripts/seed/cloud.ts",
+    "seed:testdata": "tsx scripts/seed/test-data.ts",
+    "unseed:testdata": "tsx scripts/seed/remove-test-data.ts",
     "hash-password": "tsx scripts/hash-password.ts",
     "build:hash-tool": "node scripts/build-hash-tool.mjs",
     "db:reset": "supabase db reset",

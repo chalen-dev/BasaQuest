@@ -6,12 +6,16 @@
 // attempts and fake fine-tuning students that `npm run seed` creates —
 // those use a public password and invented pupils.
 //
-//   $env:ENV_FILE=".env.cloud.local"; npm run seed:cloud
-import { seedAdminsOnly } from './users.seeder.ts'
-import { seedSentenceSets } from './sentence_sets.seeder.ts'
-import { seedSentences } from './sentences.seeder.ts'
+//   npm run seed:cloud
+//
+// Reads .env.cloud.local by default (set ENV_FILE to use another file).
 
 async function run() {
+    // Chosen before the seeders load, because scripts/client.ts reads ENV_FILE on import.
+    process.env.ENV_FILE ??= '.env.cloud.local'
+    const { seedAdminsOnly } = await import('./users.seeder.ts')
+    const { seedSentenceSets } = await import('./sentence_sets.seeder.ts')
+    const { seedSentences } = await import('./sentences.seeder.ts')
     await seedAdminsOnly()
     await seedSentenceSets()
     await seedSentences()

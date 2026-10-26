@@ -168,7 +168,7 @@ async function uploadPlaceholderRecording(studentId: string, attemptId: string, 
     }
     return path
 }
-export async function seedAssessmentAttempts() {
+export async function seedAssessmentAttempts(teacherUsername = 'guro') {
     console.log('Seeding assessment attempts...')
     let placeholderRecording: Buffer | null = null
     try {
@@ -181,10 +181,10 @@ export async function seedAssessmentAttempts() {
     const { data: teacher, error: teacherError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('username', 'guro')
+        .eq('username', teacherUsername)
         .single()
     if (teacherError || !teacher) {
-        console.error(`  ✗ couldn't find teacher "guro": ${teacherError?.message ?? 'not found'} — seed users first`)
+        console.error(`  ✗ couldn't find teacher "${teacherUsername}": ${teacherError?.message ?? 'not found'} — seed users first`)
         return
     }
     const { data: students, error: studentsError } = await supabase
@@ -198,7 +198,7 @@ export async function seedAssessmentAttempts() {
         return
     }
     if (!students || students.length === 0) {
-        console.error('  ✗ no students found under "guro" — seed students first')
+        console.error(`  ✗ no students found under "${teacherUsername}" — seed students first`)
         return
     }
     const studentIds = students.map((s) => s.id)

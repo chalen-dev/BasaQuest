@@ -243,6 +243,48 @@ Copy your new website address (for example
 
 ---
 
+## Test accounts on the real site
+
+While you are still testing, you can keep a test teacher and some test pupils
+on the deployed site, in the same database as the real accounts. They are
+**tagged** (`profiles.is_test = true`) so you can tell them apart, and one
+command removes all of them before real classes start.
+
+```powershell
+npm run seed:testdata               # create the test teachers, pupils and fake attempts
+npm run unseed:testdata             # preview what would be removed
+npm run unseed:testdata -- --yes    # remove all of it
+```
+
+- Add `SEED_TEST_PASSWORD=<a private password, 12+ characters>` to
+  `.env.cloud.local`. It must not be `basaquest`; the script refuses to run
+  without a private one. The demo password is public in this repo, so it is never
+  used on the real site.
+- Accounts are named `test-guro`, `test-ramon`, `test-ella` and so on, so
+  they cannot collide with a real person's username. **No test admin is
+  created**; admins are only the real ones from `seed:cloud`.
+- Tagging follows the teacher: any pupil linked to a test teacher, including
+  ones the test teacher creates in the app, is tagged test automatically. The
+  tag can only be changed by the server, never from a browser.
+- Test accounts show a yellow **TEST** badge in the header.
+- Removing a test account also removes its attempts, assignments, reports and
+  recording files. Real accounts are never touched.
+- Run `npx supabase db push` **before** deploying the website that reads the
+  tag (the migration `add_is_test_to_profiles`), or logins will fail until you
+  do. The full `npm run seed` now refuses to run against anything but the
+  local stack.
+
+**Not done yet: hiding test and real data from each other.** The tag only
+labels data. Today the database lets every signed-in user read every profile
+("Users can view all profiles"), so a test teacher could still see real names
+and the other way round. Making test and real exclusive means narrowing that
+rule and the rules on attempts and recordings by the `is_test` group, and
+should be done together with the planned teacher-to-teacher features. Until
+then, do not put real pupils' data on a site that test accounts can log in to.
+Pictures stay shared by design.
+
+---
+
 ## Having your groupmate review pictures
 
 1. Give them the website address and the admin username and password you

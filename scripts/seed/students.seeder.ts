@@ -28,11 +28,27 @@ const DEMO_STUDENTS = [
     { username: 'grace', name: 'Grace Uy', teacherUsername: 'guro', gradeLevel: 3, section: 'Sampaguita', isNonReader: false },
 ]
 
+type DemoStudent = (typeof DEMO_STUDENTS)[number]
+
 export async function seedStudents() {
     console.log('Seeding students...')
+    await createStudents(DEMO_STUDENTS, 'basaquest')
+}
+
+// A small set for the deployed project: usernames prefixed "test-" so they can
+// never collide with a real pupil's, all under the test teacher, with the
+// private password the caller supplies. They are tagged is_test automatically
+// (a pupil inherits the flag from its teacher in the database).
+export async function seedTestStudents(password: string) {
+    console.log('Seeding test students...')
+    const list = DEMO_STUDENTS.slice(0, 8).map((s) => ({ ...s, username: `test-${s.username}`, teacherUsername: 'test-guro' }))
+    await createStudents(list, password)
+}
+
+async function createStudents(students: DemoStudent[], password: string) {
     // Resolve each distinct teacher username -> profile id once, instead of
     // hitting the DB per-student for the same teacher.
-    const teacherUsernames = [...new Set(DEMO_STUDENTS.map((s) => s.teacherUsername))]
+    const teacherUsernames = [...new Set(students.map((s) => s.teacherUsername))]
     const { data: teachers, error: teacherLookupError } = await supabase
         .from('profiles')
         .select('id, username')
@@ -42,7 +58,7 @@ export async function seedStudents() {
         return
     }
     const teacherIdByUsername = new Map((teachers ?? []).map((t) => [t.username, t.id]))
-    for (const s of DEMO_STUDENTS) {
+    for (const s of students) {
         const teacherId = teacherIdByUsername.get(s.teacherUsername)
         if (!teacherId) {
             console.error(`  ✗ ${s.username}: teacher "${s.teacherUsername}" not found — seed users first`)
@@ -51,7 +67,7 @@ export async function seedStudents() {
         const email = `${s.username}@basaquest.local`
         const { data, error } = await supabase.auth.admin.createUser({
             email,
-            password: 'basaquest',
+            password,
             email_confirm: true,
             user_metadata: { username: s.username, name: s.name },
         })
