@@ -1,0 +1,49 @@
+english_word,filipino_word,english_forms,sense,cues,default,arasaac_id
+top,trumpo,tops,spinning toy,spin;spinning;spun;toy;toys;trumpo;ikot;paikot;laruan,,8663
+top,tansan,tops,bottle cap,bottle;bottles;cap;soda;opener;tansan;bote,,16601
+top,takip,tops,lid,lid;pot;jar;cup;cover;covered;takip;kaldero;garapon;baso,,27395
+top,tuktok,tops,mountain top,mountain;mountains;hill;hills;climb;climbed;climbing;summit;peak;volcano;bundok;burol;akyat;umakyat,,20391
+bat,paniki,bats,animal bat,wings;wing;flies;night;cave;dark;sleeps;upside;paniki;pakpak;gabi;kuweba,,2903
+bat,pamalo,bats,baseball bat,baseball;ball;hit;swing;swung;game;pitcher;batter;pamalo;bola;palo,,8501
+light,ilaw,lights,lamp,lamp;bulb;switch;turn;turned;dark;ilaw;bombilya;lampara;madilim,default,8619
+light,magaan,,lightweight,heavy;weigh;weighs;weight;carry;carried;lift;lifted;feather;easy;magaan;mabigat;buhatin;balahibo,,4679
+mouse,daga,mice;mouses,animal mouse,cheese;cat;tiny;squeak;hole;hide;mice;daga;keso;pusa;butas,default,2546
+mouse,mouse,mouses,computer mouse,computer;click;clicked;screen;cursor;laptop;keyboard;kompyuter,,2820
+fan,bentilador,fans,electric fan,electric;blow;blows;wind;hot;air;cool;ceiling;spin;ventilator;bentilador;hangin;init;malamig,default,2612
+fan,pamaypay,,hand fan,hand;fold;folding;wave;waved;dance;dancer;pamaypay;kamay;sayaw,,6871
+ring,singsing,rings,finger ring,finger;wear;wore;gold;silver;diamond;wedding;marry;jewelry;singsing;daliri;ginto;kasal,default,6900
+ring,,rang;ringing;rung;rings,ring sound,bell;doorbell;door;phone;telephone;alarm;sound;loud;kampana;telepono;tunog;pinto,,10171
+watch,relo,watches,wristwatch,wrist;time;hour;wear;wore;clock;relo;oras;pulso,,2549
+watch,manood;panoorin;nanonood,watched;watching,look at,tv;television;movie;movies;show;shows;birds;carefully;closely;stars;game;parade;telebisyon;pelikula;palabas;ibon;bituin,,6564
+nail,pako,nails,hardware nail,hammer;hammered;wood;wall;board;hang;hung;carpenter;iron;pako;martilyo;kahoy;dingding;karpintero,,8306
+nail,kuko,nails,fingernail,finger;fingers;toe;cut;polish;bite;bit;clip;long;trim;kuko;daliri;putol;gupit;mahaba,,2783
+bark,tahol,barks;barked;barking,dog bark,dog;dogs;puppy;woof;loud;stranger;night;aso;tuta;malakas,,7139
+bark,,,tree bark,tree;trees;trunk;rough;brown;peel;peeled;wood;puno;magaspang;kahoy,,39651
+bow,laso,bows,ribbon bow,ribbon;hair;gift;pink;red;girl;tie;tied;present;laso;buhok;regalo,,2946
+bow,,bows,archery bow,arrow;arrows;archer;shoot;shot;target;hunter;pana;mamamana,,5386
+bow,yumuko,bowed;bowing;bows,bend over,respect;king;queen;audience;stage;polite;greet;greeting;thank;performance;yumuko;paggalang;hari;reyna,,39136
+seal,,seals,animal seal,sea;ocean;swim;fish;ice;arctic;cold;waves;dagat;isda;yelo,default,2397
+seal,selyo,seals,stamp seal,stamp;stamped;letter;envelope;wax;official;document;mail;paper;selyo;sobre;liham;dokumento,,7243
+spring,tagsibol,springs,season,flowers;flower;bloom;rain;season;summer;winter;autumn;warm;april;bulaklak;ulan;panahon,default,5553
+spring,bukal,springs,water spring,water;river;fresh;drink;hot;rocks;mountain;stream;flowing;tubig;ilog;malinis;bundok,,24154
+spring,,springs,coil,bed;mattress;toy;bounce;bouncing;metal;jump;coil;kama;kutson;laruan;talbog,,28563
+star,bituin,stars,night star,night;sky;twinkle;moon;space;shine;shining;wish;bright;gabi;langit;buwan;kislap,default,2752
+star,,stars,star shape,shape;draw;drew;drawing;sticker;paper;cut;points;pointed;five;gold;hugis;iguhit;papel,,4644
+trunk,,trunks,tree trunk,tree;trees;bark;wood;branches;log;cut;forest;climb;puno;kahoy;sanga;gubat,,7819
+trunk,,trunks,car trunk,car;luggage;bags;boot;drive;groceries;kotse;maleta;gamit,,10332
+chest,baul,chests,treasure chest,treasure;pirate;pirates;gold;coins;key;buried;jewels;map;kayamanan;pirata;ginto;susi,,5966
+chest,dibdib,chests,body chest,pain;heart;breathe;breath;cough;hurt;hand;body;ribs;sakit;puso;hininga;ubo;katawan,,2853
+chest,,chests,chest of drawers,clothes;drawer;drawers;bedroom;furniture;socks;damit;kwarto;kasangkapan,,16281
+crane,,cranes,construction crane,building;construction;lift;heavy;tower;machine;site;worker;gusali;konstruksyon;mabigat;makina,,3341
+crane,,cranes,bird crane,bird;birds;fly;wings;lake;white;pond;feathers;legs;wing;ibon;pakpak;lawa;puti,,17245
+orange,kahel;dalandan,oranges,orange fruit,eat;juice;peel;fruit;sweet;tree;seeds;slice;apple;banana;kainin;katas;prutas;matamis;balat,,2483
+orange,kahel,,orange color,color;colour;colors;red;yellow;paint;crayon;shirt;wearing;bright;dress;sunset;kulay;pula;dilaw;pintura;damit,,2888
+pen,bolpen;panulat;pluma,pens,writing pen,write;wrote;paper;ink;notebook;sign;signed;school;writing;sulat;papel;tinta;kuwaderno;paaralan,default,2282
+pen,kulungan,pens,animal pen,pig;pigs;chickens;chicken;farm;animals;fence;sheep;cow;goat;corral;baboy;manok;bukid;hayop;bakod,,23979
+rock,,rocks,stone,stone;stones;hard;gray;grey;mountain;throw;threw;river;heavy;bato;matigas;bundok;ilog,default,6594
+rock,,rocked;rocking;rocks,rocking,baby;cradle;chair;lullaby;sleep;swing;gently;sanggol;duyan;upuan;tulog,,29754
+scale,timbangan,scales,weighing scale,weigh;weight;kilos;kilo;pounds;bathroom;kitchen;heavy;weighed;timbang;bigat,default,31284
+scale,,scales,climb a wall,wall;mountain;ladder;cliff;climb;climbed;fortress;pader;bundok;hagdan,,26814
+stamp,selyo,stamps,postage stamp,letter;envelope;mail;post;collect;collection;collector;postcard;koreo;sobre;liham,,2802
+stamp,,stamps;stamped;stamping,rubber stamp,ink;rubber;paper;document;press;official;pressed;teacher;tinta;goma;papel;guro,,10324
+bill,,bills,invoice,pay;paid;electricity;water;restaurant;waiter;total;cost;expensive;money;bayad;kuryente;gastos;pera;resibo,,5995
