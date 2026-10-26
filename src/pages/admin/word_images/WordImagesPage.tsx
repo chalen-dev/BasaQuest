@@ -1,12 +1,13 @@
 // File: src/pages/admin/word_images/WordImagesPage.tsx
 // Admin screen for the word pictures shown in the Reading Coach notebook:
-// browse everything the import script (scripts/word-images) loaded, replace
-// a wrong picture with your own upload, delete one, or add a picture for a
-// new word. A card is one picture file and every word that shares it
-// (e.g. mango + mangga), so replacing fixes all of its words at once.
+// review what the import scripts loaded (approve or send back), fix a
+// picture's words, replace it with your own upload, delete it, preview it
+// exactly as a pupil sees it, or add a picture for a new word. A card is one
+// picture file and every word that shares it (e.g. mango + mangga), so a
+// replace or approve applies to all of its words at once.
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ImagePlus, Loader2, Replace, Trash2, Plus, X } from 'lucide-react'
+import { Check, Eye, ImagePlus, Loader2, Pencil, Plus, Replace, Trash2, Undo2, X } from 'lucide-react'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
 import { SearchInput } from '../../../components/input/SearchInput'
@@ -14,8 +15,11 @@ import { Pagination } from '../../../components/ui/Pagination'
 import { AdminSubNav } from '../_components/AdminSubNav'
 import {
     useAddPictureMutation,
+    useAddWordToPictureMutation,
     useDeletePictureMutation,
+    useRemoveWordMutation,
     useReplacePictureMutation,
+    useSetReviewedMutation,
     useWordImageGroupsQuery,
     type PictureGroup,
 } from '../_hooks/useWordImages.ts'
@@ -24,6 +28,7 @@ const PAGE_SIZE = 20
 
 type LanguageFilter = 'all' | 'en' | 'fil'
 type SourceFilter = 'all' | 'arasaac' | 'openmoji' | 'wikimedia' | 'upload'
+type StatusFilter = 'review' | 'reviewed' | 'all'
 
 const LANGUAGE_CHIPS: { key: LanguageFilter; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -48,6 +53,17 @@ const chipClass = (active: boolean) =>
 const inputClass =
     'w-full rounded-xl border-2 border-gray-900/10 bg-white px-3 py-2 text-sm font-semibold text-gray-900 outline-none focus:border-teal-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-50'
 
+const iconButtonClass =
+    'flex cursor-pointer items-center justify-center rounded-full border-2 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50'
+
+// Where the "Preview in coach" button sends you: the first word on the card,
+// with its language so the preview looks the picture up the same way the
+// coach does.
+function previewUrl(g: PictureGroup): string {
+    const w = g.words.find((x) => x.language === 'en') ?? g.words[0]
+    return `/admin/word-images/preview?word=${encodeURIComponent(w.word)}&lang=${w.language}&from=word-images`
+}
+
 export default function WordImagesPage() {
     const { theme } = useTheme()
     const isDark = theme === 'dark'
@@ -56,10 +72,14 @@ export default function WordImagesPage() {
     const addMutation = useAddPictureMutation()
     const replaceMutation = useReplacePictureMutation()
     const deleteMutation = useDeletePictureMutation()
+    const reviewedMutation = useSetReviewedMutation()
+    const addWordMutation = useAddWordToPictureMutation()
+    const removeWordMutation = useRemoveWordMutation()
 
     const [search, setSearch] = useState('')
     const [language, setLanguage] = useState<LanguageFilter>('all')
     const [source, setSource] = useState<SourceFilter>('all')
+    const [status, setStatus] = useState<StatusFilter>('review')
     const [page, setPage] = useState(0)
     const [adding, setAdding] = useState(false)
     const [newEnglish, setNewEnglish] = useState('')
@@ -67,6 +87,9 @@ export default function WordImagesPage() {
     const [newFile, setNewFile] = useState<File | null>(null)
     const [newCredit, setNewCredit] = useState('')
     const [formError, setFormError] = useState('')
+    const [editingPath, setEditingPath] = useState<string | null>(null)
+    const [extraWord, setExtraWord] = useState('')
+    const [extraLang, setExtraLang] = useState<'en' | 'fil'>('en')
     const replaceInputRef = useRef<HTMLInputElement>(null)
     const replaceTarget = useRef<PictureGroup | null>(null)
     const [busyPath, setBusyPath] = useState<string | null>(null)
@@ -74,18 +97,24 @@ export default function WordImagesPage() {
     const q = search.trim().toLowerCase()
     const filtered = groups.filter(
         (g) =>
+            (status === 'all' || (status === 'review' ? !g.reviewed : g.reviewed)) &&
             (source === 'all' || g.source === source) &&
             (language === 'all' || g.words.some((w) => w.language === language)) &&
             (!q || g.words.some((w) => w.word.includes(q))),
     )
+    const reviewedCount = groups.filter((g) => g.reviewed).length
     const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
     const safePage = Math.min(page, pageCount - 1)
     const visible = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
+    const visibleUnreviewed = visible.filter((g) => !g.reviewed)
 
     const resetPage = <T,>(setter: (v: T) => void) => (v: T) => {
         setter(v)
         setPage(0)
     }
+
+    const fail = (err: unknown, fallback: string) =>
+        showToast(err instanceof Error ? err.message : fallback, 'error', isDark)
 
     const startReplace = (group: PictureGroup) => {
         replaceTarget.current = group
@@ -102,7 +131,7 @@ export default function WordImagesPage() {
             await replaceMutation.mutateAsync({ group, file, credit: '' })
             showToast('Picture replaced.', 'success', isDark, { timer: 1500 })
         } catch (err) {
-            showToast(err instanceof Error ? err.message : 'Failed to replace the picture.', 'error', isDark)
+            fail(err, 'Failed to replace the picture.')
         } finally {
             setBusyPath(null)
         }
@@ -123,9 +152,36 @@ export default function WordImagesPage() {
             await deleteMutation.mutateAsync(group)
             showToast('Picture deleted.', 'success', isDark, { timer: 1200 })
         } catch (err) {
-            showToast(err instanceof Error ? err.message : 'Failed to delete the picture.', 'error', isDark)
+            fail(err, 'Failed to delete the picture.')
         } finally {
             setBusyPath(null)
+        }
+    }
+
+    const setReviewed = async (paths: string[], reviewed: boolean) => {
+        try {
+            await reviewedMutation.mutateAsync({ imagePaths: paths, reviewed })
+        } catch (err) {
+            fail(err, 'Failed to update the review status.')
+        }
+    }
+
+    const handleAddWord = async (group: PictureGroup) => {
+        if (!extraWord.trim()) return
+        try {
+            await addWordMutation.mutateAsync({ group, language: extraLang, word: extraWord })
+            setExtraWord('')
+            showToast('Word added to this picture.', 'success', isDark, { timer: 1200 })
+        } catch (err) {
+            fail(err, 'Failed to add the word.')
+        }
+    }
+
+    const handleRemoveWord = async (group: PictureGroup, wordId: string) => {
+        try {
+            await removeWordMutation.mutateAsync({ group, wordId })
+        } catch (err) {
+            fail(err, 'Failed to remove the word.')
         }
     }
 
@@ -174,8 +230,8 @@ export default function WordImagesPage() {
                     <div>
                         <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">Word pictures</h1>
                         <p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-300">
-                            Pictures shown in the Reading Coach word notebook. Replace a wrong one with your own, or
-                            add a picture for a word that has none.{' '}
+                            Review the pictures shown in the Reading Coach word notebook: approve the good ones, fix
+                            the words on a picture, replace a wrong one, or preview it as a pupil sees it.{' '}
                             <Link to="/credits" className="font-bold text-teal-700 hover:underline dark:text-teal-300">
                                 View picture credits
                             </Link>
@@ -184,12 +240,31 @@ export default function WordImagesPage() {
                     <button
                         type="button"
                         onClick={() => setAdding((a) => !a)}
-                        className="flex w-fit cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 active:translate-y-1 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                        className="flex w-fit shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 active:translate-y-1 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
                     >
                         {adding ? <X size={16} /> : <Plus size={16} />}
                         {adding ? 'Cancel' : 'Add picture'}
                     </button>
                 </div>
+
+                {!isLoading && !error && groups.length > 0 && (
+                    <div className="mt-4">
+                        <div className="flex items-center justify-between text-sm font-bold text-gray-700 dark:text-gray-200">
+                            <span>
+                                {reviewedCount} of {groups.length} reviewed
+                            </span>
+                            <span className="text-gray-500 dark:text-gray-400">
+                                {groups.length - reviewedCount} left
+                            </span>
+                        </div>
+                        <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-gray-900/10 dark:bg-gray-100/10">
+                            <div
+                                className="h-full rounded-full bg-teal-500 transition-[width] duration-300"
+                                style={{ width: `${(reviewedCount / groups.length) * 100}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {adding && (
                     <form
@@ -253,6 +328,25 @@ export default function WordImagesPage() {
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
                     <div className="flex flex-wrap items-center gap-2">
+                        {(
+                            [
+                                ['review', 'Needs review'],
+                                ['reviewed', 'Reviewed'],
+                                ['all', 'Everything'],
+                            ] as [StatusFilter, string][]
+                        ).map(([key, label]) => (
+                            <button
+                                key={key}
+                                type="button"
+                                aria-pressed={status === key}
+                                onClick={() => resetPage(setStatus)(key)}
+                                className={chipClass(status === key)}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
                         {LANGUAGE_CHIPS.map((c) => (
                             <button
                                 key={c.key}
@@ -280,8 +374,23 @@ export default function WordImagesPage() {
                     </div>
                 </div>
                 {!isLoading && !error && (
-                    <div className="mt-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        {filtered.length} picture{filtered.length === 1 ? '' : 's'}
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                        <button
+                            type="button"
+                            disabled={visibleUnreviewed.length === 0 || reviewedMutation.isPending}
+                            onClick={() =>
+                                setReviewed(
+                                    visibleUnreviewed.map((g) => g.imagePath),
+                                    true,
+                                )
+                            }
+                            className="flex cursor-pointer items-center gap-1.5 rounded-full border-2 border-teal-500/40 px-4 py-1.5 text-sm font-bold text-teal-700 hover:bg-teal-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-teal-300"
+                        >
+                            <Check size={15} /> Approve all {visibleUnreviewed.length} on this page
+                        </button>
+                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                            {filtered.length} picture{filtered.length === 1 ? '' : 's'}
+                        </span>
                     </div>
                 )}
             </section>
@@ -298,31 +407,47 @@ export default function WordImagesPage() {
                 <p className="rounded-2xl border-2 border-dashed border-gray-900/10 p-7 text-center text-base font-semibold text-gray-500 dark:border-gray-100/10 dark:text-gray-400">
                     {groups.length === 0
                         ? 'No word pictures yet. Run the import script or add one above.'
-                        : 'No pictures match this search.'}
+                        : status === 'review' && !q && language === 'all' && source === 'all'
+                          ? 'Everything has been reviewed. 🎉'
+                          : 'No pictures match this search.'}
                 </p>
             ) : (
                 <>
                     <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                         {visible.map((g) => {
                             const busy = busyPath === g.imagePath
+                            const editing = editingPath === g.imagePath
                             return (
                                 <li
                                     key={g.imagePath}
-                                    className="flex flex-col gap-3 rounded-2xl border-2 border-gray-900/10 bg-white p-3 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
+                                    className={`flex flex-col gap-3 rounded-2xl border-2 bg-white p-3 shadow-sm dark:bg-gray-900 ${
+                                        g.reviewed
+                                            ? 'border-teal-500/40'
+                                            : 'border-gray-900/10 dark:border-gray-100/10'
+                                    }`}
                                 >
-                                    <div className="flex h-36 items-center justify-center overflow-hidden rounded-xl bg-gray-900/5 dark:bg-gray-100/5">
+                                    <Link
+                                        to={previewUrl(g)}
+                                        title="Preview in the Reading Coach"
+                                        className="relative flex h-36 items-center justify-center overflow-hidden rounded-xl bg-gray-900/5 dark:bg-gray-100/5"
+                                    >
                                         <img
                                             src={g.url}
                                             alt={g.words.map((w) => w.word).join(', ')}
                                             loading="lazy"
                                             className="h-full w-full object-contain p-2"
                                         />
-                                    </div>
+                                        {g.reviewed && (
+                                            <span className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-teal-500 text-white">
+                                                <Check size={14} />
+                                            </span>
+                                        )}
+                                    </Link>
                                     <div className="flex flex-wrap gap-1.5">
                                         {g.words.map((w) => (
                                             <span
                                                 key={w.id}
-                                                className={`rounded-full px-2.5 py-0.5 text-sm font-bold ${
+                                                className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-bold ${
                                                     w.language === 'en'
                                                         ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
                                                         : 'bg-teal-500/15 text-teal-700 dark:text-teal-300'
@@ -330,34 +455,115 @@ export default function WordImagesPage() {
                                                 title={w.language === 'en' ? 'English' : 'Filipino'}
                                             >
                                                 {w.word}
+                                                {editing && (
+                                                    <button
+                                                        type="button"
+                                                        aria-label={`Remove ${w.word}`}
+                                                        onClick={() => handleRemoveWord(g, w.id)}
+                                                        className="cursor-pointer rounded-full hover:bg-rose-500/20"
+                                                    >
+                                                        <X size={13} />
+                                                    </button>
+                                                )}
                                             </span>
                                         ))}
                                     </div>
+                                    {editing && (
+                                        <div className="flex gap-1.5">
+                                            <input
+                                                value={extraWord}
+                                                onChange={(e) => setExtraWord(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault()
+                                                        void handleAddWord(g)
+                                                    }
+                                                }}
+                                                placeholder="Add a word"
+                                                className={`${inputClass} min-w-0 flex-1 !py-1`}
+                                            />
+                                            <select
+                                                value={extraLang}
+                                                onChange={(e) => setExtraLang(e.target.value as 'en' | 'fil')}
+                                                aria-label="Language of the new word"
+                                                className={`${inputClass} !w-auto !px-2 !py-1`}
+                                            >
+                                                <option value="en">EN</option>
+                                                <option value="fil">FIL</option>
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleAddWord(g)}
+                                                aria-label="Add word"
+                                                className={`${iconButtonClass} border-teal-500/40 text-teal-700 hover:bg-teal-500/10 dark:text-teal-300`}
+                                            >
+                                                <Plus size={15} />
+                                            </button>
+                                        </div>
+                                    )}
                                     <span
                                         className="text-xs font-semibold text-gray-500 dark:text-gray-400"
                                         title={g.credit ?? undefined}
                                     >
                                         {SOURCE_LABEL[g.source]}
                                     </span>
-                                    <div className="mt-auto flex gap-2">
+                                    <div className="mt-auto flex flex-col gap-2">
+                                        <button
+                                            type="button"
+                                            disabled={busy || reviewedMutation.isPending}
+                                            onClick={() => setReviewed([g.imagePath], !g.reviewed)}
+                                            className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50 ${
+                                                g.reviewed
+                                                    ? 'border-2 border-gray-900/15 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/20 dark:text-gray-300'
+                                                    : 'bg-teal-500 text-white hover:bg-teal-600 dark:bg-teal-600'
+                                            }`}
+                                        >
+                                            {g.reviewed ? <Undo2 size={15} /> : <Check size={15} />}
+                                            {g.reviewed ? 'Undo review' : 'Approve'}
+                                        </button>
                                         <button
                                             type="button"
                                             disabled={busy}
                                             onClick={() => startReplace(g)}
-                                            className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full border-2 border-teal-500/40 px-3 py-1.5 text-sm font-bold text-teal-700 hover:bg-teal-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-teal-300"
+                                            className={`${iconButtonClass} gap-1.5 border-teal-500/40 text-sm font-bold text-teal-700 hover:bg-teal-500/10 dark:text-teal-300`}
                                         >
                                             {busy ? <Loader2 size={15} className="animate-spin" /> : <Replace size={15} />}
                                             Replace
                                         </button>
-                                        <button
-                                            type="button"
-                                            disabled={busy}
-                                            onClick={() => handleDelete(g)}
-                                            aria-label="Delete picture"
-                                            className="flex cursor-pointer items-center justify-center rounded-full border-2 border-rose-500/40 px-3 py-1.5 text-rose-600 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-400"
-                                        >
-                                            <Trash2 size={15} />
-                                        </button>
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setEditingPath(editing ? null : g.imagePath)
+                                                    setExtraWord('')
+                                                }}
+                                                aria-label="Edit words"
+                                                aria-pressed={editing}
+                                                title="Edit the words on this picture"
+                                                className={`${iconButtonClass} border-gray-900/15 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/20 dark:text-gray-300 ${
+                                                    editing ? 'bg-gray-900/10 dark:bg-gray-100/10' : ''
+                                                }`}
+                                            >
+                                                <Pencil size={15} />
+                                            </button>
+                                            <Link
+                                                to={previewUrl(g)}
+                                                aria-label="Preview in coach"
+                                                title="Preview in the Reading Coach"
+                                                className={`${iconButtonClass} border-gray-900/15 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/20 dark:text-gray-300`}
+                                            >
+                                                <Eye size={15} />
+                                            </Link>
+                                            <button
+                                                type="button"
+                                                disabled={busy}
+                                                onClick={() => handleDelete(g)}
+                                                aria-label="Delete picture"
+                                                className={`${iconButtonClass} border-rose-500/40 text-rose-600 hover:bg-rose-500/10 dark:text-rose-400`}
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </li>
                             )

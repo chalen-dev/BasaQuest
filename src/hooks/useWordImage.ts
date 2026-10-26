@@ -19,6 +19,24 @@ export function normalizeImageWord(word: string): string {
         .trim()
 }
 
+// The API caps one response at 1,000 rows no matter what .limit() asks for,
+// and the bank holds several thousand word rows, so admin screens and the
+// credits page read it a page at a time.
+export async function fetchAllWordImageRows<T>(columns: string): Promise<T[]> {
+    const PAGE = 1000
+    const rows: T[] = []
+    for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+            .from('word_images')
+            .select(columns)
+            .order('id', { ascending: true })
+            .range(from, from + PAGE - 1)
+        if (error) throw error
+        rows.push(...((data ?? []) as T[]))
+        if (!data || data.length < PAGE) return rows
+    }
+}
+
 // Resolves to null when this word has no picture, so callers keep their
 // placeholder. Pictures rarely change, so cache them for the session.
 export function useWordImageQuery(word: string | null | undefined, language: 'en' | 'fil' | undefined) {

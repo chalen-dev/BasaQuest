@@ -41,6 +41,7 @@ import { useSessionPresence } from "./hooks/useSessionPresence.ts";
 import { useDocumentTitle } from "./hooks/useDocumentTitle.ts";
 import FinetuneStudentListPage from "./pages/admin/students/FinetuneStudentListPage.tsx";
 import WordImagesPage from "./pages/admin/word_images/WordImagesPage.tsx";
+import CoachPreviewPage from "./pages/admin/word_images/CoachPreviewPage.tsx";
 import PictureCreditsPage from "./pages/credits/PictureCreditsPage.tsx";
 // MIGRATED FROM <BrowserRouter><Routes>...</Routes></BrowserRouter> TO A
 // DATA ROUTER (createBrowserRouter + RouterProvider) — required for
@@ -169,6 +170,12 @@ const router = createBrowserRouter(
                     entire viewport, not a header-minus-height area. */}
                     <Route element={<RemediationCoachLayout />}>
                         <Route path="/students/remediation/:studentId/session/:materialId/coach" element={<RemediationCoachPage />} />
+                    </Route>
+                    {/* Admin Word Pictures -> Preview in coach: full-bleed like the
+                    coach itself, with its own floating Exit and theme toggle
+                    instead of a shared header. */}
+                    <Route element={<AdminRoute />}>
+                        <Route path="/admin/word-images/preview" element={<CoachPreviewPage />} />
                     </Route>
                     {/* Same idea for the fine-tune mic-capture screen — a
                     stripped header with only an Exit button (back to the

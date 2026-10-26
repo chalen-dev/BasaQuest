@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ExternalLink, Loader2 } from 'lucide-react'
 import { useLang } from '../../contexts/LangContext.tsx'
-import { supabase } from '../../lib/supabaseClient.ts'
+import { fetchAllWordImageRows } from '../../hooks/useWordImage.ts'
 
 type CreditRow = {
     source: 'arasaac' | 'openmoji' | 'wikimedia' | 'upload'
@@ -55,14 +55,7 @@ const STRINGS = {
 function useCreditRowsQuery() {
     return useQuery({
         queryKey: ['word_images', 'credits'] as const,
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('word_images')
-                .select('source, credit, word, image_path')
-                .limit(5000)
-            if (error) throw error
-            return (data ?? []) as CreditRow[]
-        },
+        queryFn: () => fetchAllWordImageRows<CreditRow>('source, credit, word, image_path'),
     })
 }
 

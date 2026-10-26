@@ -6,7 +6,7 @@
 // than on single rows.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient.ts'
-import { normalizeImageWord } from '../../../hooks/useWordImage.ts'
+import { fetchAllWordImageRows, normalizeImageWord } from '../../../hooks/useWordImage.ts'
 
 const BUCKET = 'word-images'
 const MAX_SIZE = 512
@@ -19,6 +19,7 @@ export type WordImageRow = {
     source: 'arasaac' | 'openmoji' | 'wikimedia' | 'upload'
     credit: string | null
     source_url: string | null
+    reviewed: boolean
 }
 
 export type PictureGroup = {
@@ -26,6 +27,8 @@ export type PictureGroup = {
     url: string
     source: WordImageRow['source']
     credit: string | null
+    // True only when every word row on this picture has been reviewed.
+    reviewed: boolean
     words: { id: string; language: 'en' | 'fil'; word: string }[]
 }
 
@@ -39,14 +42,12 @@ export function useWordImageGroupsQuery() {
     return useQuery({
         queryKey: wordImagesKey,
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('word_images')
-                .select('id, language, word, image_path, source, credit, source_url')
-                .order('word', { ascending: true })
-                .limit(5000)
-            if (error) throw error
+            const rows = await fetchAllWordImageRows<WordImageRow>(
+                'id, language, word, image_path, source, credit, source_url, reviewed',
+            )
+            rows.sort((a, b) => a.word.localeCompare(b.word))
             const groups = new Map<string, PictureGroup>()
-            for (const row of (data ?? []) as WordImageRow[]) {
+            for (const row of rows) {
                 let g = groups.get(row.image_path)
                 if (!g) {
                     g = {
@@ -54,10 +55,12 @@ export function useWordImageGroupsQuery() {
                         url: publicUrl(row.image_path),
                         source: row.source,
                         credit: row.credit,
+                        reviewed: true,
                         words: [],
                     }
                     groups.set(row.image_path, g)
                 }
+                if (!row.reviewed) g.reviewed = false
                 g.words.push({ id: row.id, language: row.language, word: row.word })
             }
             return [...groups.values()].sort((a, b) => a.words[0].word.localeCompare(b.words[0].word))
@@ -141,6 +144,8 @@ export function useAddPictureMutation() {
                     source: 'upload',
                     credit: credit.trim() || 'Uploaded by admin',
                     source_url: null,
+                    reviewed: true,
+                    reviewed_at: new Date().toISOString(),
                 })),
                 { onConflict: 'language,word' },
             )
@@ -167,12 +172,79 @@ export function useReplacePictureMutation() {
                     source: 'upload',
                     credit: credit.trim() || 'Uploaded by admin',
                     source_url: null,
+                    reviewed: true,
+                    reviewed_at: new Date().toISOString(),
                 })
                 .eq('image_path', group.imagePath)
             if (error) {
                 await supabase.storage.from(BUCKET).remove([path])
                 throw error
             }
+            await removeFileIfUnused(group.imagePath)
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['word_images'] }),
+    })
+}
+
+// Marks one picture (all its words) reviewed, or sends it back to Needs
+// review. `groups` takes several at once for "Approve all on this page".
+export function useSetReviewedMutation() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ imagePaths, reviewed }: { imagePaths: string[]; reviewed: boolean }) => {
+            const { error } = await supabase
+                .from('word_images')
+                .update({ reviewed, reviewed_at: reviewed ? new Date().toISOString() : null })
+                .in('image_path', imagePaths)
+            if (error) throw error
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['word_images'] }),
+    })
+}
+
+// Points another word at this picture (e.g. a Filipino spelling the import
+// missed). A word that already had a different picture moves over to this
+// one, and its old file is cleaned up if nothing else uses it.
+export function useAddWordToPictureMutation() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ group, language, word }: { group: PictureGroup; language: 'en' | 'fil'; word: string }) => {
+            const key = normalizeImageWord(word)
+            if (!key) throw new Error('Enter a word.')
+            const { data: previous } = await supabase
+                .from('word_images')
+                .select('image_path')
+                .eq('language', language)
+                .eq('word', key)
+                .maybeSingle()
+            const { error } = await supabase.from('word_images').upsert(
+                {
+                    language,
+                    word: key,
+                    image_path: group.imagePath,
+                    source: group.source,
+                    credit: group.credit,
+                    source_url: null,
+                    reviewed: true,
+                    reviewed_at: new Date().toISOString(),
+                },
+                { onConflict: 'language,word' },
+            )
+            if (error) throw error
+            if (previous && previous.image_path !== group.imagePath) await removeFileIfUnused(previous.image_path)
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['word_images'] }),
+    })
+}
+
+// Takes one word off a picture. If that was the picture's last word the
+// file goes too.
+export function useRemoveWordMutation() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ group, wordId }: { group: PictureGroup; wordId: string }) => {
+            const { error } = await supabase.from('word_images').delete().eq('id', wordId)
+            if (error) throw error
             await removeFileIfUnused(group.imagePath)
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['word_images'] }),
