@@ -106,7 +106,7 @@ In **Authentication** in the dashboard:
 ## 5. Create your admin accounts and the reference data
 
 ```powershell
-$env:ENV_FILE=".env.cloud.local"; npm run seed:cloud
+npm run seed:cloud
 ```
 
 This creates only the admin accounts from `SEED_ADMIN_ACCOUNTS_JSON` plus the
@@ -156,7 +156,7 @@ plain account would have `password` (each account uses one or the other, never b
 SEED_ADMIN_ACCOUNTS_JSON=[{"username":"chael","name":"Chael Lusaya","password":"..."},{"username":"johndoe","name":"John Doe","passwordHash":"$2b$12$..."}]
 ```
 
-Then run `seed:cloud` as above. They log in with the password they typed.
+Then run `npm run seed:cloud` as above. They log in with the password they typed.
 
 Notes: a hash is not the password, but anyone holding it can try to guess the
 password offline, so the password should be long and unique (the script
@@ -284,6 +284,23 @@ then, do not put real pupils' data on a site that test accounts can log in to.
 Pictures stay shared by design.
 
 ---
+
+### Which command do I run?
+
+| I want to... | Run |
+|---|---|
+| Set up the real site (admin accounts + sentence sets). Safe to repeat; also how you add a new admin later | `npm run seed:cloud` |
+| Add test teachers and pupils to the real site | `npm run seed:testdata` |
+| See which test accounts exist | `npm run unseed:testdata` |
+| **Go live: delete all test accounts** | `npm run unseed:testdata -- --yes` |
+| Fill your own computer with the old public demo data | `npm run seed` (local only) |
+
+There is no separate "production seed" to run when you go live. The real site
+already has its real admins from `seed:cloud`. Going live is just removing the
+test accounts with the `--yes` command above. After that, only real
+accounts are left, and real teachers create their own pupils in the app.
+Before doing it, turn off the test teachers' logins if anyone still uses them,
+since their data is deleted along with them.
 
 ## Having your groupmate review pictures
 
