@@ -17,7 +17,11 @@
 // files to attach, so setting it true would just be a lie about paperwork
 // that doesn't exist.
 import { supabase } from '../client.ts'
-import type { ReadingTier } from '../../src/pages/admin/_hooks/useFinetuneStudents.ts'
+// Same union as src/pages/admin/_hooks/useFinetuneStudents.ts's ReadingTier.
+// Declared here rather than imported: even an `import type` makes tsc pull
+// that app file (and everything it imports) into the Node scripts project,
+// which broke `npm run build`.
+type ReadingTier = 'below' | 'on' | 'above'
 
 type SeedFinetuneStudent = {
     full_name: string

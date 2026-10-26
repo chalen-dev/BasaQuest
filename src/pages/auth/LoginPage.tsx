@@ -37,9 +37,9 @@ const STRINGS: Record<Lang, {
         submit: 'Mag-login',
         submitting: 'Nagla-login...',
         noAccount: 'Walang account? Gumawa ng bago',
-        demoHintTeacher: 'Guro: guro — password: basaquest',
-        demoHintStudent: 'Estudyante: ella — password: basaquest',
-        demoHintAdmin: 'Admin: dustin — password: basaquest',
+        demoHintTeacher: import.meta.env.DEV ? 'Guro: guro — password: basaquest' : '',
+        demoHintStudent: import.meta.env.DEV ? 'Estudyante: ella — password: basaquest' : '',
+        demoHintAdmin: import.meta.env.DEV ? 'Admin: dustin — password: basaquest' : '',
     },
     en: {
         welcome: 'Welcome back!',
@@ -52,9 +52,9 @@ const STRINGS: Record<Lang, {
         submit: 'Log in',
         submitting: 'Logging in...',
         noAccount: "Don't have an account? Create one",
-        demoHintTeacher: 'Teacher: guro — password: basaquest',
-        demoHintStudent: 'Student: ella — password: basaquest',
-        demoHintAdmin: 'Admin: dustin — password: basaquest',
+        demoHintTeacher: import.meta.env.DEV ? 'Teacher: guro — password: basaquest' : '',
+        demoHintStudent: import.meta.env.DEV ? 'Student: ella — password: basaquest' : '',
+        demoHintAdmin: import.meta.env.DEV ? 'Admin: dustin — password: basaquest' : '',
     },
 }
 export default function LoginPage() {
@@ -169,11 +169,15 @@ export default function LoginPage() {
                     >
                         {t.noAccount}
                     </button>
-                    <div className="mt-4 space-y-1 rounded-2xl border-2 border-dashed border-gray-300 px-3 py-2.5 text-center text-xs font-semibold text-gray-500 transition-colors duration-300 dark:border-gray-700 dark:text-gray-400">
-                        <div>{t.demoHintTeacher}</div>
-                        <div>{t.demoHintStudent}</div>
-                        <div>{t.demoHintAdmin}</div>
-                    </div>
+                    {/* Demo logins are only for the local dev server — a deployed
+                    build (import.meta.env.DEV is false) never prints them. */}
+                    {import.meta.env.DEV && (
+                        <div className="mt-4 space-y-1 rounded-2xl border-2 border-dashed border-gray-300 px-3 py-2.5 text-center text-xs font-semibold text-gray-500 transition-colors duration-300 dark:border-gray-700 dark:text-gray-400">
+                            <div>{t.demoHintTeacher}</div>
+                            <div>{t.demoHintStudent}</div>
+                            <div>{t.demoHintAdmin}</div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
