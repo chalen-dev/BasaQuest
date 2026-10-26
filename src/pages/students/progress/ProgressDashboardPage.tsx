@@ -210,7 +210,7 @@ export const ProgressDashboardPage: React.FC = () => {
                         </div>
                     </div>
                     {!isLoading && !error && rows && rows.length > 0 && (
-                        <p className="mt-3.5 text-sm font-semibold text-gray-500 dark:text-gray-400">{t.resultsCount(rows.length)}</p>
+                        <p className="mt-3.5 text-base font-semibold text-gray-500 dark:text-gray-400">{t.resultsCount(rows.length)}</p>
                     )}
                 </div>
             </section>
@@ -225,104 +225,111 @@ export const ProgressDashboardPage: React.FC = () => {
                 with that count). Hidden on mobile since rows themselves
                 stack vertically there and these labels wouldn't line up
                 with anything. */}
-            {!isLoading && !error && rows && rows.length > 0 && (
-                <div className="mb-3.5 hidden items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white px-5 py-3 text-xs font-bold uppercase tracking-wide text-gray-500 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-400 sm:flex">
-                    <span className="w-14 shrink-0" />
-                    <span className="w-56 shrink-0" />
-                    <span className="grid flex-1 grid-cols-4 gap-5">
-                        {/* Sub-label clarifies WHICH number this column
-                            shows — just "English"/"Filipino" alone left
-                            teachers guessing whether it was accuracy,
-                            fluency, or an overall grade. It's specifically
-                            the pupil's latest assessment_attempts.accuracy_score,
-                            nothing else, per language. */}
-                        <span>
-                            {t.colEnglish}
-                            <span className="block text-[10px] font-semibold normal-case tracking-normal text-gray-400 dark:text-gray-500">
-                                {t.colAccuracySubLabel}
+            {/* Same panel treatment as the dashboard's Recent Activity: one
+            full-width solid surface, the column-label strip on top, and
+            the pupil rows in a fixed-height body that scrolls inside the
+            panel instead of growing the page. */}
+            <section className="flex flex-col overflow-hidden rounded-3xl border-2 border-gray-900/10 bg-gray-50 shadow-sm dark:border-gray-100/10 dark:bg-gray-950">
+                {!isLoading && !error && rows && rows.length > 0 && (
+                    <div className="hidden shrink-0 items-center gap-5 border-b border-gray-900/10 py-4 pl-[46px] pr-[50px] text-sm font-bold uppercase tracking-wide text-gray-500 dark:border-gray-100/10 dark:text-gray-400 sm:flex">
+                        <span className="w-16 shrink-0" />
+                        <span className="w-64 shrink-0" />
+                        <span className="grid flex-1 grid-cols-4 gap-5">
+                            {/* Sub-label clarifies WHICH number this column
+                                shows — just "English"/"Filipino" alone left
+                                teachers guessing whether it was accuracy,
+                                fluency, or an overall grade. It's specifically
+                                the pupil's latest assessment_attempts.accuracy_score,
+                                nothing else, per language. */}
+                            <span>
+                                {t.colEnglish}
+                                <span className="block text-xs font-semibold normal-case tracking-normal text-gray-400 dark:text-gray-500">
+                                    {t.colAccuracySubLabel}
+                                </span>
+                            </span>
+                            <span>
+                                {t.colFilipino}
+                                <span className="block text-xs font-semibold normal-case tracking-normal text-gray-400 dark:text-gray-500">
+                                    {t.colAccuracySubLabel}
+                                </span>
+                            </span>
+                            {/* Amber tint + "Example" sub-label ONLY when
+                                SHOW_MOCK_COMPREHENSION_HISTORY is on — same
+                                visual language as MockScoreCell in
+                                ProgressRow.tsx, so a screenshot with the flag
+                                on can never look like these are real numbers.
+                                With the flag off (the real default), these
+                                stay plain gray labels above the "Coming soon"
+                                badges. */}
+                            <span className={SHOW_MOCK_COMPREHENSION_HISTORY ? 'text-amber-600 dark:text-amber-400' : undefined}>
+                                {t.colComprehension}
+                                {SHOW_MOCK_COMPREHENSION_HISTORY && (
+                                    <span className="block text-xs font-semibold normal-case tracking-normal text-amber-500 dark:text-amber-400">
+                                        {t.colExampleSubLabel}
+                                    </span>
+                                )}
+                            </span>
+                            <span className={SHOW_MOCK_COMPREHENSION_HISTORY ? 'text-amber-600 dark:text-amber-400' : undefined}>
+                                {t.colHistory}
+                                {SHOW_MOCK_COMPREHENSION_HISTORY && (
+                                    <span className="block text-xs font-semibold normal-case tracking-normal text-amber-500 dark:text-amber-400">
+                                        {t.colExampleSubLabel}
+                                    </span>
+                                )}
                             </span>
                         </span>
-                        <span>
-                            {t.colFilipino}
-                            <span className="block text-[10px] font-semibold normal-case tracking-normal text-gray-400 dark:text-gray-500">
-                                {t.colAccuracySubLabel}
-                            </span>
-                        </span>
-                        {/* Amber tint + "Example" sub-label ONLY when
-                            SHOW_MOCK_COMPREHENSION_HISTORY is on — same
-                            visual language as MockScoreCell in
-                            ProgressRow.tsx, so a screenshot with the flag
-                            on can never look like these are real numbers.
-                            With the flag off (the real default), these
-                            stay plain gray labels above the "Coming soon"
-                            badges. */}
-                        <span className={SHOW_MOCK_COMPREHENSION_HISTORY ? 'text-amber-600 dark:text-amber-400' : undefined}>
-                            {t.colComprehension}
-                            {SHOW_MOCK_COMPREHENSION_HISTORY && (
-                                <span className="block text-[10px] font-semibold normal-case tracking-normal text-amber-500 dark:text-amber-400">
-                                    {t.colExampleSubLabel}
-                                </span>
-                            )}
-                        </span>
-                        <span className={SHOW_MOCK_COMPREHENSION_HISTORY ? 'text-amber-600 dark:text-amber-400' : undefined}>
-                            {t.colHistory}
-                            {SHOW_MOCK_COMPREHENSION_HISTORY && (
-                                <span className="block text-[10px] font-semibold normal-case tracking-normal text-amber-500 dark:text-amber-400">
-                                    {t.colExampleSubLabel}
-                                </span>
-                            )}
-                        </span>
-                    </span>
-                    <span className="w-48 shrink-0" />
-                    <span className="w-11 shrink-0" />
-                    <span className="w-5 shrink-0" />
-                </div>
-            )}
-
-            {isLoading ? (
-                <div className="flex flex-col gap-3.5" role="status" aria-busy="true">
-                    <span className="sr-only">{t.loading}</span>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                        <div
-                            key={i}
-                            className="flex w-full items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-5 dark:border-gray-100/10 dark:bg-gray-900"
-                        >
-                            <Skeleton className="h-14 w-14 shrink-0 rounded-2xl" />
-                            <div className="w-56 shrink-0">
-                                <Skeleton className="h-5 w-36" />
-                                <Skeleton className="mt-2.5 h-4 w-24" />
-                            </div>
-                            <div className="grid flex-1 grid-cols-4 gap-5">
-                                <Skeleton className="h-5 w-14" />
-                                <Skeleton className="h-5 w-14" />
-                                <Skeleton className="h-5 w-20 rounded-full" />
-                                <Skeleton className="h-5 w-20 rounded-full" />
-                            </div>
+                        <span className="w-60 shrink-0" />
+                        <span className="w-12 shrink-0" />
+                        <span className="w-5 shrink-0" />
+                    </div>
+                )}
+                <div className="max-h-[calc(100vh-26rem)] min-h-[320px] overflow-y-auto p-4 [scrollbar-color:var(--color-teal-500)_transparent] [scrollbar-width:thin]">
+                    {isLoading ? (
+                        <div className="flex flex-col gap-3.5" role="status" aria-busy="true">
+                            <span className="sr-only">{t.loading}</span>
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="flex w-full items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-5 dark:border-gray-100/10 dark:bg-gray-900"
+                                >
+                                    <Skeleton className="h-14 w-14 shrink-0 rounded-2xl" />
+                                    <div className="w-56 shrink-0">
+                                        <Skeleton className="h-5 w-36" />
+                                        <Skeleton className="mt-2.5 h-4 w-24" />
+                                    </div>
+                                    <div className="grid flex-1 grid-cols-4 gap-5">
+                                        <Skeleton className="h-5 w-14" />
+                                        <Skeleton className="h-5 w-14" />
+                                        <Skeleton className="h-5 w-20 rounded-full" />
+                                        <Skeleton className="h-5 w-20 rounded-full" />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
+                    ) : error ? (
+                        <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-7 text-base font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+                            {error instanceof Error ? error.message : t.errorGeneric}
+                        </div>
+                    ) : !rows || rows.length === 0 ? (
+                        <div className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-12 text-center dark:border-gray-100/10 dark:bg-gray-900">
+                            <p className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.emptyTitle}</p>
+                            <p className="mt-1.5 text-base font-medium text-gray-500 dark:text-gray-300">{t.emptyDesc}</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-3.5">
+                            {rows.map((row) => (
+                                <ProgressRow
+                                    key={row.student_id}
+                                    row={row}
+                                    t={t}
+                                    onSelect={() => goToPupil(row)}
+                                    onViewReport={() => navigate(`/students/progress/${row.student_id}/report`)}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
-            ) : error ? (
-                <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-7 text-base font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-                    {error instanceof Error ? error.message : t.errorGeneric}
-                </div>
-            ) : !rows || rows.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-12 text-center dark:border-gray-100/10 dark:bg-gray-900">
-                    <p className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.emptyTitle}</p>
-                    <p className="mt-1.5 text-base font-medium text-gray-500 dark:text-gray-300">{t.emptyDesc}</p>
-                </div>
-            ) : (
-                <div className="flex flex-col gap-3.5">
-                    {rows.map((row) => (
-                        <ProgressRow
-                            key={row.student_id}
-                            row={row}
-                            t={t}
-                            onSelect={() => goToPupil(row)}
-                            onViewReport={() => navigate(`/students/progress/${row.student_id}/report`)}
-                        />
-                    ))}
-                </div>
-            )}
+            </section>
         </>
     )
 }

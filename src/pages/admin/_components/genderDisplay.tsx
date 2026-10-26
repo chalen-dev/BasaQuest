@@ -31,13 +31,18 @@ export function genderLabel(gender: string | null | undefined): string {
 type GenderBadgeProps = {
     gender: string | null | undefined
     className?: string
+    // 'md' is the larger roster size; 'sm' stays the default so the other
+    // places this badge appears keep their current look.
+    size?: 'sm' | 'md'
 }
-export function GenderBadge({ gender, className = '' }: GenderBadgeProps) {
+export function GenderBadge({ gender, className = '', size = 'sm' }: GenderBadgeProps) {
     return (
         <span
-            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${genderColorClasses(gender)} ${className}`}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full font-semibold ${
+                size === 'md' ? 'gap-1.5 px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs'
+            } ${genderColorClasses(gender)} ${className}`}
         >
-            {genderIcon(gender, 12)}
+            {genderIcon(gender, size === 'md' ? 14 : 12)}
             {genderLabel(gender)}
         </span>
     )

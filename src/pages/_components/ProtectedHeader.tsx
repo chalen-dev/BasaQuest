@@ -84,7 +84,7 @@ function isNavItemActive(item: NavItem, pathname: string) {
 }
 
 function navLinkClass(active: boolean) {
-    return `whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-300 ${
+    return `whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-bold xl:px-5 xl:py-2 xl:text-base transition-colors duration-300 ${
         active
             ? 'bg-gray-900 text-white dark:bg-gray-50 dark:text-gray-900'
             : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'

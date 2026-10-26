@@ -205,7 +205,7 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
                         >
                             Clear Highlights
                         </button>
-                        <Hint id="assessment-clear-highlights" text={t.clearHighlightsHint} placement="bottom" align="center" autoHideMs={6000} />
+                        <Hint id="assessment-clear-highlights" text={t.clearHighlightsHint} placement="bottom" align="end" autoHideMs={6000} />
                     </div>
                 )}
                 {showPagination && (

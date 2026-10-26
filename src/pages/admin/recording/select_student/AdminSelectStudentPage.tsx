@@ -338,20 +338,20 @@ export default function AdminSelectStudentPage() {
                                                         </span>
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                <span className="font-bold text-gray-900 dark:text-gray-50">{s.full_name}</span>
+                                                                <span className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{s.full_name}</span>
                                                                 {s.grade_level != null && (
-                                                                    <span className="rounded-full bg-gray-900/5 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                                                    <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                                                                         Grade {s.grade_level}
                                                                     </span>
                                                                 )}
-                                                                <GenderBadge gender={s.gender} />
+                                                                <GenderBadge gender={s.gender} size="md" />
                                                                 {s.reading_tier && (
-                                                                    <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-600 dark:text-sky-400">
+                                                                    <span className="rounded-full bg-sky-500/15 px-3 py-1 text-sm font-semibold text-sky-600 dark:text-sky-400">
                                                                         {TIER_LABELS[s.reading_tier] ?? s.reading_tier}
                                                                     </span>
                                                                 )}
                                                                 <span
-                                                                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                                                    className={`rounded-full px-3 py-1 text-sm font-semibold ${
                                                                         hasConsent
                                                                             ? 'bg-green-500/15 text-green-600 dark:text-green-400'
                                                                             : 'bg-red-500/15 text-red-600 dark:text-red-400'
@@ -360,7 +360,7 @@ export default function AdminSelectStudentPage() {
                                                                     {hasConsent ? 'consent on file' : 'no consent'}
                                                                 </span>
                                                                 {activeSession && (
-                                                                    <span className="flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-600 dark:text-sky-400">
+                                                                    <span className="flex items-center gap-1 rounded-full bg-sky-500/15 px-3 py-1 text-sm font-semibold text-sky-600 dark:text-sky-400">
                                                                         <Radio size={11} /> recording — {activeSession.adminName}
                                                                     </span>
                                                                 )}

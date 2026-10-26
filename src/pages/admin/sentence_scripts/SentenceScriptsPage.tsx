@@ -15,12 +15,9 @@
 // ordering) — see the header comment on useReadingSentences.ts and the
 // reading_sentence_sets migration for why those are kept separate.
 //
-// Each sentence row gets a fixed accent color, keyed off the sentence's
-// own id (not its position) via a simple string hash — so a sentence
-// keeps its color across reorders, and only actually changes if it's
-// deleted and a new one is created in its place. The palette mirrors the
-// bg/text light-dark pairing already used for badges elsewhere in this
-// app, so every color stays readable/contrasted in both themes.
+// Sentences render as one divided list (per-sentence accent color, larger text);
+// reorder arrows and edit/delete fade in on row hover/focus and are not
+// rendered at all while the script is locked.
 //
 // A script with at least one recording against it (any student, any
 // sentence) is locked for everyone — no rename/delete, and its
@@ -47,11 +44,13 @@ import {
     useDuplicateSentenceSetMutation,
 } from '../_hooks/useReadingSentences.ts'
 import { useRecordedSentenceSetsQuery } from '../_hooks/useStudentRecordings.ts'
-// Fixed palette for the per-sentence accent — each entry is a complete,
-// literal Tailwind class string (never built with a template variable),
-// since Tailwind's build-time scan can't see dynamically-assembled class
-// names. "chip" colors the number badge; "borderL" colors the row's
-// left-edge accent. Both carry their own dark: pair for contrast.
+// Per-sentence accent color, keyed off the sentence's own id (not its
+// position) via a simple string hash — so a sentence keeps its color
+// across reorders and only changes if it's deleted and recreated. Each
+// entry is a complete, literal Tailwind class string (never built with a
+// template variable, since the build-time scan can't see those): "chip"
+// colors the number badge, "borderL" the row's left-edge bar. Both carry
+// their own dark: pair for contrast.
 const SENTENCE_ACCENT_COLORS = [
     { chip: 'bg-teal-500/15 text-teal-700 dark:bg-teal-400/15 dark:text-teal-300', borderL: 'border-l-teal-400 dark:border-l-teal-500' },
     { chip: 'bg-sky-500/15 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300', borderL: 'border-l-sky-400 dark:border-l-sky-500' },
@@ -64,9 +63,6 @@ const SENTENCE_ACCENT_COLORS = [
     { chip: 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300', borderL: 'border-l-emerald-400 dark:border-l-emerald-500' },
     { chip: 'bg-indigo-500/15 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300', borderL: 'border-l-indigo-400 dark:border-l-indigo-500' },
 ] as const
-// Deterministic hash of the sentence's own id into a palette index —
-// stable across reorders (position `i` is never part of this), only
-// ever changes if the sentence itself is deleted/recreated.
 function sentenceAccentFor(id: string) {
     let hash = 0
     for (let i = 0; i < id.length; i++) {
@@ -106,6 +102,11 @@ export default function SentenceScriptsPage() {
     const [editingSetKey, setEditingSetKey] = useState<string | null>(null)
     const [editingSetLabel, setEditingSetLabel] = useState('')
     const [editingSentenceId, setEditingSentenceId] = useState<string | null>(null)
+    // Click-to-select: the selected row keeps its toolbar (reorder / edit /
+    // delete) pinned open and gets a highlight, instead of the toolbar only
+    // flashing on hover. Stored with the script key so switching scripts
+    // drops the selection without needing an effect to reset it.
+    const [selectedSentence, setSelectedSentence] = useState<{ setKey: string; id: string } | null>(null)
     const [editingSentenceText, setEditingSentenceText] = useState('')
     const [newSentenceText, setNewSentenceText] = useState('')
     const handleCreateSet = async () => {
@@ -388,7 +389,7 @@ export default function SentenceScriptsPage() {
                     </div>
                 </section>
                 {/* Sentences for the selected script */}
-                <section className="rounded-3xl border border-gray-900/5 bg-white p-5 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-7">
+                <section className="flex flex-col rounded-3xl border border-gray-900/5 bg-white p-5 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-7 lg:h-[calc(100vh-13rem)] lg:min-h-[420px]">
                     {!effectiveSetKey ? (
                         <div className="rounded-2xl border border-dashed border-gray-900/15 p-10 text-center text-sm text-gray-500 dark:border-gray-100/15 dark:text-gray-400">
                             {loadingSets ? 'Loading…' : 'Create a script on the left to get started.'}
@@ -401,16 +402,19 @@ export default function SentenceScriptsPage() {
                             <h1 className="mb-1 text-xl font-extrabold text-gray-900 dark:text-gray-50">
                                 {selectedSet?.label ?? effectiveSetKey}
                             </h1>
-                            <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">
-                                {sentences.length} sentence{sentences.length === 1 ? '' : 's'}. Use the arrows to reorder.
+                            <p className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
+                                <span>
+                                    {sentences.length} sentence{sentences.length === 1 ? '' : 's'}
+                                </span>
+                                {isSelectedSetLocked ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                                        <Lock size={11} className="shrink-0" />
+                                        Locked — has recordings. Duplicate it (left panel) to make changes.
+                                    </span>
+                                ) : (
+                                    <span>· Click a row to reorder, edit or delete.</span>
+                                )}
                             </p>
-                            {isSelectedSetLocked && (
-                                <div className="mb-5 flex items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                                    <Lock size={16} className="shrink-0" />
-                                    This script has recordings against it, so it's locked for everyone — duplicate it
-                                    (left panel) to make changes.
-                                </div>
-                            )}
                             {loadingSentences ? (
                                 <div className="flex items-center justify-center py-14 text-sm text-gray-500 dark:text-gray-400">
                                     <Loader2 size={16} className="mr-2 animate-spin" /> Loading sentences…
@@ -420,38 +424,43 @@ export default function SentenceScriptsPage() {
                                     Couldn't load sentences: {sentencesError instanceof Error ? sentencesError.message : 'Something went wrong.'}
                                 </p>
                             ) : (
-                                <div className="flex flex-col gap-2">
+                                <div className="flex max-h-[60vh] min-h-0 flex-col divide-y divide-gray-900/10 overflow-y-auto rounded-2xl border border-gray-900/10 [scrollbar-color:var(--color-teal-500)_transparent] [scrollbar-width:thin] dark:divide-gray-100/10 dark:border-gray-100/10 lg:max-h-none lg:flex-1">
                                     {sentences.map((s, i) => {
                                         const isEditing = editingSentenceId === s.id
                                         const accent = sentenceAccentFor(s.id)
+                                        const isSelected =
+                                            !isSelectedSetLocked &&
+                                            selectedSentence?.setKey === effectiveSetKey &&
+                                            selectedSentence.id === s.id
+                                        const toggleSelected = () =>
+                                            setSelectedSentence(isSelected ? null : { setKey: effectiveSetKey, id: s.id })
                                         return (
                                             <div
                                                 key={s.id}
-                                                className={`flex items-center gap-2 rounded-2xl border border-gray-900/5 border-l-4 p-3 dark:border-gray-100/10 ${accent.borderL}`}
+                                                role={isSelectedSetLocked ? undefined : 'button'}
+                                                tabIndex={isSelectedSetLocked ? undefined : 0}
+                                                aria-pressed={isSelectedSetLocked ? undefined : isSelected}
+                                                onClick={(e) => {
+                                                    if (isSelectedSetLocked || isEditing) return
+                                                    if ((e.target as HTMLElement).closest('button, textarea')) return
+                                                    toggleSelected()
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (isSelectedSetLocked || isEditing || e.target !== e.currentTarget) return
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault()
+                                                        toggleSelected()
+                                                    }
+                                                }}
+                                                className={`group relative flex items-center gap-3 border-l-4 px-3 py-2.5 transition-colors duration-150 ${
+                                                    isSelectedSetLocked ? '' : 'cursor-pointer'
+                                                } ${
+                                                    isSelected
+                                                        ? 'bg-teal-500/10 ring-2 ring-inset ring-teal-400/70 dark:bg-teal-400/10'
+                                                        : 'hover:bg-gray-900/[0.04] dark:hover:bg-gray-100/[0.05]'
+                                                } ${accent.borderL}`}
                                             >
-                                                <div className="flex shrink-0 flex-col gap-0.5">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => moveSentence(i, -1)}
-                                                        disabled={i === 0 || reorderMutation.isPending || isSelectedSetLocked}
-                                                        aria-label="Move up"
-                                                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-gray-500 hover:bg-gray-900/5 disabled:cursor-not-allowed disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-100/10"
-                                                    >
-                                                        <ChevronUp size={15} />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => moveSentence(i, 1)}
-                                                        disabled={i === sentences.length - 1 || reorderMutation.isPending || isSelectedSetLocked}
-                                                        aria-label="Move down"
-                                                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-gray-500 hover:bg-gray-900/5 disabled:cursor-not-allowed disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-100/10"
-                                                    >
-                                                        <ChevronDown size={15} />
-                                                    </button>
-                                                </div>
-                                                <span
-                                                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${accent.chip}`}
-                                                >
+                                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums ${accent.chip}`}>
                                                     {i + 1}
                                                 </span>
                                                 <div className="min-w-0 flex-1">
@@ -468,10 +477,10 @@ export default function SentenceScriptsPage() {
                                                                 if (e.key === 'Escape') setEditingSentenceId(null)
                                                             }}
                                                             rows={2}
-                                                            className="w-full resize-none rounded-lg border-2 border-teal-400 bg-transparent px-2 py-1.5 text-sm font-semibold text-gray-900 outline-none dark:text-gray-50"
+                                                            className="w-full resize-none rounded-lg border-2 border-teal-400 bg-transparent px-2 py-1.5 text-base font-semibold text-gray-900 outline-none dark:text-gray-50"
                                                         />
                                                     ) : (
-                                                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{s.text}</p>
+                                                        <p className="text-base font-semibold leading-snug text-gray-800 dark:text-gray-100">{s.text}</p>
                                                     )}
                                                 </div>
                                                 <div className="flex shrink-0 items-center gap-1">
@@ -497,7 +506,32 @@ export default function SentenceScriptsPage() {
                                                         </>
                                                     ) : (
                                                         !isSelectedSetLocked && (
-                                                            <>
+                                                            <div
+                                                                className={`flex items-center gap-1 transition-opacity duration-150 ${
+                                                                    isSelected
+                                                                        ? 'rounded-xl bg-white px-1.5 py-1 shadow-sm ring-1 ring-teal-400/60 dark:bg-gray-800'
+                                                                        : 'lg:absolute lg:right-2 lg:top-1/2 lg:-translate-y-1/2 lg:rounded-xl lg:bg-white lg:px-1.5 lg:py-1 lg:opacity-0 lg:shadow-md lg:ring-1 lg:ring-gray-900/10 lg:group-focus-within:opacity-100 lg:group-hover:opacity-100 dark:lg:bg-gray-800 dark:lg:ring-gray-100/10'
+                                                                }`}
+                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => moveSentence(i, -1)}
+                                                                    disabled={i === 0 || reorderMutation.isPending}
+                                                                    aria-label="Move up"
+                                                                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-900/5 disabled:cursor-not-allowed disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-100/10"
+                                                                >
+                                                                    <ChevronUp size={16} />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => moveSentence(i, 1)}
+                                                                    disabled={i === sentences.length - 1 || reorderMutation.isPending}
+                                                                    aria-label="Move down"
+                                                                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-900/5 disabled:cursor-not-allowed disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-100/10"
+                                                                >
+                                                                    <ChevronDown size={16} />
+                                                                </button>
+                                                                <span className="mx-0.5 h-4 w-px bg-gray-900/10 dark:bg-gray-100/10" />
                                                                 <Tooltip label="Edit">
                                                                     <button
                                                                         type="button"
@@ -518,7 +552,7 @@ export default function SentenceScriptsPage() {
                                                                         <Trash2 size={13} />
                                                                     </button>
                                                                 </Tooltip>
-                                                            </>
+                                                            </div>
                                                         )
                                                     )}
                                                 </div>
@@ -533,7 +567,7 @@ export default function SentenceScriptsPage() {
                                 </div>
                             )}
                             {!isSelectedSetLocked && (
-                                <div className="mt-4 flex items-start gap-2">
+                                <div className="mt-4 flex shrink-0 items-start gap-2">
                                     <textarea
                                         value={newSentenceText}
                                         onChange={(e) => setNewSentenceText(e.target.value)}

@@ -2,9 +2,9 @@
 // File: Dashboard.tsx
 // File: Dashboard.tsx
 // File: src/pages/students/dashboard/StudentsDashboardPage.tsx
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Clock, Percent, Gauge, Mic, ArrowRight } from 'lucide-react'
+import { Users, Clock, Percent, Gauge, Mic, ArrowRight, Activity } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import type { Lang } from '../../../components/buttons/LangToggle'
@@ -29,6 +29,12 @@ const STRINGS: Record<Lang, {
     activitySubtitle: string
     pendingChip: string
     doneChip: string
+    filterAll: string
+    filterPending: string
+    filterDone: string
+    submissionsCount: (n: number) => string
+    viewAll: string
+    emptyFiltered: string
     emptyActivity: string
     unnamedStudent: string
     justNow: string
@@ -48,6 +54,12 @@ const STRINGS: Record<Lang, {
         activitySubtitle: 'Pinakahuling isinumite ng iyong mga estudyante.',
         pendingChip: '● Naghihintay',
         doneChip: '✓ Tapos na',
+        filterAll: 'Lahat',
+        filterPending: 'Naghihintay',
+        filterDone: 'Tapos na',
+        submissionsCount: (n) => `${n} isinumite`,
+        viewAll: 'Tingnan lahat',
+        emptyFiltered: 'Walang tumutugmang isinumite.',
         emptyActivity: 'Wala pang aktibidad. Lalabas dito ang mga bagong isinumiteng pagbasa.',
         unnamedStudent: 'Estudyante',
         justNow: 'ngayon lang',
@@ -67,6 +79,12 @@ const STRINGS: Record<Lang, {
         activitySubtitle: "Your students' latest submissions.",
         pendingChip: '● Pending',
         doneChip: '✓ Done',
+        filterAll: 'All',
+        filterPending: 'Pending',
+        filterDone: 'Done',
+        submissionsCount: (n) => `${n} submission${n === 1 ? '' : 's'}`,
+        viewAll: 'View all',
+        emptyFiltered: 'No submissions match this filter.',
         emptyActivity: "No activity yet. Newly submitted readings will show up here.",
         unnamedStudent: 'Student',
         justNow: 'just now',
@@ -86,6 +104,12 @@ function formatRelativeTime(iso: string, t: (typeof STRINGS)[Lang]): string {
     const diffDay = Math.round(diffHr / 24)
     return t.dayAgo(diffDay)
 }
+type ActivityFilter = 'all' | 'pending' | 'done'
+
+// Enough rows that the activity panel actually scrolls once it fills up,
+// rather than topping out at the first handful.
+const RECENT_ATTEMPTS_LIMIT = 20
+
 export const StudentsDashboardPage: React.FC = () => {
     const { lang } = useLang()
     const { profile } = useProfile()
@@ -93,7 +117,16 @@ export const StudentsDashboardPage: React.FC = () => {
     const t = STRINGS[lang]
     const { data: dashboardStats, isLoading: statsLoading } = useDashboardStatsQuery(profile?.id)
     const { data: pendingCount, isLoading: pendingLoading } = usePendingReviewCountQuery(profile?.id)
-    const { data: recentAttempts, isLoading: attemptsLoading } = useRecentAttemptsQuery(profile?.id)
+    const { data: recentAttempts, isLoading: attemptsLoading } = useRecentAttemptsQuery(profile?.id, RECENT_ATTEMPTS_LIMIT)
+    const [filter, setFilter] = useState<ActivityFilter>('all')
+    const pendingAttempts = (recentAttempts ?? []).filter((a) => a.reviewed_at == null)
+    const doneAttempts = (recentAttempts ?? []).filter((a) => a.reviewed_at != null)
+    const visibleAttempts = filter === 'pending' ? pendingAttempts : filter === 'done' ? doneAttempts : (recentAttempts ?? [])
+    const filterChips: { key: ActivityFilter; label: string; count: number }[] = [
+        { key: 'all', label: t.filterAll, count: recentAttempts?.length ?? 0 },
+        { key: 'pending', label: t.filterPending, count: pendingAttempts.length },
+        { key: 'done', label: t.filterDone, count: doneAttempts.length },
+    ]
     const statsLoadingCombined = statsLoading || pendingLoading
     const stats: { label: string; value: string; icon: typeof Users; color: StatColor }[] = [
         { label: t.statTotal, value: dashboardStats ? String(dashboardStats.totalStudents) : '—', icon: Users, color: 'teal' },
@@ -106,7 +139,7 @@ export const StudentsDashboardPage: React.FC = () => {
             {/* Hero card — same gradient treatment as Home/MaterialSelection,
                 so the title/subtitle sit on a proper panel instead of
                 floating bare over the night-sky backdrop. */}
-            <section className="relative mb-8 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
+            <section className="relative mb-6 overflow-hidden rounded-3xl border border-gray-900/5 p-5 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-6">
                 <div
                     className="absolute inset-0 dark:hidden"
                     style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }}
@@ -124,21 +157,21 @@ export const StudentsDashboardPage: React.FC = () => {
                     style={{ background: 'radial-gradient(circle at 88% -20%, rgba(45,212,191,0.28), transparent 55%)' }}
                 />
                 <div className="relative">
-                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-50">{t.title}</h1>
+                    <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{t.title}</h1>
                     <p className="mt-1.5 text-base font-medium text-gray-600 dark:text-gray-400">{t.subtitle}</p>
                 </div>
             </section>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {statsLoadingCombined ? (
                     Array.from({ length: 4 }).map((_, i) => (
                         <div
                             key={i}
                             role="status"
                             aria-busy="true"
-                            className="rounded-2xl border-2 border-gray-900/5 bg-white p-5 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
+                            className="rounded-2xl border-2 border-gray-900/5 bg-white p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
                         >
-                            <Skeleton className="h-12 w-12 rounded-xl" />
-                            <Skeleton className="mt-4 h-8 w-20" />
+                            <Skeleton className="h-10 w-10 rounded-xl" />
+                            <Skeleton className="mt-3 h-7 w-20" />
                             <Skeleton className="mt-2 h-4 w-28" />
                         </div>
                     ))
@@ -149,91 +182,143 @@ export const StudentsDashboardPage: React.FC = () => {
                         return (
                             <div
                                 key={stat.label}
-                                className="rounded-2xl border-2 border-gray-900/5 bg-white p-5 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
+                                className="rounded-2xl border-2 border-gray-900/5 bg-white p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
                             >
-                                <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${colors.bg} ${colors.icon}`}>
+                                <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors.bg} ${colors.icon}`}>
                                     <Icon size={22} />
                                 </span>
-                                <div className="mt-4 text-3xl font-extrabold text-gray-900 dark:text-gray-50">{stat.value}</div>
+                                <div className="mt-3 text-3xl font-extrabold text-gray-900 dark:text-gray-50">{stat.value}</div>
                                 <div className="text-sm font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{stat.label}</div>
                             </div>
                         )
                     })
                 )}
             </div>
-            <h2 className="mb-1.5 mt-10 text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.activityTitle}</h2>
-            <p className="mb-5 text-base font-medium text-gray-500 dark:text-gray-400">{t.activitySubtitle}</p>
-            {attemptsLoading ? (
-                <div className="flex flex-col gap-3.5" role="status" aria-busy="true">
-                    <span className="sr-only">{t.activityTitle}</span>
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <div
-                            key={i}
-                            className="flex w-full items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-5 dark:border-gray-100/10 dark:bg-gray-900"
-                        >
-                            <Skeleton className="h-14 w-14 shrink-0 rounded-2xl" />
-                            <div className="min-w-0 flex-1">
-                                <Skeleton className="h-5 w-48" />
-                                <Skeleton className="mt-2.5 h-4 w-16" />
-                            </div>
-                            <Skeleton className="h-4 w-20 shrink-0" />
-                        </div>
-                    ))}
-                </div>
-            ) : !recentAttempts || recentAttempts.length === 0 ? (
-                <p className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-7 text-center text-base font-semibold text-gray-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-400">
-                    {t.emptyActivity}
-                </p>
-            ) : (
-                <div className="flex flex-col gap-3.5">
-                    {recentAttempts.map((attempt) => {
-                        const name = attempt.student?.full_name || attempt.student?.username || t.unnamedStudent
-                        const pending = attempt.reviewed_at == null
-                        const accent = '#ff7a59'
-                        return (
+            {/* Recent Activity — one full-width panel (matches the stat grid
+            and banner above): a header strip with the title, filter chips
+            and count, then the rows in a fixed-height scrolling body. Being
+            a solid surface, the hillside backdrop can never wash out the
+            text, and the dashboard stops growing with the list. */}
+            <section className="mt-8 flex flex-col overflow-hidden rounded-3xl border-2 border-gray-900/10 bg-gray-50 shadow-sm dark:border-gray-100/10 dark:bg-gray-950">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-gray-900/10 px-5 py-4 dark:border-gray-100/10">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400">
+                        <Activity size={20} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.activityTitle}</h2>
+                        <p className="text-base font-medium text-gray-600 dark:text-gray-300">{t.activitySubtitle}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {filterChips.map((chip) => (
                             <button
-                                key={attempt.id}
-                                onClick={() => navigate(`/students/review/${attempt.id}`)}
-                                style={{ borderLeftColor: accent, borderLeftWidth: 6 }}
-                                className="flex w-full cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-5 text-left shadow-sm transition-colors duration-150 hover:border-teal-500/30 dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-teal-400/30"
+                                key={chip.key}
+                                type="button"
+                                onClick={() => setFilter(chip.key)}
+                                aria-pressed={filter === chip.key}
+                                className={`cursor-pointer rounded-full px-4 py-2 text-base font-bold transition-colors duration-150 ${
+                                    filter === chip.key
+                                        ? 'bg-teal-500 text-white dark:bg-teal-600'
+                                        : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
+                                }`}
                             >
-                                <span
-                                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
-                                    style={{ background: `${accent}22`, color: accent }}
-                                >
-                                    <Mic size={22} />
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2.5">
-                                        <span className="text-base font-extrabold text-gray-900 dark:text-gray-50">{name}</span>
-                                        {attempt.student?.grade_level != null && (
-                                            <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                                                {t.gradeLabel(attempt.student.grade_level)}
-                                            </span>
-                                        )}
-                                        {pending ? (
-                                            <span className="rounded-full bg-rose-500/15 px-3 py-1 text-sm font-semibold text-rose-600 dark:text-rose-400">
-                                                {t.pendingChip}
-                                            </span>
-                                        ) : (
-                                            <span className="rounded-full bg-green-500/15 px-3 py-1 text-sm font-semibold text-green-600 dark:text-green-400">
-                                                {t.doneChip}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="mt-1 text-sm font-semibold text-gray-500 dark:text-gray-400">
-                                        {attempt.accuracy_score != null ? `${Math.round(attempt.accuracy_score)}%` : '—'}
-                                    </div>
-                                </div>
-                                <span className="flex shrink-0 items-center gap-2 text-sm font-bold text-gray-400 dark:text-gray-500">
-                                    {attempt.scored_at ? formatRelativeTime(attempt.scored_at, t) : ''}
-                                    <ArrowRight size={18} className="text-gray-400 dark:text-gray-500" />
-                                </span>
+                                {chip.label}
+                                <span className="ml-1.5 text-sm opacity-80">{chip.count}</span>
                             </button>
-                        )
-                    })}
+                        ))}
+                    </div>
                 </div>
-            )}
+                <div className="max-h-[480px] overflow-y-auto p-4 [scrollbar-color:var(--color-teal-500)_transparent] [scrollbar-width:thin]">
+                    {attemptsLoading ? (
+                        <div className="flex flex-col gap-3" role="status" aria-busy="true">
+                            <span className="sr-only">{t.activityTitle}</span>
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="flex w-full items-center gap-4 rounded-2xl border-2 border-gray-900/5 bg-white p-4 dark:border-gray-100/10 dark:bg-gray-900"
+                                >
+                                    <Skeleton className="h-11 w-11 shrink-0 rounded-2xl" />
+                                    <div className="min-w-0 flex-1">
+                                        <Skeleton className="h-5 w-48" />
+                                        <Skeleton className="mt-2.5 h-4 w-16" />
+                                    </div>
+                                    <Skeleton className="h-4 w-20 shrink-0" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : !recentAttempts || recentAttempts.length === 0 ? (
+                        <p className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-7 text-center text-base font-semibold text-gray-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-400">
+                            {t.emptyActivity}
+                        </p>
+                    ) : visibleAttempts.length === 0 ? (
+                        <p className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-7 text-center text-base font-semibold text-gray-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-400">
+                            {t.emptyFiltered}
+                        </p>
+                    ) : (
+                        <div className="flex flex-col gap-3">
+                            {visibleAttempts.map((attempt) => {
+                                const name = attempt.student?.full_name || attempt.student?.username || t.unnamedStudent
+                                const pending = attempt.reviewed_at == null
+                                const accent = '#ff7a59'
+                                return (
+                                    <button
+                                        key={attempt.id}
+                                        onClick={() => navigate(`/students/review/${attempt.id}`)}
+                                        style={{ borderLeftColor: accent, borderLeftWidth: 6 }}
+                                        className="flex w-full cursor-pointer items-center gap-4 rounded-2xl border-2 border-gray-900/5 bg-white p-4 text-left shadow-sm transition-colors duration-150 hover:border-teal-500/30 dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-teal-400/30"
+                                    >
+                                        <span
+                                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                                            style={{ background: `${accent}22`, color: accent }}
+                                        >
+                                            <Mic size={22} />
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{name}</span>
+                                                {attempt.student?.grade_level != null && (
+                                                    <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                                        {t.gradeLabel(attempt.student.grade_level)}
+                                                    </span>
+                                                )}
+                                                {pending ? (
+                                                    <span className="rounded-full bg-rose-500/15 px-3 py-1 text-sm font-semibold text-rose-600 dark:text-rose-400">
+                                                        {t.pendingChip}
+                                                    </span>
+                                                ) : (
+                                                    <span className="rounded-full bg-green-500/15 px-3 py-1 text-sm font-semibold text-green-600 dark:text-green-400">
+                                                        {t.doneChip}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="mt-1 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                                                {attempt.accuracy_score != null ? `${Math.round(attempt.accuracy_score)}%` : '—'}
+                                            </div>
+                                        </div>
+                                        <span className="flex shrink-0 items-center gap-2 text-base font-bold text-gray-400 dark:text-gray-500">
+                                            {attempt.scored_at ? formatRelativeTime(attempt.scored_at, t) : ''}
+                                            <ArrowRight size={18} className="text-gray-400 dark:text-gray-500" />
+                                        </span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+                {recentAttempts && recentAttempts.length > 0 && (
+                    <div className="flex items-center justify-between gap-3 border-t border-gray-900/10 px-5 py-3 dark:border-gray-100/10">
+                        <span className="text-base font-semibold text-gray-500 dark:text-gray-400">
+                            {t.submissionsCount(visibleAttempts.length)}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => navigate(filter === 'done' ? '/students/results' : '/students/review')}
+                            className="flex cursor-pointer items-center gap-1.5 text-base font-bold text-teal-700 hover:underline dark:text-teal-300"
+                        >
+                            {t.viewAll} <ArrowRight size={15} />
+                        </button>
+                    </div>
+                )}
+            </section>
         </>
     )
 }

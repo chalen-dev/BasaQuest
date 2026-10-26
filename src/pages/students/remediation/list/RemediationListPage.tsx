@@ -98,7 +98,7 @@ export const RemediationListPage: React.FC = () => {
                     <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-50">{t.title}</h1>
                     <p className="mt-1.5 text-base font-medium text-gray-600 dark:text-gray-400">{t.subtitle}</p>
                     {!isLoading && !error && total > 0 && (
-                        <p className="mt-3.5 text-sm font-semibold text-gray-500 dark:text-gray-400">{t.resultsCount(total)}</p>
+                        <p className="mt-3.5 text-base font-semibold text-gray-500 dark:text-gray-400">{t.resultsCount(total)}</p>
                     )}
                 </div>
             </section>
@@ -140,29 +140,29 @@ export const RemediationListPage: React.FC = () => {
                             <button
                                 key={student.student_id}
                                 onClick={() => navigate(`/students/remediation/${student.student_id}`)}
-                                className="flex cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-5 text-left shadow-sm transition-colors duration-150 hover:border-purple-500/30 dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-purple-400/30"
+                                className="flex cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-6 text-left shadow-sm transition-colors duration-150 hover:border-purple-500/30 dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-purple-400/30"
                             >
-                                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400">
-                                    <Sparkles size={22} />
+                                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400">
+                                    <Sparkles size={26} />
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2.5">
-                                        <span className="text-base font-extrabold text-gray-900 dark:text-gray-50">{name}</span>
+                                        <span className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{name}</span>
                                         {student.grade_level != null && (
-                                            <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                            <span className="rounded-full bg-gray-900/5 px-3.5 py-1.5 text-base font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                                                 {t.gradeLabel(student.grade_level)}
                                             </span>
                                         )}
                                     </div>
-                                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500">
-                                        <Clock size={13} />
+                                    <div className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-gray-400 dark:text-gray-500">
+                                        <Clock size={15} />
                                         {t.lastGenerated}: {formatPHTime(student.latest_created_at)}
                                     </div>
                                 </div>
-                                <span className="shrink-0 rounded-full bg-purple-500/15 px-4 py-2 text-base font-extrabold text-purple-700 dark:text-purple-300">
+                                <span className="shrink-0 rounded-full bg-purple-500/15 px-5 py-2.5 text-lg font-extrabold text-purple-700 dark:text-purple-300">
                                     {t.materialsCount(student.material_count)}
                                 </span>
-                                <ArrowRight size={19} className="shrink-0 text-gray-400 dark:text-gray-500" />
+                                <ArrowRight size={22} className="shrink-0 text-gray-400 dark:text-gray-500" />
                             </button>
                         )
                     })}

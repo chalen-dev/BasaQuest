@@ -285,11 +285,11 @@ export default function FinetuneStudentListPage() {
                                     </span>
                                     <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="text-base font-extrabold text-gray-900 dark:text-gray-50">
+                                            <span className="text-xl font-extrabold text-gray-900 dark:text-gray-50">
                                                 {s.full_name}
                                             </span>
                                             <span
-                                                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                                className={`rounded-full px-3 py-1 text-sm font-semibold ${
                                                     hasConsent
                                                         ? 'bg-green-500/15 text-green-600 dark:text-green-400'
                                                         : 'bg-red-500/15 text-red-600 dark:text-red-400'
@@ -298,13 +298,13 @@ export default function FinetuneStudentListPage() {
                                                 {hasConsent ? 'consent on file' : 'no consent'}
                                             </span>
                                             {s.grade_level != null && (
-                                                <span className="rounded-full bg-gray-900/5 px-2.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                                <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                                                     Grade {s.grade_level}
                                                 </span>
                                             )}
-                                            <GenderBadge gender={s.gender} />
+                                            <GenderBadge gender={s.gender} size="md" />
                                             {s.reading_tier && (
-                                                <span className="rounded-full bg-teal-500/15 px-2.5 py-0.5 text-xs font-semibold text-teal-600 dark:text-teal-400">
+                                                <span className="rounded-full bg-teal-500/15 px-3 py-1 text-sm font-semibold text-teal-600 dark:text-teal-400">
                                                     {s.reading_tier} grade level
                                                 </span>
                                             )}
@@ -328,14 +328,14 @@ export default function FinetuneStudentListPage() {
                                                 if (!hasRecordings) return
                                                 navigate(`/admin/recording/history?student=${s.id}`)
                                             }}
-                                            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-colors duration-200 ${
+                                            className={`flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color] duration-150 ${
                                                 hasRecordings
-                                                    ? 'cursor-pointer bg-orange-500/15 text-orange-600 hover:bg-orange-500/25 dark:bg-orange-500/20 dark:text-orange-300 dark:hover:bg-orange-500/30'
-                                                    : 'cursor-not-allowed bg-gray-900/5 text-gray-400 dark:bg-gray-100/5 dark:text-gray-600'
+                                                    ? 'cursor-pointer bg-orange-500 text-white shadow-[0_3px_0_0_#c2410c] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#c2410c] dark:bg-orange-600 dark:shadow-[0_3px_0_0_#9a3412]'
+                                                    : 'cursor-not-allowed border-2 border-dashed border-gray-900/15 text-gray-400 dark:border-gray-100/15 dark:text-gray-600'
                                             }`}
                                         >
-                                            <FileAudio size={14} />
-                                            {hasRecordings ? `Recordings (${recordingCount})` : 'No recordings'}
+                                            <FileAudio size={16} />
+                                            {hasRecordings ? `View recording list (${recordingCount})` : 'No recordings yet'}
                                         </button>
                                         <Tooltip label="Edit">
                                             <button
