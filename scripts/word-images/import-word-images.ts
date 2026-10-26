@@ -23,7 +23,18 @@ const OPENMOJI_VERSION = '15.0.0'
 // filipino and forms may each hold several spellings separated by ";" —
 // forms are extra English spellings of the same picture (plurals, verb
 // endings: "mango" -> "mangoes", "eat" -> "eating;ate").
-type WordRow = { english: string; filipino: string; forms: string }
+// sense/cues/isDefault describe WHICH meaning this picture is (top = "spinning
+// toy"), arasaacId pins one specific pictogram instead of the search's first
+// pick. All four are optional; rows without them behave as before.
+type WordRow = {
+    english: string
+    filipino: string
+    forms: string
+    sense: string
+    cues: string
+    isDefault: boolean
+    arasaacId: string
+}
 type Found = {
     bytes: Uint8Array
     contentType: string
@@ -50,7 +61,12 @@ function normalize(word: string): string {
         .trim()
 }
 
-const splitKeys = (cell: string) => [...new Set(cell.split(';').map(normalize).filter(Boolean))]
+// A phrase keeps one space between its normalized words ("washing machine"),
+// which is how the coach looks phrases up. A single word comes out unchanged.
+const normalizeKey = (text: string) => text.split(/\s+/).map(normalize).filter(Boolean).join(' ')
+const splitKeys = (cell: string) => [...new Set(cell.split(';').map(normalizeKey).filter(Boolean))]
+const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+const splitCues = (cell: string) => [...new Set(cell.split(';').map(normalize).filter(Boolean))]
 
 // --plurals: also store the regular plural / third-person spelling of the
 // English word (dog -> dogs, bus -> buses, baby -> babies).
@@ -61,13 +77,22 @@ function pluralOf(word: string): string {
     return `${word}s`
 }
 
+// A leading "~" on the English word ("~fern,pako,...") means it is only what to
+// search for: the picture is stored for the Filipino words alone, with no
+// English row. Used for a Filipino word whose other meaning has no English
+// counterpart worth listing (pako = nail / fern).
+const searchTermOf = (row: WordRow) => row.english.replace(/^~/, '')
+const isFilipinoOnly = (row: WordRow) => row.english.startsWith('~')
+
 // Every word key a row's picture should be stored under, per language.
 function keysFor(row: WordRow) {
-    const base = normalize(row.english)
+    const base = normalizeKey(searchTermOf(row))
     return {
-        en: [
-            ...new Set([base, ...splitKeys(row.forms), ...(autoPlurals && !row.english.includes(' ') ? [pluralOf(base)] : [])]),
-        ].filter(Boolean),
+        en: isFilipinoOnly(row)
+            ? splitKeys(row.forms)
+            : [
+                  ...new Set([base, ...splitKeys(row.forms), ...(autoPlurals && !row.english.includes(' ') ? [pluralOf(base)] : [])]),
+              ].filter(Boolean),
         fil: splitKeys(row.filipino),
     }
 }
@@ -80,9 +105,19 @@ function parseCsv(path: string): WordRow[] {
     const cells = (line: string) => line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
     const rows: WordRow[] = []
     for (const [i, line] of lines.entries()) {
-        const [english = '', filipino = '', forms = ''] = cells(line)
+        const [english = '', filipino = '', forms = '', sense = '', cues = '', isDefault = '', arasaacId = ''] = cells(line)
         if (i === 0 && english.toLowerCase() === 'english_word') continue
-        if (english) rows.push({ english, filipino, forms })
+        if (english) {
+            rows.push({
+                english,
+                filipino,
+                forms,
+                sense: sense.trim(),
+                cues,
+                isDefault: /^(1|true|yes|default)$/i.test(isDefault.trim()),
+                arasaacId: arasaacId.trim(),
+            })
+        }
     }
     return rows
 }
@@ -106,6 +141,13 @@ async function findArasaac(term: string, exactOnly: boolean): Promise<Found | nu
     const hit = exactOnly ? exact : (exact ?? clean[0])
     if (!hit) return null
     const sourceUrl = `https://static.arasaac.org/pictograms/${hit._id}/${hit._id}_500.png`
+    const bytes = await fetchBytes(sourceUrl)
+    if (!bytes) return null
+    return { bytes, contentType: 'image/png', ext: 'png', source: 'arasaac', credit: ARASAAC_CREDIT, sourceUrl }
+}
+
+async function findArasaacById(id: string): Promise<Found | null> {
+    const sourceUrl = `https://static.arasaac.org/pictograms/${id}/${id}_500.png`
     const bytes = await fetchBytes(sourceUrl)
     if (!bytes) return null
     return { bytes, contentType: 'image/png', ext: 'png', source: 'arasaac', credit: ARASAAC_CREDIT, sourceUrl }
@@ -239,8 +281,16 @@ async function main() {
     let skipped = 0
 
     for (const row of rows) {
-        const enKey = normalize(row.english)
+        const enKey = normalizeKey(searchTermOf(row))
         if (!enKey) continue
+        // Where to look for "already has this picture": the English word, or the
+        // first Filipino word for a Filipino-only row.
+        const lookupLanguage = isFilipinoOnly(row) ? 'fil' : 'en'
+        const lookupKey = isFilipinoOnly(row) ? (splitKeys(row.filipino)[0] ?? '') : enKey
+        if (!lookupKey) {
+            console.log(`  ✗ ${row.english}: a Filipino-only row needs a Filipino word`)
+            continue
+        }
         if (FUNCTION_WORDS.has(enKey)) {
             console.log(`  - ${row.english}: function word, no picture`)
             continue
@@ -250,8 +300,9 @@ async function main() {
             const { data: existing } = await supabase
                 .from('word_images')
                 .select('image_path, source, credit, source_url')
-                .eq('language', 'en')
-                .eq('word', enKey)
+                .eq('language', lookupLanguage)
+                .eq('word', lookupKey)
+                .eq('sense', row.sense)
                 .maybeSingle()
             if (existing) {
                 // The English meaning already has a picture (an earlier row,
@@ -266,7 +317,10 @@ async function main() {
                 if (!dryRun && extra.length > 0) {
                     const { error: extraErr } = await supabase
                         .from('word_images')
-                        .upsert(extra.map((r) => ({ ...r, ...existing })), { onConflict: 'language,word', ignoreDuplicates: true })
+                        .upsert(
+                            extra.map((r) => ({ ...r, ...existing, sense: row.sense, cues: splitCues(row.cues), is_default: row.isDefault })),
+                            { onConflict: 'language,word,sense', ignoreDuplicates: true },
+                        )
                     if (extraErr) console.error(`    extra rows failed for ${row.english}: ${extraErr.message}`)
                 }
                 console.log(`  = ${row.english}${row.filipino ? ` / ${row.filipino}` : ''}: picture already exists, reused`)
@@ -276,10 +330,11 @@ async function main() {
         }
 
         const found =
-            (await findArasaac(row.english, exactOnly)) ??
-            (await findOpenMoji(row.english)) ??
+            (row.arasaacId ? await findArasaacById(row.arasaacId) : null) ??
+            (row.arasaacId ? null : await findArasaac(searchTermOf(row), exactOnly)) ??
+            (await findOpenMoji(searchTermOf(row))) ??
             (useWikimedia
-                ? await findWikimedia(row.english).catch((err: Error) => {
+                ? await findWikimedia(searchTermOf(row)).catch((err: Error) => {
                       console.log(`    ${err.message}`)
                       return null
                   })
@@ -292,7 +347,7 @@ async function main() {
         console.log(`  ✓ ${row.english}${row.filipino ? ` / ${row.filipino}` : ''}: ${found.source} (${found.sourceUrl})`)
         if (dryRun) continue
 
-        const imagePath = `${enKey}.${found.ext}`
+        const imagePath = `${isFilipinoOnly(row) ? `fil-${slug(lookupKey)}` : slug(enKey)}${row.sense ? `-${slug(row.sense)}` : ''}.${found.ext}`
         const { error: uploadErr } = await supabase.storage
             .from(BUCKET)
             .upload(imagePath, found.bytes, { contentType: found.contentType, upsert: true })
@@ -310,6 +365,9 @@ async function main() {
         const { error: rowErr } = await supabase.from('word_images').upsert(
             records.map((r) => ({
                 ...r,
+                sense: row.sense,
+                cues: splitCues(row.cues),
+                is_default: row.isDefault,
                 image_path: imagePath,
                 source: found.source,
                 credit: found.credit,
@@ -318,7 +376,7 @@ async function main() {
             // A word that already has a picture keeps it unless --force, so a
             // later row ("fur") can't silently take over an earlier one's
             // Filipino word ("balahibo" from "feather").
-            { onConflict: 'language,word', ignoreDuplicates: !force },
+            { onConflict: 'language,word,sense', ignoreDuplicates: !force },
         )
         if (rowErr) {
             console.error(`    row insert failed: ${rowErr.message}`)
@@ -331,8 +389,10 @@ async function main() {
     const missingPath = csvPath.replace(/\.csv$/i, '') + '.missing.csv'
     writeFileSync(
         missingPath,
-        'english_word,filipino_word,english_forms\n' +
-            missing.map((m) => `${m.english},${m.filipino},${m.forms}`).join('\n') +
+        'english_word,filipino_word,english_forms,sense,cues,default,arasaac_id\n' +
+            missing
+                .map((m) => [m.english, m.filipino, m.forms, m.sense, m.cues, m.isDefault ? 'default' : '', m.arasaacId].join(','))
+                .join('\n') +
             '\n',
     )
     console.log(`\nDone: ${added} added, ${skipped} skipped, ${missing.length} missing (listed in ${missingPath})`)

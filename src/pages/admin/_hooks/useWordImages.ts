@@ -20,6 +20,9 @@ export type WordImageRow = {
     credit: string | null
     source_url: string | null
     reviewed: boolean
+    sense: string
+    cues: string[]
+    is_default: boolean
 }
 
 export type PictureGroup = {
@@ -29,6 +32,11 @@ export type PictureGroup = {
     credit: string | null
     // True only when every word row on this picture has been reviewed.
     reviewed: boolean
+    // Which meaning this picture shows ("spinning toy"; '' for an ordinary word),
+    // the words that point to it, and whether it is the fallback meaning.
+    sense: string
+    cues: string[]
+    isDefault: boolean
     words: { id: string; language: 'en' | 'fil'; word: string }[]
 }
 
@@ -43,7 +51,7 @@ export function useWordImageGroupsQuery() {
         queryKey: wordImagesKey,
         queryFn: async () => {
             const rows = await fetchAllWordImageRows<WordImageRow>(
-                'id, language, word, image_path, source, credit, source_url, reviewed',
+                'id, language, word, image_path, source, credit, source_url, reviewed, sense, cues, is_default',
             )
             rows.sort((a, b) => a.word.localeCompare(b.word))
             const groups = new Map<string, PictureGroup>()
@@ -56,6 +64,9 @@ export function useWordImageGroupsQuery() {
                         source: row.source,
                         credit: row.credit,
                         reviewed: true,
+                        sense: row.sense,
+                        cues: row.cues,
+                        isDefault: row.is_default,
                         words: [],
                     }
                     groups.set(row.image_path, g)
@@ -109,11 +120,20 @@ async function removeFileIfUnused(path: string) {
     if (removeErr) throw removeErr
 }
 
+// A box of cue words ("spin, spinning, toy") -> the normalized list the bank stores.
+export function parseCues(text: string): string[] {
+    return [...new Set(text.split(/[,;\n]/).map(normalizeImageWord).filter(Boolean))]
+}
+
 export type AddPictureArgs = {
     english: string
     filipino: string
     file: File
     credit: string
+    // Optional: which meaning this picture is. A different sense for a word
+    // that already has a picture ADDS a second picture instead of replacing it.
+    sense?: string
+    cues?: string
 }
 
 // Adds (or overwrites) the picture for an English word and, if given, its
@@ -121,7 +141,9 @@ export type AddPictureArgs = {
 export function useAddPictureMutation() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async ({ english, filipino, file, credit }: AddPictureArgs) => {
+        mutationFn: async ({ english, filipino, file, credit, sense = '', cues = '' }: AddPictureArgs) => {
+            const senseLabel = sense.trim()
+            const cueList = parseCues(cues)
             const records: { language: 'en' | 'fil'; word: string }[] = []
             const enKey = normalizeImageWord(english)
             const filKey = normalizeImageWord(filipino)
@@ -134,12 +156,15 @@ export function useAddPictureMutation() {
             const { data: previous } = await supabase
                 .from('word_images')
                 .select('image_path, language, word')
+                .eq('sense', senseLabel)
                 .or(records.map((r) => `and(language.eq.${r.language},word.eq.${r.word})`).join(','))
 
             const path = await uploadNewFile(file)
             const { error } = await supabase.from('word_images').upsert(
                 records.map((r) => ({
                     ...r,
+                    sense: senseLabel,
+                    cues: cueList,
                     image_path: path,
                     source: 'upload',
                     credit: credit.trim() || 'Uploaded by admin',
@@ -147,7 +172,7 @@ export function useAddPictureMutation() {
                     reviewed: true,
                     reviewed_at: new Date().toISOString(),
                 })),
-                { onConflict: 'language,word' },
+                { onConflict: 'language,word,sense' },
             )
             if (error) {
                 await supabase.storage.from(BUCKET).remove([path])
@@ -216,11 +241,15 @@ export function useAddWordToPictureMutation() {
                 .select('image_path')
                 .eq('language', language)
                 .eq('word', key)
+                .eq('sense', group.sense)
                 .maybeSingle()
             const { error } = await supabase.from('word_images').upsert(
                 {
                     language,
                     word: key,
+                    // The new word shares this picture's meaning and cue words.
+                    sense: group.sense,
+                    cues: group.cues,
                     image_path: group.imagePath,
                     source: group.source,
                     credit: group.credit,
@@ -228,10 +257,55 @@ export function useAddWordToPictureMutation() {
                     reviewed: true,
                     reviewed_at: new Date().toISOString(),
                 },
-                { onConflict: 'language,word' },
+                { onConflict: 'language,word,sense' },
             )
             if (error) throw error
             if (previous && previous.image_path !== group.imagePath) await removeFileIfUnused(previous.image_path)
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['word_images'] }),
+    })
+}
+
+// Sets which meaning a picture is, the cue words that point to it, and whether
+// it is the fallback meaning. Applies to every word on the picture. Only one
+// picture per word can be the default, so making this one the default first
+// clears the flag on that word's other pictures.
+export function useUpdateSenseMutation() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({
+            group,
+            sense,
+            cues,
+            isDefault,
+        }: {
+            group: PictureGroup
+            sense: string
+            cues: string
+            isDefault: boolean
+        }) => {
+            if (isDefault) {
+                for (const w of group.words) {
+                    const { error } = await supabase
+                        .from('word_images')
+                        .update({ is_default: false })
+                        .eq('language', w.language)
+                        .eq('word', w.word)
+                        .neq('image_path', group.imagePath)
+                    if (error) throw error
+                }
+            }
+            const { error } = await supabase
+                .from('word_images')
+                .update({ sense: sense.trim(), cues: parseCues(cues), is_default: isDefault })
+                .eq('image_path', group.imagePath)
+            if (error) {
+                // The one clash worth explaining: two pictures of one word can't share a meaning label.
+                if (error.code === '23505') {
+                    throw new Error('Another picture of one of these words already has that meaning. Use a different label.')
+                }
+                throw error
+            }
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['word_images'] }),
     })

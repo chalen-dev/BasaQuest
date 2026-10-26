@@ -70,7 +70,7 @@ async function main() {
                 reviewed: false,
                 reviewed_at: null,
             },
-            { onConflict: 'language,word' },
+            { onConflict: 'language,word,sense' },
         )
         if (error) throw error
         console.log('  bottle cap picture answers to fil:tansan')

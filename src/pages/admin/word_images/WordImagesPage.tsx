@@ -20,6 +20,7 @@ import {
     useRemoveWordMutation,
     useReplacePictureMutation,
     useSetReviewedMutation,
+    useUpdateSenseMutation,
     useWordImageGroupsQuery,
     type PictureGroup,
 } from '../_hooks/useWordImages.ts'
@@ -89,6 +90,61 @@ function previewUrl(g: PictureGroup): string {
     return `/admin/word-images/preview?word=${encodeURIComponent(w.word)}&lang=${w.language}&from=word-images`
 }
 
+// For a word that means more than one thing (top = spinning toy / bottle cap /
+// peak): which meaning THIS picture shows, the words in a story that point to
+// it, and whether to show it when none of them appear. Words with a single
+// picture can leave all of this empty.
+function SenseEditor({ group, isDark }: { group: PictureGroup; isDark: boolean }) {
+    const mutation = useUpdateSenseMutation()
+    const [sense, setSense] = useState(group.sense)
+    const [cues, setCues] = useState(group.cues.join(', '))
+    const [isDefault, setIsDefault] = useState(group.isDefault)
+
+    const save = async () => {
+        try {
+            await mutation.mutateAsync({ group, sense, cues, isDefault })
+            showToast('Meaning saved.', 'success', isDark, { timer: 1200 })
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Failed to save the meaning.', 'error', isDark)
+        }
+    }
+
+    return (
+        <div className="flex flex-col gap-1.5 rounded-xl bg-violet-500/10 p-2">
+            <p className="text-xs font-bold text-violet-700 dark:text-violet-300">
+                Meaning (only for a word with more than one picture)
+            </p>
+            <input
+                value={sense}
+                onChange={(e) => setSense(e.target.value)}
+                placeholder="e.g. spinning toy"
+                aria-label="Meaning of this picture"
+                className={`${inputClass} !py-1`}
+            />
+            <input
+                value={cues}
+                onChange={(e) => setCues(e.target.value)}
+                placeholder="Cue words: spin, spinning, toy"
+                aria-label="Cue words that point to this meaning"
+                className={`${inputClass} !py-1`}
+            />
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+                Show this one when no cue word matches
+            </label>
+            <button
+                type="button"
+                onClick={save}
+                disabled={mutation.isPending}
+                className="flex cursor-pointer items-center justify-center gap-1.5 rounded-full bg-violet-600 px-3 py-1 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+                {mutation.isPending && <Loader2 size={14} className="animate-spin" />}
+                Save meaning
+            </button>
+        </div>
+    )
+}
+
 export default function WordImagesPage() {
     const { theme } = useTheme()
     const isDark = theme === 'dark'
@@ -111,6 +167,8 @@ export default function WordImagesPage() {
     const [newFilipino, setNewFilipino] = useState('')
     const [newFile, setNewFile] = useState<File | null>(null)
     const [newCredit, setNewCredit] = useState('')
+    const [newSense, setNewSense] = useState('')
+    const [newCues, setNewCues] = useState('')
     const [formError, setFormError] = useState('')
     const [editingPath, setEditingPath] = useState<string | null>(null)
     const [extraWord, setExtraWord] = useState('')
@@ -227,12 +285,16 @@ export default function WordImagesPage() {
                 filipino: newFilipino,
                 file: newFile,
                 credit: newCredit,
+                sense: newSense,
+                cues: newCues,
             })
             showToast('Picture added.', 'success', isDark, { timer: 1500 })
             setNewEnglish('')
             setNewFilipino('')
             setNewFile(null)
             setNewCredit('')
+            setNewSense('')
+            setNewCues('')
             setAdding(false)
         } catch (err) {
             setFormError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
@@ -329,6 +391,24 @@ export default function WordImagesPage() {
                                 value={newCredit}
                                 onChange={(e) => setNewCredit(e.target.value)}
                                 placeholder="e.g. Photo by Jane Doe, CC BY 4.0"
+                                className={`${inputClass} mt-1`}
+                            />
+                        </label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                            Meaning (only if this word has more than one picture)
+                            <input
+                                value={newSense}
+                                onChange={(e) => setNewSense(e.target.value)}
+                                placeholder="e.g. spinning toy"
+                                className={`${inputClass} mt-1`}
+                            />
+                        </label>
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                            Cue words for that meaning
+                            <input
+                                value={newCues}
+                                onChange={(e) => setNewCues(e.target.value)}
+                                placeholder="e.g. spin, spinning, toy"
                                 className={`${inputClass} mt-1`}
                             />
                         </label>
@@ -501,6 +581,14 @@ export default function WordImagesPage() {
                                             </span>
                                         ))}
                                     </div>
+                                    {(g.sense || g.cues.length > 0 || g.isDefault) && (
+                                        <p className="rounded-lg bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                                            {g.sense ? <b>{g.sense}</b> : <b>meaning not named</b>}
+                                            {g.isDefault && ' · default'}
+                                            {g.cues.length > 0 && ` · cues: ${g.cues.join(', ')}`}
+                                        </p>
+                                    )}
+                                    {editing && <SenseEditor key={g.imagePath} group={g} isDark={isDark} />}
                                     {editing && (
                                         <div className="flex gap-1.5">
                                             <input

@@ -171,6 +171,7 @@ async function main() {
             .select('image_path, source, credit, source_url')
             .eq('language', 'en')
             .eq('word', normalize(english))
+            .eq('sense', '')
             .maybeSingle()
         if (error) throw error
         if (!picture) {
@@ -186,6 +187,7 @@ async function main() {
                 .select('image_path')
                 .eq('language', 'fil')
                 .eq('word', word)
+                .eq('sense', '')
                 .maybeSingle()
             if (existingError) throw existingError
             if (existing) {

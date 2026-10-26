@@ -302,6 +302,47 @@ accounts are left, and real teachers create their own pupils in the app.
 Before doing it, turn off the test teachers' logins if anyone still uses them,
 since their data is deleted along with them.
 
+## Words with several meanings, and phrases
+
+A word can have several pictures, one per meaning (top: spinning toy, bottle
+cap, lid, mountain top; Filipino araw: sun, day). A phrase can have its own
+picture ("washing machine", "anak na babae"). The coach chooses from the page
+the word was tapped in, in this order:
+
+1. a **phrase** that contains the tapped word and its neighbours;
+2. otherwise the meaning whose **cue words** appear within ten words of it;
+3. otherwise the meaning marked **default**, or the only picture the word has;
+4. otherwise **no picture** (a wrong picture is worse than none for a child).
+
+Reviewers manage this on **Word Pictures**: the pencil on a card opens
+**Meaning**, **Cue words** and "Show this one when no cue word matches". The
+eye opens the preview, which has a **test sentence** box so a meaning can be
+tried in context. Cue words work in both languages, so a card can list English
+and Filipino cues together.
+
+For many words at once, use the word-list scripts (all take `ENV_FILE` for the
+cloud, like the other scripts):
+
+```powershell
+npx tsx scripts/word-images/list-arasaac-senses.ts top bat     # see ARASAAC's pictures and ids for a word
+npx tsx scripts/word-images/import-word-images.ts scripts/word-images/words-senses-en.csv
+npx tsx scripts/word-images/retire-plain-rows.ts scripts/word-images/words-senses-en.csv
+npx tsx scripts/word-images/migrate-phrase-keys.ts             # phrases written without spaces -> real phrases
+```
+
+The senses CSVs add the columns `sense`, `cues` (separated by `;`),
+`default` and `arasaac_id` (use a specific ARASAAC picture instead of the
+search's first hit). An English word starting with `~` is only a search term and
+creates Filipino rows alone (`~fern,pako,...`). `retire-plain-rows` then removes
+the old single picture of every word the CSV gave named meanings, so it does not
+stay the answer for every sentence.
+
+**Deploy order.** The website reads the new columns, so run
+`npx supabase db push` (migration `add_senses_to_word_images`) **before**
+pushing the code, or pictures stop loading until you do. Logins are not affected.
+
+---
+
 ## Having your groupmate review pictures
 
 1. Give them the website address and the admin username and password you

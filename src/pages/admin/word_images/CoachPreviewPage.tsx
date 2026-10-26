@@ -41,19 +41,33 @@ function sentenceFor(word: string, lang: Lang): CoachSentenceContent {
     return { words, targetIndices: [lead.length] }
 }
 
+// A reviewer's own sentence, so a word with several meanings can be tried in
+// context. Every copy of the word in it is marked as the target.
+function sentenceFromText(text: string, word: string): CoachSentenceContent {
+    const words = text.trim().split(/\s+/)
+    const wanted = stripPunctuation(word).toLowerCase()
+    const targetIndices = words.flatMap((w, i) => (stripPunctuation(w).toLowerCase() === wanted && wanted ? [i] : []))
+    return { words, targetIndices }
+}
+
 export default function CoachPreviewPage() {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const initialWord = searchParams.get('word') ?? ''
     const [lang, setLang] = useState<Lang>(searchParams.get('lang') === 'fil' ? 'fil' : 'en')
     const [inputWord, setInputWord] = useState(initialWord)
+    const [sentence, setSentence] = useState(searchParams.get('sentence') ?? '')
     const [selectedWord, setSelectedWord] = useState<string | null>(initialWord || null)
     const [open, setOpen] = useState(true)
     const backdropRef = useRef<CoachTableBackdropHandle>(null)
     const { speak } = usePronounceWord()
-    const { data: wordImage } = useWordImageQuery(selectedWord, lang)
-
-    const content = useMemo(() => sentenceFor(inputWord, lang), [inputWord, lang])
+    const content = useMemo(
+        () => (sentence.trim() ? sentenceFromText(sentence, inputWord) : sentenceFor(inputWord, lang)),
+        [inputWord, lang, sentence],
+    )
+    // The sentence is the context: a phrase or cue word in it picks the right
+    // picture when the word has several meanings.
+    const { data: wordImage } = useWordImageQuery(selectedWord, lang, content.words)
     const firstRender = useRef(true)
     useEffect(() => {
         // initialContent paints the first render; later edits (a typed word,
@@ -129,7 +143,15 @@ export default function CoachPreviewPage() {
             </div>
 
             {/* Floating panel: preview a different word or language. */}
-            <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-2xl border border-gray-900/10 bg-white/90 p-2 shadow-md backdrop-blur-sm dark:border-gray-100/10 dark:bg-gray-900/85">
+            <div className="fixed bottom-4 right-4 z-40 flex max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-2xl border border-gray-900/10 bg-white/90 p-2 shadow-md backdrop-blur-sm dark:border-gray-100/10 dark:bg-gray-900/85">
+                <input
+                    value={sentence}
+                    onChange={(e) => setSentence(e.target.value)}
+                    placeholder="Optional: type a sentence that contains the word"
+                    aria-label="Test sentence"
+                    className="w-full rounded-xl border-2 border-gray-900/10 bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 outline-none focus:border-teal-500 dark:border-gray-100/10 dark:bg-gray-950 dark:text-gray-50 sm:w-96"
+                />
+                <div className="flex items-center gap-2">
                 <input
                     value={inputWord}
                     onChange={(e) => applyTypedWord(e.target.value)}
@@ -152,6 +174,7 @@ export default function CoachPreviewPage() {
                         {l === 'en' ? 'English' : 'Filipino'}
                     </button>
                 ))}
+                </div>
             </div>
         </div>
     )

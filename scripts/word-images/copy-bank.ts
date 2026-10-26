@@ -14,7 +14,7 @@
 // ending in .local is already ignored).
 //
 // Safe to re-run: files are uploaded with upsert and rows are upserted by
-// (language, word), so it only adds or updates, never deletes. A picture
+// (language, word, sense), so it only adds or updates, never deletes. A picture
 // that was deleted on the source stays on the target until removed there.
 // Rows are copied as they are — including their reviewed flag — so the
 // source always wins for the words it has.
@@ -35,6 +35,9 @@ type Row = {
     source_url: string | null
     reviewed: boolean
     reviewed_at: string | null
+    sense: string
+    cues: string[]
+    is_default: boolean
 }
 
 function clientFor(envFile: string): { client: SupabaseClient; url: string } {
@@ -50,7 +53,7 @@ async function fetchAllRows(client: SupabaseClient): Promise<Row[]> {
     for (let from = 0; ; from += PAGE) {
         const { data, error } = await client
             .from('word_images')
-            .select('id, language, word, image_path, source, credit, source_url, reviewed, reviewed_at')
+            .select('id, language, word, image_path, source, credit, source_url, reviewed, reviewed_at, sense, cues, is_default')
             .order('id', { ascending: true })
             .range(from, from + PAGE - 1)
         if (error) throw error
@@ -116,8 +119,11 @@ async function main() {
             source_url: r.source_url,
             reviewed: r.reviewed,
             reviewed_at: r.reviewed_at,
+            sense: r.sense,
+            cues: r.cues,
+            is_default: r.is_default,
         }))
-        const { error } = await target.client.from('word_images').upsert(batch, { onConflict: 'language,word' })
+        const { error } = await target.client.from('word_images').upsert(batch, { onConflict: 'language,word,sense' })
         if (error) throw error
     }
     console.log(`\nDone: ${copied} files and ${usable.length} word rows copied, ${failed} files skipped.`)

@@ -492,16 +492,6 @@ export default function RemediationCoachPage() {
     // Set when the tapped token is a name (Gemini's tag, or the
     // capitalization guess for untagged passages) — see nameMatchFor().
     const [selectedName, setSelectedName] = useState<NameMatch | null>(null)
-    // A word Gemini tagged as a name never looks up its own picture ("Maya"
-    // the girl must not get the maya bird). A merely guessed name does look
-    // it up, and keeps that picture if the bank has one.
-    const { data: wordImage } = useWordImageQuery(
-        selectedName && !selectedName.guessed ? null : selectedWord,
-        material?.language,
-    )
-    const { data: namePicture } = useWordImageQuery(selectedName ? NAME_PICTURE_WORD[selectedName.kind] : null, 'en')
-    const showNameCard = !!selectedName && (!selectedName.guessed || !wordImage)
-    const notebookImage = showNameCard ? namePicture : wordImage
 
     useEffect(() => {
         if (material && !seeded) {
@@ -527,6 +517,20 @@ export default function RemediationCoachPage() {
             : pagesFromWords(sessionWords, lang)
 
     const currentPage = pages[currentIndex] ?? null
+
+    // A word Gemini tagged as a name never looks up its own picture ("Maya"
+    // the girl must not get the maya bird). A merely guessed name does look
+    // it up, and keeps that picture if the bank has one.
+    const { data: wordImage } = useWordImageQuery(
+        selectedName && !selectedName.guessed ? null : selectedWord,
+        material?.language,
+        // The page's own words: a phrase around the tapped word, or a cue word
+        // near it, picks the right picture when a word has several meanings.
+        currentPage?.content.words,
+    )
+    const { data: namePicture } = useWordImageQuery(selectedName ? NAME_PICTURE_WORD[selectedName.kind] : null, 'en')
+    const showNameCard = !!selectedName && (!selectedName.guessed || !wordImage)
+    const notebookImage = showNameCard ? namePicture : wordImage
     // The owl's speech-bubble text for the current page -- see this
     // file's header comment ("COACH TIPS"). Computed here (rather than
     // inline in the render branch below) so the reading-time auto-hide
