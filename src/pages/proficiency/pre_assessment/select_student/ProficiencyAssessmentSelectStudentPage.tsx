@@ -32,7 +32,8 @@
 // instead of a centered OwlLoader spinner.
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check, Languages, Play, Send, WifiOff, Wifi, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, FileCheck, FileClock, Languages, Play, Send, WifiOff, Wifi, X } from 'lucide-react'
+import { useSavedPassageStatusesQuery } from '../savedPassages.ts'
 import { Owl } from '../../../../components/ui/Owl.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import { Pagination } from '../../../../components/ui/Pagination.tsx'
@@ -83,6 +84,11 @@ const STRINGS: Record<Lang, {
     onlineNote: string
     nonReaderBadge: string
     pendingBadge: string
+    // A passage already generated for this pupil in the chosen language.
+    passageUnvalidatedBadge: string
+    passageUnvalidatedTip: string
+    passageReadyBadge: string
+    passageReadyTip: string
     cancelLabel: string
     assignLabel: string
     startNowLabel: string
@@ -131,6 +137,10 @@ const STRINGS: Record<Lang, {
         onlineNote: 'Naka-online — paalisin muna sa sistema.',
         nonReaderBadge: 'Non-reader',
         pendingBadge: 'Naghihintay',
+        passageUnvalidatedBadge: 'Kailangang suriin',
+        passageUnvalidatedTip: 'May nagawa nang talata para sa batang ito na hindi pa nasusuri. Pindutin ang Ngayon para ipagpatuloy.',
+        passageReadyBadge: 'Handa na ang talata',
+        passageReadyTip: 'Nasuri na ang talata para sa batang ito. Pindutin ang Ngayon para magsimulang mag-record.',
         cancelLabel: 'Kanselahin',
         assignLabel: 'Ipadala',
         startNowLabel: 'Ngayon',
@@ -179,6 +189,10 @@ const STRINGS: Record<Lang, {
         onlineNote: 'Online — ask them to log out first.',
         nonReaderBadge: 'Non-reader',
         pendingBadge: 'Pending',
+        passageUnvalidatedBadge: 'Needs validation',
+        passageUnvalidatedTip: 'A passage was already generated for this pupil but not validated yet. Press Now to continue.',
+        passageReadyBadge: 'Passage ready',
+        passageReadyTip: 'The passage for this pupil is validated. Press Now to start recording.',
         cancelLabel: 'Cancel',
         assignLabel: 'Send',
         startNowLabel: 'Now',
@@ -235,6 +249,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
     const total = data?.total ?? 0
     const pageCount = Math.max(1, Math.ceil(total / ASSIGNABLE_PAGE_SIZE))
     const hasFilters = debouncedSearch.length > 0 || gradeFilter.length > 0 || readerFilter.length > 0 || onlineFilter !== 'offline'
+    const { data: savedPassages } = useSavedPassageStatusesQuery(isTeacher ? profile?.id : undefined, selectedLang)
     const assignMutation = useAssignAssessmentMutation(profile?.id)
     const cancelMutation = useCancelAssignedAssessmentMutation(profile?.id)
     const chooseLanguage = (chosen: Lang) => {
@@ -437,6 +452,9 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
     const studentRow = (student: (typeof students)[number]) => {
         const online = onlineIdsSet.has(student.id)
         const name = student.full_name || student.username || student.id
+        // A passage already generated for this pupil in the chosen language
+        // (saved on the server, see savedPassages.ts).
+        const savedStatus = savedPassages?.get(student.id)
         return (
             <div
                 key={student.id}
@@ -462,6 +480,24 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                         {student.pendingAssignment && (
                             <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
                                 {t.pendingBadge}
+                            </span>
+                        )}
+                        {savedStatus === 'needs_validation' && (
+                            <span
+                                title={t.passageUnvalidatedTip}
+                                className="flex shrink-0 items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-semibold text-violet-700 dark:text-violet-300"
+                            >
+                                <FileClock size={12} />
+                                {t.passageUnvalidatedBadge}
+                            </span>
+                        )}
+                        {savedStatus === 'approved' && (
+                            <span
+                                title={t.passageReadyTip}
+                                className="flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400"
+                            >
+                                <FileCheck size={12} />
+                                {t.passageReadyBadge}
                             </span>
                         )}
                     </div>
