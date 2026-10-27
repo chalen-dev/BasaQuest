@@ -28,16 +28,42 @@
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { ThemeToggleButton } from '../../../../../components/buttons/ThemeToggleButton.tsx'
+import { useLang } from '../../../../../contexts/LangContext.tsx'
+import { useTheme } from '../../../../../contexts/ThemeContext.tsx'
+import { showConfirmation } from '../../../../../helpers/swalHelpers.ts'
+
+// Exit asks first, so a stray tap on the corner icon does not drop a pupil out
+// of the story they are reading.
+const EXIT_STRINGS = {
+    fil: {
+        title: 'Aalis ka na ba sa Reading Coach?',
+        text: 'Maaari kang bumalik sa pagsasanay na ito anumang oras mula sa listahan ng remediation.',
+        confirm: 'Oo, aalis na',
+    },
+    en: {
+        title: 'Leave the Reading Coach?',
+        text: 'You can come back to this practice anytime from the remediation list.',
+        confirm: 'Yes, leave',
+    },
+} as const
 
 export default function RemediationCoachLayout() {
     const navigate = useNavigate()
     const { studentId } = useParams<{ studentId: string }>()
+    const { lang } = useLang()
+    const { theme } = useTheme()
+
+    const handleExit = async () => {
+        const t = EXIT_STRINGS[lang]
+        const confirmed = await showConfirmation(t.title, t.text, theme === 'dark', 'question', t.confirm)
+        if (confirmed) navigate(`/students/remediation/${studentId}`)
+    }
 
     return (
         <div className="relative h-dvh w-full overflow-hidden">
             <button
                 type="button"
-                onClick={() => navigate(`/students/remediation/${studentId}`)}
+                onClick={handleExit}
                 aria-label="Exit"
                 className="fixed left-4 top-4 z-40 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-gray-900/10 bg-white/85 text-gray-700 shadow-md backdrop-blur-sm transition-colors duration-200 hover:bg-white dark:border-gray-100/10 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-gray-900"
             >
