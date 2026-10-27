@@ -51,6 +51,8 @@ const STRINGS: Record<Lang, {
     preAssessmentDesc: string
     preAssessmentCta: string
     langName: Record<Lang, string>
+    teacherKicker: string
+    teacherDesc: string
     foundationalHeading: string
     foundationalDesc: string
     materialsHeading: string
@@ -66,6 +68,8 @@ const STRINGS: Record<Lang, {
         preAssessmentDesc: 'Nagpadala ang iyong guro ng talatang babasahin mo nang malakas. Hindi ito iskor, gabay lang ito para sa iyo at sa iyong guro. Pindutin ang buton kapag handa ka na.',
         preAssessmentCta: 'Simulan ang Pagsusuri',
         langName: { fil: 'Filipino', en: 'English' },
+        teacherKicker: 'Unang Hakbang',
+        teacherDesc: 'Pumili ng mag-aaral, ihanda at suriin ang talata, at ipabasa ito sa iyong device o ipadala sa device ng mag-aaral.',
         foundationalHeading: 'Batayang mga Salita at Tunog',
         foundationalDesc: 'Magsanay sa mga letra, pantig, at simpleng salita bago tumuntong sa mas mahabang talata — mabuting simula para sa bagong nagbabasa.',
         materialsHeading: 'O piliin ang isang materyales',
@@ -81,6 +85,8 @@ const STRINGS: Record<Lang, {
         preAssessmentDesc: "Your teacher sent you a passage to read aloud. This isn't a score, just guidance for you and your teacher. Tap the button when you're ready.",
         preAssessmentCta: 'Start the Check-In',
         langName: { fil: 'Filipino', en: 'English' },
+        teacherKicker: 'First Step',
+        teacherDesc: "Pick a pupil, prepare and check their passage, then have them read it on your device or send it to theirs.",
         foundationalHeading: 'Foundational Words & Sounds',
         foundationalDesc: "Practice letters, syllables, and simple words before moving to longer passages — a good starting point for new readers.",
         materialsHeading: 'Or pick a reading material',
@@ -145,7 +151,7 @@ export const MaterialSelectionPage: React.FC = () => {
                 A pupil can't start a check-in on their own: it only shows up
                 once their teacher has sent a validated passage, with one
                 button per language they have one in. */}
-            {isPupil && readyLangs.length > 0 && (
+            {(!isPupil || readyLangs.length > 0) && (
                 <div className="mb-8 flex w-full flex-col items-start gap-4 rounded-2xl border-2 border-teal-500/20 bg-white p-6 text-left shadow-sm dark:border-teal-400/20 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-4">
                         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-500 text-white shadow-[0_4px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]">
@@ -153,13 +159,23 @@ export const MaterialSelectionPage: React.FC = () => {
                         </span>
                         <div>
                             <span className="text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
-                                {t.preAssessmentKicker}
+                                {isPupil ? t.preAssessmentKicker : t.teacherKicker}
                             </span>
                             <h3 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.preAssessmentTitle}</h3>
-                            <p className="max-w-xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.preAssessmentDesc}</p>
+                            <p className="max-w-xl text-sm font-medium text-gray-600 dark:text-gray-400">
+                                {isPupil ? t.preAssessmentDesc : t.teacherDesc}
+                            </p>
                         </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
+                        {!isPupil && (
+                            <button
+                                onClick={() => navigate('/reading/proficiency/assessment')}
+                                className="flex cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                            >
+                                {t.preAssessmentCta}
+                            </button>
+                        )}
                         {readyLangs.map((readyLang) => (
                             <button
                                 key={readyLang}
