@@ -212,11 +212,16 @@ export const TeacherReviewAttemptPage: React.FC = () => {
     // pupil's session was what the scoring service turned away.
     const handleRetry = async () => {
         if (!attempt) return
+        // The retry holds until scoring ends, so check in shortly after it
+        // starts: the page then shows "scoring in progress" and keeps
+        // polling instead of sitting on the old failure.
+        const timer = setTimeout(() => refetchAttempt(), 1500)
         try {
             await retryScoring.mutateAsync({ attemptId: attempt.id, language: attempt.language, passageText: attempt.passage_text })
         } catch (err) {
             console.error('TeacherReviewAttempt: failed to retry scoring', err)
         } finally {
+            clearTimeout(timer)
             const { data } = await refetchAttempt()
             if (data?.status === 'failed') showToast(t.retryFailedToast, 'error', theme === 'dark')
         }

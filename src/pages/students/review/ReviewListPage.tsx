@@ -58,6 +58,7 @@ const STRINGS: Record<Lang, {
     dueToday: string
     expired: string
     scoringFailed: string
+    scoringInProgress: string
 }> = {
     fil: {
         title: 'Naghihintay ng Review',
@@ -76,6 +77,7 @@ const STRINGS: Record<Lang, {
         dueToday: 'Mawawala ngayon',
         expired: 'Nawala na',
         scoringFailed: 'Hindi nasuri',
+        scoringInProgress: 'Sinusuri pa...',
     },
     en: {
         title: 'Pending Review',
@@ -94,6 +96,7 @@ const STRINGS: Record<Lang, {
         dueToday: 'Deletes today',
         expired: 'Recording gone',
         scoringFailed: "Couldn't score",
+        scoringInProgress: 'Scoring in progress...',
     },
 }
 // Fixed to Asia/Manila regardless of the viewing device's own timezone —
@@ -222,6 +225,11 @@ export const ReviewListPage: React.FC = () => {
                                             {attempt.language === 'fil' ? t.filipinoLabel : t.englishLabel}
                                         </span>
                                         <DifficultyStars text={attempt.passage_text} language={attempt.language} size={16} className="!px-3.5 !py-2" />
+                                        {attempt.status === 'processing' && (
+                                            <span className="rounded-full bg-amber-500/15 px-3.5 py-1.5 text-base font-bold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
+                                                {t.scoringInProgress}
+                                            </span>
+                                        )}
                                         {attempt.status === 'failed' && (
                                             <span className="rounded-full bg-rose-500/15 px-3.5 py-1.5 text-base font-bold text-rose-700 dark:bg-rose-400/15 dark:text-rose-300">
                                                 {t.scoringFailed}

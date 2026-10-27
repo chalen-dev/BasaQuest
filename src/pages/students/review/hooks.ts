@@ -111,7 +111,7 @@ export function usePendingReviewCountQuery(teacherId: string | undefined) {
                 .from('assessment_attempts')
                 .select('id', { count: 'exact', head: true })
                 .eq('teacher_id', teacherId as string)
-                .in('status', ['scored', 'failed'])
+                .in('status', ['scored', 'failed', 'processing'])
                 .is('reviewed_at', null)
             if (error) throw error
             return count ?? 0
@@ -131,7 +131,7 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
                 .from('assessment_attempts')
                 .select('id, student_id, language, passage_title, passage_text, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, purge_after', { count: 'exact' })
                 .eq('teacher_id', teacherId as string)
-                .in('status', ['scored', 'failed'])
+                .in('status', ['scored', 'failed', 'processing'])
                 .is('reviewed_at', null)
                 .order('created_at', { ascending: true })
                 .range(from, to)
@@ -154,6 +154,9 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
         },
         enabled: !!teacherId,
         placeholderData: (prev) => prev,
+        // A reading being re-scored sits in this list as "scoring"; keep
+        // checking until it lands as scored or failed.
+        refetchInterval: (query) => (query.state.data?.attempts.some((a) => a.status === 'processing') ? 4000 : false),
     })
 }
 type ReviewedAttemptsArgs = { teacherId: string | undefined; page: number }
