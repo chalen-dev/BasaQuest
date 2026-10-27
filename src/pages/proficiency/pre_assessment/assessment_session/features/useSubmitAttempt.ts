@@ -221,7 +221,7 @@ export function useSubmitAttempt() {
 // AssessmentSession.tsx's "Try Again" button on the inline scoring-failed
 // card, instead of forcing the teacher to throw away a perfectly good
 // recording and start a brand new attempt. Resets status back to
-// 'processing' (so useAttemptQuery's poll — see students/review/hooks.ts —
+// 'pending' (the real scoring service moves it to 'processing' itself; so useAttemptQuery's poll — see students/review/hooks.ts —
 // picks back up) and clears error_message before re-running, and — since
 // applyPlaceholderScoring unconditionally inserts a fresh set of word
 // rows — first deletes whatever word rows the failed attempt might
@@ -244,7 +244,9 @@ export function useRetryScoring() {
             }
             const { error: resetError } = await supabase
                 .from('assessment_attempts')
-                .update({ status: 'processing', error_message: null })
+                // 'pending', not 'processing': the scoring service marks the
+                // attempt 'processing' itself and answers 409 if it already is.
+                .update({ status: 'pending', error_message: null })
                 .eq('id', attemptId)
             if (resetError) {
                 throw new Error(`Failed to reset attempt status: ${resetError.message}`)
