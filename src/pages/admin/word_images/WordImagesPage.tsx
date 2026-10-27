@@ -5,7 +5,7 @@
 // exactly as a pupil sees it, or add a picture for a new word. A card is one
 // picture file and every word that shares it (e.g. mango + mangga), so a
 // replace or approve applies to all of its words at once.
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Eye, FlaskConical, ImagePlus, Loader2, Pencil, Plus, Replace, Trash2, Undo2, X } from 'lucide-react'
 import { useTheme } from '../../../contexts/ThemeContext'
@@ -178,6 +178,22 @@ export default function WordImagesPage() {
     const replaceInputRef = useRef<HTMLInputElement>(null)
     const replaceTarget = useRef<PictureGroup | null>(null)
     const [busyPath, setBusyPath] = useState<string | null>(null)
+    const editingGroup = groups.find((g) => g.imagePath === editingPath) ?? null
+    const closeEditor = () => {
+        setEditingPath(null)
+        setExtraWord('')
+    }
+    useEffect(() => {
+        if (!editingPath) return
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setEditingPath(null)
+                setExtraWord('')
+            }
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [editingPath])
 
     const q = search.trim().toLowerCase()
     const filtered = groups.filter(
@@ -235,6 +251,7 @@ export default function WordImagesPage() {
         setBusyPath(group.imagePath)
         try {
             await deleteMutation.mutateAsync(group)
+            setEditingPath(null)
             showToast('Picture deleted.', 'success', isDark, { timer: 1200 })
         } catch (err) {
             fail(err, 'Failed to delete the picture.')
@@ -548,7 +565,6 @@ export default function WordImagesPage() {
                     <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                         {visible.map((g) => {
                             const busy = busyPath === g.imagePath
-                            const editing = editingPath === g.imagePath
                             return (
                                 <li
                                     key={g.imagePath}
@@ -583,16 +599,6 @@ export default function WordImagesPage() {
                                                 title={w.language === 'en' ? 'English' : 'Filipino'}
                                             >
                                                 {w.word}
-                                                {editing && (
-                                                    <button
-                                                        type="button"
-                                                        aria-label={`Remove ${w.word}`}
-                                                        onClick={() => handleRemoveWord(g, w.id)}
-                                                        className="cursor-pointer rounded-full hover:bg-rose-500/20"
-                                                    >
-                                                        <X size={13} />
-                                                    </button>
-                                                )}
                                             </span>
                                         ))}
                                     </div>
@@ -602,40 +608,6 @@ export default function WordImagesPage() {
                                             {g.isDefault && ' · default'}
                                             {g.cues.length > 0 && ` · cues: ${g.cues.join(', ')}`}
                                         </p>
-                                    )}
-                                    {editing && <SenseEditor key={g.imagePath} group={g} isDark={isDark} />}
-                                    {editing && (
-                                        <div className="flex gap-1.5">
-                                            <input
-                                                value={extraWord}
-                                                onChange={(e) => setExtraWord(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault()
-                                                        void handleAddWord(g)
-                                                    }
-                                                }}
-                                                placeholder="Add a word"
-                                                className={`${inputClass} min-w-0 flex-1 !py-1`}
-                                            />
-                                            <select
-                                                value={extraLang}
-                                                onChange={(e) => setExtraLang(e.target.value as 'en' | 'fil')}
-                                                aria-label="Language of the new word"
-                                                className={`${inputClass} !w-auto !px-2 !py-1`}
-                                            >
-                                                <option value="en">EN</option>
-                                                <option value="fil">FIL</option>
-                                            </select>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleAddWord(g)}
-                                                aria-label="Add word"
-                                                className={`${iconButtonClass} border-teal-500/40 text-teal-700 hover:bg-teal-500/10 dark:text-teal-300`}
-                                            >
-                                                <Plus size={15} />
-                                            </button>
-                                        </div>
                                     )}
                                     <span
                                         className="text-xs font-semibold text-gray-500 dark:text-gray-400"
@@ -657,28 +629,16 @@ export default function WordImagesPage() {
                                             {g.reviewed ? <Undo2 size={15} /> : <Check size={15} />}
                                             {g.reviewed ? 'Undo review' : 'Approve'}
                                         </button>
-                                        <button
-                                            type="button"
-                                            disabled={busy}
-                                            onClick={() => startReplace(g)}
-                                            className={`${iconButtonClass} gap-1.5 border-teal-500/40 text-sm font-bold text-teal-700 hover:bg-teal-500/10 dark:text-teal-300`}
-                                        >
-                                            {busy ? <Loader2 size={15} className="animate-spin" /> : <Replace size={15} />}
-                                            Replace
-                                        </button>
                                         <div className="grid grid-cols-3 gap-1.5">
                                             <button
                                                 type="button"
                                                 onClick={() => {
-                                                    setEditingPath(editing ? null : g.imagePath)
+                                                    setEditingPath(g.imagePath)
                                                     setExtraWord('')
                                                 }}
-                                                aria-label="Edit words"
-                                                aria-pressed={editing}
-                                                title="Edit the words on this picture"
-                                                className={`${iconButtonClass} border-gray-900/15 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/20 dark:text-gray-300 ${
-                                                    editing ? 'bg-gray-900/10 dark:bg-gray-100/10' : ''
-                                                }`}
+                                                aria-label="Edit this picture"
+                                                title="Edit words, meaning and picture"
+                                                className={`${iconButtonClass} border-gray-900/15 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/20 dark:text-gray-300`}
                                             >
                                                 <Pencil size={15} />
                                             </button>
@@ -707,6 +667,124 @@ export default function WordImagesPage() {
                     </ul>
                     <Pagination page={safePage} pageCount={pageCount} onPageChange={setPage} className="mt-6" />
                 </>
+            )}
+
+            {/* The editor for one picture: opens from the pencil on a card so
+                the cards themselves stay small. */}
+            {editingGroup && (
+                <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Edit picture">
+                    <button
+                        type="button"
+                        aria-label="Close the editor"
+                        onClick={closeEditor}
+                        className="absolute inset-0 cursor-default bg-black/50"
+                    />
+                    <aside className="relative flex h-full w-full max-w-md flex-col gap-5 overflow-y-auto border-l-2 border-gray-900/10 bg-white p-5 shadow-2xl dark:border-gray-100/10 dark:bg-gray-900">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">Edit picture</h2>
+                            <button
+                                type="button"
+                                onClick={closeEditor}
+                                aria-label="Close the editor"
+                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-gray-900/15 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/20 dark:text-gray-300"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="flex h-56 items-center justify-center overflow-hidden rounded-2xl bg-gray-900/5 dark:bg-gray-100/5">
+                            <img src={editingGroup.url} alt="" className="h-full w-full object-contain p-3" />
+                        </div>
+                        <section className="flex flex-col gap-2">
+                            <h3 className="text-sm font-extrabold uppercase tracking-wide text-gray-500 dark:text-gray-400">Words</h3>
+                            <div className="flex flex-wrap gap-1.5">
+                                {editingGroup.words.map((w) => (
+                                    <span
+                                        key={w.id}
+                                        className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold ${LANGUAGE_STYLE[w.language].tag}`}
+                                        title={w.language === 'en' ? 'English' : 'Filipino'}
+                                    >
+                                        {w.word}
+                                        <button
+                                            type="button"
+                                            aria-label={`Remove ${w.word}`}
+                                            onClick={() => handleRemoveWord(editingGroup, w.id)}
+                                            className="cursor-pointer rounded-full hover:bg-rose-500/20"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="flex gap-1.5">
+                                <input
+                                    value={extraWord}
+                                    onChange={(e) => setExtraWord(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault()
+                                            void handleAddWord(editingGroup)
+                                        }
+                                    }}
+                                    placeholder="Add a word"
+                                    className={`${inputClass} min-w-0 flex-1`}
+                                />
+                                <select
+                                    value={extraLang}
+                                    onChange={(e) => setExtraLang(e.target.value as 'en' | 'fil')}
+                                    aria-label="Language of the new word"
+                                    className={`${inputClass} !w-auto !px-2`}
+                                >
+                                    <option value="en">EN</option>
+                                    <option value="fil">FIL</option>
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={() => handleAddWord(editingGroup)}
+                                    aria-label="Add word"
+                                    className={`${iconButtonClass} border-teal-500/40 text-teal-700 hover:bg-teal-500/10 dark:text-teal-300`}
+                                >
+                                    <Plus size={16} />
+                                </button>
+                            </div>
+                        </section>
+                        <section className="flex flex-col gap-2">
+                            <h3 className="text-sm font-extrabold uppercase tracking-wide text-gray-500 dark:text-gray-400">Meaning</h3>
+                            <SenseEditor key={editingGroup.imagePath} group={editingGroup} isDark={isDark} />
+                        </section>
+                        <section className="flex flex-col gap-2">
+                            <h3 className="text-sm font-extrabold uppercase tracking-wide text-gray-500 dark:text-gray-400">Picture</h3>
+                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                {SOURCE_LABEL[editingGroup.source]}
+                                {editingGroup.credit ? ` · ${editingGroup.credit}` : ''}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    disabled={busyPath === editingGroup.imagePath}
+                                    onClick={() => startReplace(editingGroup)}
+                                    className={`${iconButtonClass} gap-1.5 border-teal-500/40 text-sm font-bold text-teal-700 hover:bg-teal-500/10 dark:text-teal-300`}
+                                >
+                                    {busyPath === editingGroup.imagePath ? <Loader2 size={15} className="animate-spin" /> : <Replace size={15} />}
+                                    Replace picture
+                                </button>
+                                <Link
+                                    to={previewUrl(editingGroup)}
+                                    className={`${iconButtonClass} gap-1.5 border-gray-900/15 text-sm font-bold text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/20 dark:text-gray-300`}
+                                >
+                                    <Eye size={15} /> Preview in coach
+                                </Link>
+                                <button
+                                    type="button"
+                                    disabled={busyPath === editingGroup.imagePath}
+                                    onClick={() => handleDelete(editingGroup)}
+                                    className={`${iconButtonClass} gap-1.5 border-rose-500/40 text-sm font-bold text-rose-600 hover:bg-rose-500/10 dark:text-rose-400`}
+                                >
+                                    <Trash2 size={15} /> Delete
+                                </button>
+                            </div>
+                        </section>
+                    </aside>
+                </div>
             )}
         </div>
     )
