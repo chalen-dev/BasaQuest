@@ -1,7 +1,7 @@
 // File: src/pages/proficiency/MaterialSelection.tsx
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck, Star } from 'lucide-react'
 import { Owl } from '../../../components/ui/Owl.tsx'
 import { HomeButton } from '../../../components/buttons/HomeButton.tsx'
 import { useAuth } from '../../../contexts/AuthContext.tsx'
@@ -10,6 +10,7 @@ import { useLang } from '../../../contexts/LangContext.tsx'
 import type { Lang } from '../../../components/buttons/LangToggle.tsx'
 import { BookCover } from './components/BookCover.tsx'
 import { useReadyPassageLangsQuery } from '../pre_assessment/savedPassages.ts'
+import { useMyReviewedAttemptsQuery, useUnseenResultCount } from '../my_results/hooks.ts'
 // Ported from the earlier prototype's `data/mock.js` BOOKS list (reading-track
 // entries only), now paired with the matching Scene name for the cover art.
 type Material = {
@@ -53,6 +54,11 @@ const STRINGS: Record<Lang, {
     langName: Record<Lang, string>
     teacherKicker: string
     teacherDesc: string
+    resultsKicker: string
+    resultsKickerNew: (n: number) => string
+    resultsTitle: string
+    resultsDesc: string
+    resultsCta: string
     foundationalHeading: string
     foundationalDesc: string
     materialsHeading: string
@@ -68,6 +74,11 @@ const STRINGS: Record<Lang, {
         preAssessmentDesc: 'Nagpadala ang iyong guro ng talatang babasahin mo nang malakas. Hindi ito iskor, gabay lang ito para sa iyo at sa iyong guro. Pindutin ang buton kapag handa ka na.',
         preAssessmentCta: 'Simulan ang Pagsusuri',
         langName: { fil: 'Filipino', en: 'English' },
+        resultsKicker: 'Tapos na',
+        resultsKickerNew: (n) => (n === 1 ? 'May bagong resulta' : `${n} bagong resulta`),
+        resultsTitle: 'Ang mga resulta ng pagsusuri mo',
+        resultsDesc: 'Tingnan kung paano ang naging basa mo, na sinuri ng iyong guro.',
+        resultsCta: 'Tingnan ang resulta ko',
         teacherKicker: 'Unang Hakbang',
         teacherDesc: 'Pumili ng mag-aaral, ihanda at suriin ang talata, at ipabasa ito sa iyong device o ipadala sa device ng mag-aaral.',
         foundationalHeading: 'Batayang mga Salita at Tunog',
@@ -85,6 +96,11 @@ const STRINGS: Record<Lang, {
         preAssessmentDesc: "Your teacher sent you a passage to read aloud. This isn't a score, just guidance for you and your teacher. Tap the button when you're ready.",
         preAssessmentCta: 'Start the Check-In',
         langName: { fil: 'Filipino', en: 'English' },
+        resultsKicker: 'All done',
+        resultsKickerNew: (n) => (n === 1 ? 'New result' : `${n} new results`),
+        resultsTitle: 'Your check-in results',
+        resultsDesc: 'See how your reading went, checked by your teacher.',
+        resultsCta: 'See my results',
         teacherKicker: 'First Step',
         teacherDesc: "Pick a pupil, prepare and check their passage, then have them read it on your device or send it to theirs.",
         foundationalHeading: 'Foundational Words & Sounds',
@@ -104,6 +120,9 @@ export const MaterialSelectionPage: React.FC = () => {
     const username = (user?.user_metadata?.username as string | undefined) ?? user?.email?.split('@')[0] ?? 'Guest'
     const isPupil = profile?.role === 'student'
     const { data: readyLangs = [] } = useReadyPassageLangsQuery(isPupil ? profile?.id : undefined)
+    const { data: myResults } = useMyReviewedAttemptsQuery(isPupil ? profile?.id : undefined)
+    const resultCount = myResults?.length ?? 0
+    const unseenResults = useUnseenResultCount(isPupil ? profile?.id : undefined)
     const gradeSection = profile?.grade_level
         ? [t.grade(profile.grade_level), profile.section].filter(Boolean).join(' · ')
         : null
@@ -186,6 +205,31 @@ export const MaterialSelectionPage: React.FC = () => {
                             </button>
                         ))}
                     </div>
+                </div>
+            )}
+            {/* Check-in results: only for a pupil with at least one reading
+                their teacher has confirmed, with a count of the ones they
+                haven't opened yet. */}
+            {isPupil && resultCount > 0 && (
+                <div className="mb-8 flex w-full flex-col items-start gap-4 rounded-2xl border-2 border-amber-500/25 bg-white p-6 text-left shadow-sm dark:border-amber-400/25 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-[0_4px_0_0_#b45309] dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]">
+                            <Star size={26} />
+                        </span>
+                        <div>
+                            <span className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                                {unseenResults > 0 ? t.resultsKickerNew(unseenResults) : t.resultsKicker}
+                            </span>
+                            <h3 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.resultsTitle}</h3>
+                            <p className="max-w-xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.resultsDesc}</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => navigate('/reading/proficiency/results')}
+                        className="shrink-0 cursor-pointer rounded-full bg-amber-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#b45309] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#b45309] dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]"
+                    >
+                        {t.resultsCta}
+                    </button>
                 </div>
             )}
             {/* Row 2 — foundational words/sounds: its own row of book-style

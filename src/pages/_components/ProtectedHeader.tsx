@@ -12,6 +12,7 @@ import { ThemeToggleButton } from '../../components/buttons/ThemeToggleButton.ts
 import { showConfirmation, showToast } from '../../helpers/swalHelpers.ts'
 import { usePendingReviewCountQuery } from '../students/review/hooks.ts'
 import { useReadyPassageLangsQuery } from '../proficiency/pre_assessment/savedPassages.ts'
+import { useUnseenResultCount } from '../proficiency/my_results/hooks.ts'
 
 type NavItem = { to: string; label: string; matchPrefixes?: string[]; badge?: number }
 
@@ -119,8 +120,9 @@ export default function ProtectedHeader() {
     // teacher has sent and are waiting for them.
     const isStudent = profile?.role === 'student'
     const { data: readyPassages } = useReadyPassageLangsQuery(isStudent ? profile?.id : undefined)
+    const unseenResults = useUnseenResultCount(isStudent ? profile?.id : undefined)
     const studentNavItems = NAV_ITEMS[lang].map((item) =>
-        item.to === '/reading/proficiency' ? { ...item, badge: readyPassages?.length } : item,
+        item.to === '/reading/proficiency' ? { ...item, badge: (readyPassages?.length ?? 0) + unseenResults } : item,
     )
 
     const navItems: NavItem[] = isTeacher
