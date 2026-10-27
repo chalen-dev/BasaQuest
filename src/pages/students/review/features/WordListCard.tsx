@@ -179,7 +179,7 @@ export function WordListCard({
                         </div>
                         {showTypePicker && (
                             <div className="flex w-full items-center gap-1.5">
-                                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                <span className="text-[0.8125rem] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                     {t.typeLabel}
                                 </span>
                                 <button

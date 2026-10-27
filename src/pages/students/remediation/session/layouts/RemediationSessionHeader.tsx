@@ -42,7 +42,7 @@ export default function RemediationSessionHeader({ studentName }: RemediationSes
                     <Owl mood="neutral" size={40} />
                     <div className="leading-tight">
                         <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">BasaQuest</div>
-                        <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <div className="text-[0.75rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                             {TAGLINE[lang]}
                         </div>
                     </div>

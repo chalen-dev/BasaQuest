@@ -623,7 +623,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
                             <Save size={16} />
                             {savingDraft ? t.savingDraftLabel : t.saveDraftLabel}
                             {!savingDraft && (
-                                <kbd className="hidden rounded-md border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-teal-700 dark:border-teal-400/30 dark:bg-teal-400/10 dark:text-teal-300 sm:inline-block">
+                                <kbd className="hidden rounded-md border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[0.75rem] font-bold tracking-wide text-teal-700 dark:border-teal-400/30 dark:bg-teal-400/10 dark:text-teal-300 sm:inline-block">
                                     {isMacPlatform ? '⌘S' : 'Ctrl+S'}
                                 </kbd>
                             )}

@@ -431,10 +431,10 @@ export default function RecordingHistoryPage() {
                         {groupedRecordings.map((group, groupIndex) => (
                             <div key={group.setKey} className={groupIndex === 0 ? 'flex flex-col gap-2' : 'mt-2 flex flex-col gap-2'}>
                                 <div className="flex items-center justify-between gap-2 px-2">
-                                    <span className="truncate text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    <span className="truncate text-[0.8125rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                         {setLabel(group.setKey)}
                                     </span>
-                                    <span className="shrink-0 rounded-full bg-gray-900/5 px-2 py-0.5 text-[10px] font-bold text-gray-500 dark:bg-gray-100/10 dark:text-gray-400">
+                                    <span className="shrink-0 rounded-full bg-gray-900/5 px-2 py-0.5 text-[0.75rem] font-bold text-gray-500 dark:bg-gray-100/10 dark:text-gray-400">
                                         {group.items.length}
                                     </span>
                                 </div>
@@ -453,12 +453,12 @@ export default function RecordingHistoryPage() {
                                             aria-current={isCurrent}
                                             className={`flex cursor-pointer items-start gap-2.5 rounded-xl px-3 py-3 text-left text-sm font-bold transition-colors duration-150 ${rowClasses}`}
                                         >
-                                            <span className="mt-0.5 shrink-0 rounded-full bg-gray-900/5 px-2 py-0.5 text-[10px] font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                            <span className="mt-0.5 shrink-0 rounded-full bg-gray-900/5 px-2 py-0.5 text-[0.75rem] font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                                                 #{i + 1}
                                             </span>
                                             <span className="min-w-0 flex-1">
                                                 <span className="line-clamp-2 whitespace-normal break-words">{r.sentence_text}</span>
-                                                <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                                <span className="mt-0.5 block text-[0.75rem] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                                     sentence {r.sentence_number}
                                                 </span>
                                             </span>

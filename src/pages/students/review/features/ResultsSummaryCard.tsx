@@ -53,7 +53,7 @@ export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t
                 <div ref={headerRef} className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <div className="flex flex-wrap items-baseline gap-x-2">
-                            <span className="text-[11px] font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">{t.kicker}</span>
+                            <span className="text-[0.8125rem] font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">{t.kicker}</span>
                             <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.title}</h2>
                         </div>
                         {attempt.passage_title && (
@@ -94,7 +94,7 @@ export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t
                     attempt.audio_path ? (
                         audioUrl && (
                             <div className="flex w-full flex-col gap-1.5 rounded-2xl border border-gray-900/5 bg-white/60 p-3 dark:border-gray-100/10 dark:bg-gray-900/40">
-                                <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                <span className="text-[0.8125rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                     {t.recordingLabel}
                                 </span>
                                 <AudioPlayer src={audioUrl} className="w-full px-1 py-1" />
@@ -102,7 +102,7 @@ export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t
                         )
                     ) : (
                         <div className="flex w-full flex-col gap-1.5 rounded-2xl border border-gray-900/5 bg-white/60 p-3 dark:border-gray-100/10 dark:bg-gray-900/40">
-                            <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            <span className="text-[0.8125rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 {t.recordingLabel}
                             </span>
                             <p className="text-sm font-medium italic text-gray-500 dark:text-gray-400">

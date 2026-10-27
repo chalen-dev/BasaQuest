@@ -292,7 +292,7 @@ export function AudioPlayer({ src, className }: AudioPlayerProps) {
                                 {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
                             </button>
 
-                            <span className="font-mono text-[10px] font-semibold tabular-nums text-gray-500 dark:text-gray-400">
+                            <span className="font-mono text-[0.75rem] font-semibold tabular-nums text-gray-500 dark:text-gray-400">
                                 {effectiveVolumePct}%
                             </span>
 

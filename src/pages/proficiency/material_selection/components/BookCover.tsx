@@ -167,7 +167,7 @@ export const BookCover: React.FC<BookCoverProps> = ({ scene, coverColor, title, 
                 <div className="text-sm font-extrabold leading-tight" style={{ color: readableInk(coverColor) }}>
                     {title}
                 </div>
-                <div className="mt-0.5 text-[11px] font-semibold" style={{ color: readableInk(coverColor, 0.8) }}>
+                <div className="mt-0.5 text-[0.8125rem] font-semibold" style={{ color: readableInk(coverColor, 0.8) }}>
                     {subtitle}
                 </div>
             </div>

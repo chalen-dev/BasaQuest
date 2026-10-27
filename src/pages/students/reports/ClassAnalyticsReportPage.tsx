@@ -431,7 +431,7 @@ export const ClassAnalyticsReportPage: React.FC = () => {
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[640px] border-collapse text-sm">
                                     <thead>
-                                        <tr className="border-b border-gray-900/10 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:border-gray-100/10 dark:text-gray-400 print:text-gray-600">
+                                        <tr className="border-b border-gray-900/10 text-left text-[0.8125rem] font-bold uppercase tracking-wide text-gray-500 dark:border-gray-100/10 dark:text-gray-400 print:text-gray-600">
                                             <th className="py-2 pr-3 font-bold">{t.colPupil}</th>
                                             <th className="py-2 pr-3 font-bold">{t.colEnglish}</th>
                                             <th className="py-2 pr-3 font-bold">{t.colFilipino}</th>

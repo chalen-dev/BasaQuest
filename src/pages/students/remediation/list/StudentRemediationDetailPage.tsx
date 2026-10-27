@@ -205,7 +205,7 @@ function MaterialCard({
                             {t.practicedBadge(practicedCount, material.word_count)}
                         </span>
                     </div>
-                    <div className="mt-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500">
+                    <div className="mt-1.5 text-[0.8125rem] font-semibold text-gray-400 dark:text-gray-500">
                         {material.last_practiced_at ? t.lastPracticed(formatPHDate(material.last_practiced_at)) : t.notPracticedYet}
                     </div>
                 </div>
@@ -283,7 +283,7 @@ function DraftCard({ draft, t, onResume }: { draft: RemediationMaterialDraft; t:
                     <span className="rounded-full bg-gray-900/5 px-2.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                         {t.wordCount(draft.word_count)}
                     </span>
-                    <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">{t.lastEdited(formatPHDate(draft.updated_at))}</span>
+                    <span className="text-[0.8125rem] font-semibold text-gray-400 dark:text-gray-500">{t.lastEdited(formatPHDate(draft.updated_at))}</span>
                 </div>
             </div>
             <button

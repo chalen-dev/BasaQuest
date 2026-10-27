@@ -158,7 +158,7 @@ export default function ProtectedHeader() {
                     />
                     <div className="leading-tight">
                         <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">BasaQuest</div>
-                        <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <div className="text-[0.75rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                             {TAGLINE[lang]}
                         </div>
                     </div>
@@ -173,7 +173,7 @@ export default function ProtectedHeader() {
                                 {item.label}
                             </NavLink>
                             {!!item.badge && item.badge > 0 && (
-                                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[0.75rem] font-bold text-white">
                                     {item.badge > 9 ? '9+' : item.badge}
                                 </span>
                             )}
@@ -202,14 +202,14 @@ export default function ProtectedHeader() {
                         {profile?.is_test && (
                             <span
                                 title="Test account: its data is fake and will be removed"
-                                className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-gray-900"
+                                className="rounded-full bg-amber-400 px-2 py-0.5 text-[0.75rem] font-extrabold uppercase tracking-wide text-gray-900"
                             >
                                 Test
                             </span>
                         )}
                         <div className="hidden text-right leading-tight sm:block">
                             <div className="text-sm font-bold text-gray-900 dark:text-gray-50">{username}</div>
-                            <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                            <div className="text-[0.8125rem] font-semibold text-gray-500 dark:text-gray-400">
                                 {profile ? (ROLE_LABEL[lang][profile.role] ?? profile.role) : ''}
                             </div>
                         </div>
@@ -236,7 +236,7 @@ export default function ProtectedHeader() {
                             {item.label}
                         </NavLink>
                         {!!item.badge && item.badge > 0 && (
-                            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[0.75rem] font-bold text-white">
                                 {item.badge > 9 ? '9+' : item.badge}
                             </span>
                         )}

@@ -343,7 +343,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                 <span className={`text-sm font-bold ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-gray-900 dark:text-gray-50'}`}>
                     {title}
                 </span>
-                <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{desc}</span>
+                <span className="text-[0.8125rem] font-medium text-gray-500 dark:text-gray-400">{desc}</span>
             </button>
         )
     }
@@ -355,7 +355,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                 <div className="flex shrink-0 items-center gap-3">
                     <Owl mood="confused" size={70} />
                     <div>
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                        <span className="flex items-center gap-1.5 text-[0.8125rem] font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
                             <Languages size={12} />
                             {t.languageKicker}
                         </span>

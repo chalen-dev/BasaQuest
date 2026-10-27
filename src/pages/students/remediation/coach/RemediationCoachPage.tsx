@@ -849,7 +849,7 @@ export default function RemediationCoachPage() {
                                                     material.language,
                                                 )
                                             }
-                                            className="flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-[11px] font-bold text-stone-700 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white/90 dark:bg-gray-900/60 dark:text-gray-200 dark:hover:bg-gray-900/80"
+                                            className="flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 text-[0.8125rem] font-bold text-stone-700 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white/90 dark:bg-gray-900/60 dark:text-gray-200 dark:hover:bg-gray-900/80"
                                         >
                                             <Volume2 size={12} />
                                             {t.pronounce}

@@ -222,19 +222,19 @@ function LanguageSection({
                 <>
                     <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
                         <div>
-                            <div className="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.firstAttempt}</div>
+                            <div className="text-[0.8125rem] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.firstAttempt}</div>
                             <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50 print:text-gray-900">
                                 {data.first_accuracy != null ? `${Math.round(data.first_accuracy)}%` : t.notAvailable}
                             </div>
                         </div>
                         <div>
-                            <div className="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.latestAttempt}</div>
+                            <div className="text-[0.8125rem] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.latestAttempt}</div>
                             <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50 print:text-gray-900">
                                 {data.latest_accuracy != null ? `${Math.round(data.latest_accuracy)}%` : t.notAvailable}
                             </div>
                         </div>
                         <div>
-                            <div className="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.improvement}</div>
+                            <div className="text-[0.8125rem] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.improvement}</div>
                             {data.improvement_delta != null ? (
                                 <div className="flex items-center gap-1 text-lg font-extrabold text-gray-900 dark:text-gray-50 print:text-gray-900">
                                     {data.improvement_delta > 0 ? '+' : ''}
@@ -246,13 +246,13 @@ function LanguageSection({
                             )}
                         </div>
                         <div>
-                            <div className="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.avgFluency}</div>
+                            <div className="text-[0.8125rem] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.avgFluency}</div>
                             <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50 print:text-gray-900">
                                 {data.avg_fluency != null ? Math.round(data.avg_fluency) : t.notAvailable}
                             </div>
                         </div>
                         <div>
-                            <div className="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.avgCompleteness}</div>
+                            <div className="text-[0.8125rem] font-semibold uppercase text-gray-500 dark:text-gray-400 print:text-gray-600">{t.avgCompleteness}</div>
                             <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50 print:text-gray-900">
                                 {data.avg_completeness != null ? Math.round(data.avg_completeness) : t.notAvailable}
                             </div>

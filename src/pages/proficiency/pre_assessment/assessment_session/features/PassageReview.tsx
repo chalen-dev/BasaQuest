@@ -156,7 +156,7 @@ export function PassageReview({
                     {gradeMissing && (
                         <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">{t.gradeNotSet(gradeLevel)}</span>
                     )}
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{t.difficultyNote}</span>
+                    <span className="text-[0.8125rem] font-medium text-gray-500 dark:text-gray-400">{t.difficultyNote}</span>
                 </div>
 
                 <DifficultyPicker

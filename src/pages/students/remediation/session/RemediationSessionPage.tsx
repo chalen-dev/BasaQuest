@@ -236,7 +236,7 @@ export const RemediationSessionPage: React.FC = () => {
                                 aria-current={isCurrent}
                                 className={`flex cursor-pointer items-start gap-2.5 rounded-xl px-3 py-3 text-left text-base font-bold transition-colors duration-150 ${rowClasses}`}
                             >
-                                <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${ERROR_TYPE_COLOR[w.errorType]}`}>
+                                <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${ERROR_TYPE_COLOR[w.errorType]}`}>
                                     {w.errorType}
                                 </span>
                                 <span className="min-w-0 flex-1 whitespace-normal break-words">{w.word}</span>
