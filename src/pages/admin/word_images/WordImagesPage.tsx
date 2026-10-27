@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { Check, Eye, FlaskConical, ImagePlus, Loader2, Pencil, Plus, Replace, Trash2, Undo2, X } from 'lucide-react'
+import { Check, Eye, FlaskConical, Flag, ImagePlus, Loader2, Pencil, Plus, Replace, Trash2, Undo2, X } from 'lucide-react'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
 import { SearchInput } from '../../../components/input/SearchInput'
@@ -21,9 +21,11 @@ import {
     useDeletePictureMutation,
     useRemoveWordMutation,
     useReplacePictureMutation,
+    useSetChangeRequestMutation,
     useSetReviewedMutation,
     useUpdateSenseMutation,
     useWordImageGroupsQuery,
+    type ChangeAction,
     type PictureGroup,
 } from '../_hooks/useWordImages.ts'
 
@@ -31,7 +33,20 @@ const PAGE_SIZE = 20
 
 type LanguageFilter = 'all' | 'en' | 'fil'
 type SourceFilter = 'all' | 'arasaac' | 'openmoji' | 'wikimedia' | 'upload'
-type StatusFilter = 'review' | 'reviewed' | 'all'
+type StatusFilter = 'review' | 'reviewed' | 'flagged' | 'all'
+
+const CHANGE_ACTIONS: { key: ChangeAction; label: string }[] = [
+    { key: 'replace', label: 'Replace the picture' },
+    { key: 'fix_words', label: 'Fix the words' },
+    { key: 'delete', label: 'Delete it' },
+    { key: 'other', label: 'Something else' },
+]
+const CHANGE_ACTION_SHORT: Record<ChangeAction, string> = {
+    replace: 'Replace',
+    fix_words: 'Fix words',
+    delete: 'Delete',
+    other: 'Other',
+}
 
 const LANGUAGE_CHIPS: { key: LanguageFilter; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -90,6 +105,77 @@ const iconButtonClass =
 function previewUrl(g: PictureGroup): string {
     const w = g.words.find((x) => x.language === 'en') ?? g.words[0]
     return `/admin/word-images/preview?word=${encodeURIComponent(w.word)}&lang=${w.language}&from=word-images`
+}
+
+// Flag a picture as needing a change and say what: used while reviewing, then
+// whoever handles the list (replace, fix words, delete) clears the flag. A
+// replaced picture clears it by itself.
+function ChangeRequestEditor({ group, isDark }: { group: PictureGroup; isDark: boolean }) {
+    const mutation = useSetChangeRequestMutation()
+    const [action, setAction] = useState<ChangeAction>(group.changeAction ?? 'replace')
+    const [note, setNote] = useState(group.changeNote)
+    const flagged = group.changeAction !== null
+
+    const run = async (next: ChangeAction | null) => {
+        try {
+            await mutation.mutateAsync({ group, action: next, note })
+            showToast(next ? 'Marked as needing a change.' : 'Flag cleared.', 'success', isDark, { timer: 1200 })
+            if (!next) setNote('')
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'Failed to save.', 'error', isDark)
+        }
+    }
+
+    return (
+        <div className="flex flex-col gap-2 rounded-xl bg-amber-500/10 p-3">
+            <div className="flex flex-wrap gap-1.5">
+                {CHANGE_ACTIONS.map((a) => (
+                    <button
+                        key={a.key}
+                        type="button"
+                        aria-pressed={action === a.key}
+                        onClick={() => setAction(a.key)}
+                        className={`cursor-pointer rounded-full px-3 py-1 text-sm font-bold ${
+                            action === a.key
+                                ? 'bg-amber-500 text-gray-900'
+                                : 'border border-amber-500/40 text-amber-800 hover:bg-amber-500/15 dark:text-amber-300'
+                        }`}
+                    >
+                        {a.label}
+                    </button>
+                ))}
+            </div>
+            <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+                placeholder="What should change? e.g. use a carabao plowing instead of the machine"
+                aria-label="What should change about this picture"
+                className={`${inputClass} resize-y`}
+            />
+            <div className="flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    onClick={() => run(action)}
+                    disabled={mutation.isPending || !note.trim()}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-full bg-amber-500 px-4 py-1.5 text-sm font-bold text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Flag size={14} />}
+                    {flagged ? 'Update note' : 'Mark as needs change'}
+                </button>
+                {flagged && (
+                    <button
+                        type="button"
+                        onClick={() => run(null)}
+                        disabled={mutation.isPending}
+                        className="cursor-pointer rounded-full border-2 border-gray-900/15 px-4 py-1.5 text-sm font-bold text-gray-600 hover:bg-gray-900/5 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-100/20 dark:text-gray-300"
+                    >
+                        Clear flag
+                    </button>
+                )}
+            </div>
+        </div>
+    )
 }
 
 // For a word that means more than one thing (top = spinning toy / bottle cap /
@@ -199,12 +285,14 @@ export default function WordImagesPage() {
     const q = search.trim().toLowerCase()
     const filtered = groups.filter(
         (g) =>
-            (status === 'all' || (status === 'review' ? !g.reviewed : g.reviewed)) &&
+            (status === 'all' ||
+                (status === 'flagged' ? g.changeAction !== null : status === 'review' ? !g.reviewed : g.reviewed)) &&
             (source === 'all' || g.source === source) &&
             (language === 'all' || g.words.some((w) => w.language === language)) &&
             (!q || g.words.some((w) => w.word.includes(q))),
     )
     const reviewedCount = groups.filter((g) => g.reviewed).length
+    const flaggedCount = groups.filter((g) => g.changeAction !== null).length
     const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
     const safePage = Math.min(page, pageCount - 1)
     const visible = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
@@ -470,6 +558,7 @@ export default function WordImagesPage() {
                             [
                                 ['review', 'Needs review'],
                                 ['reviewed', 'Reviewed'],
+                                ['flagged', `Needs change${flaggedCount ? ` (${flaggedCount})` : ''}`],
                                 ['all', 'Everything'],
                             ] as [StatusFilter, string][]
                         ).map(([key, label]) => (
@@ -591,6 +680,11 @@ export default function WordImagesPage() {
                                                 <Check size={14} />
                                             </span>
                                         )}
+                                        {g.changeAction && (
+                                            <span className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-xs font-extrabold text-gray-900">
+                                                <Flag size={12} /> {CHANGE_ACTION_SHORT[g.changeAction]}
+                                            </span>
+                                        )}
                                     </Link>
                                     <div className="flex flex-wrap gap-1.5">
                                         {g.words.map((w) => (
@@ -608,6 +702,14 @@ export default function WordImagesPage() {
                                             {g.sense ? <b>{g.sense}</b> : <b>meaning not named</b>}
                                             {g.isDefault && ' · default'}
                                             {g.cues.length > 0 && ` · cues: ${g.cues.join(', ')}`}
+                                        </p>
+                                    )}
+                                    {g.changeAction && g.changeNote && (
+                                        <p
+                                            className="rounded-lg bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300"
+                                            title={g.changeNote}
+                                        >
+                                            {g.changeNote.length > 90 ? `${g.changeNote.slice(0, 90)}…` : g.changeNote}
                                         </p>
                                     )}
                                     <span
@@ -753,6 +855,14 @@ export default function WordImagesPage() {
                         <section className="flex flex-col gap-2">
                             <h3 className="text-sm font-extrabold uppercase tracking-wide text-gray-500 dark:text-gray-400">Meaning</h3>
                             <SenseEditor key={editingGroup.imagePath} group={editingGroup} isDark={isDark} />
+                        </section>
+                        <section className="flex flex-col gap-2">
+                            <h3 className="text-sm font-extrabold uppercase tracking-wide text-gray-500 dark:text-gray-400">Needs change</h3>
+                            <ChangeRequestEditor
+                                key={`${editingGroup.imagePath}-${editingGroup.changeRequestedAt ?? ''}`}
+                                group={editingGroup}
+                                isDark={isDark}
+                            />
                         </section>
                         <section className="flex flex-col gap-2">
                             <h3 className="text-sm font-extrabold uppercase tracking-wide text-gray-500 dark:text-gray-400">Picture</h3>

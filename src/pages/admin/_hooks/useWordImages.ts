@@ -11,6 +11,9 @@ import { fetchAllWordImageRows, normalizeImageWord } from '../../../hooks/useWor
 const BUCKET = 'word-images'
 const MAX_SIZE = 512
 
+// What a reviewer wants done about a picture they flagged as "needs change".
+export type ChangeAction = 'replace' | 'fix_words' | 'delete' | 'other'
+
 export type WordImageRow = {
     id: string
     language: 'en' | 'fil'
@@ -23,6 +26,9 @@ export type WordImageRow = {
     sense: string
     cues: string[]
     is_default: boolean
+    change_action: ChangeAction | null
+    change_note: string
+    change_requested_at: string | null
 }
 
 export type PictureGroup = {
@@ -37,6 +43,10 @@ export type PictureGroup = {
     sense: string
     cues: string[]
     isDefault: boolean
+    // Set while the picture is flagged as needing a change, with the reviewer's note.
+    changeAction: ChangeAction | null
+    changeNote: string
+    changeRequestedAt: string | null
     words: { id: string; language: 'en' | 'fil'; word: string }[]
 }
 
@@ -51,7 +61,7 @@ export function useWordImageGroupsQuery() {
         queryKey: wordImagesKey,
         queryFn: async () => {
             const rows = await fetchAllWordImageRows<WordImageRow>(
-                'id, language, word, image_path, source, credit, source_url, reviewed, sense, cues, is_default',
+                'id, language, word, image_path, source, credit, source_url, reviewed, sense, cues, is_default, change_action, change_note, change_requested_at',
             )
             rows.sort((a, b) => a.word.localeCompare(b.word))
             const groups = new Map<string, PictureGroup>()
@@ -67,6 +77,9 @@ export function useWordImageGroupsQuery() {
                         sense: row.sense,
                         cues: row.cues,
                         isDefault: row.is_default,
+                        changeAction: row.change_action,
+                        changeNote: row.change_note,
+                        changeRequestedAt: row.change_requested_at,
                         words: [],
                     }
                     groups.set(row.image_path, g)
@@ -171,6 +184,10 @@ export function useAddPictureMutation() {
                     source_url: null,
                     reviewed: true,
                     reviewed_at: new Date().toISOString(),
+                    // A new picture settles any pending "needs change" request.
+                    change_action: null,
+                    change_note: '',
+                    change_requested_at: null,
                 })),
                 { onConflict: 'language,word,sense' },
             )
@@ -306,6 +323,26 @@ export function useUpdateSenseMutation() {
                 }
                 throw error
             }
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['word_images'] }),
+    })
+}
+
+// Flags a picture as needing a change (with a note), or clears the flag when
+// `action` is null. Set on every row that shares the picture.
+export function useSetChangeRequestMutation() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ group, action, note }: { group: PictureGroup; action: ChangeAction | null; note: string }) => {
+            const { error } = await supabase
+                .from('word_images')
+                .update(
+                    action
+                        ? { change_action: action, change_note: note.trim(), change_requested_at: new Date().toISOString() }
+                        : { change_action: null, change_note: '', change_requested_at: null },
+                )
+                .eq('image_path', group.imagePath)
+            if (error) throw error
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['word_images'] }),
     })
