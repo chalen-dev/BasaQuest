@@ -81,8 +81,13 @@ type RecorderPanelProps = {
     submitting: boolean
     rec: ReturnType<typeof useRecorder>
     onSubmit: () => void
+    // True while the microphone permission is still being sorted out: the
+    // one-time hints wait until then, and this panel reports back whether its
+    // microphone help card is up (see MicPermissionHelp.tsx).
+    hintsBlocked: boolean
+    onMicHelpActiveChange: (active: boolean) => void
 }
-export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: RecorderPanelProps) {
+export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBlocked, onMicHelpActiveChange }: RecorderPanelProps) {
     const isRecording = rec.status === 'recording'
     const isRecorded = rec.status === 'recorded'
     const nearLimit = isRecording && rec.seconds >= MAX_RECORDING_SECONDS - 10
@@ -327,13 +332,13 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                                     <Mic size={52} />
                                 )}
                             </button>
-                            <Hint id="assessment-mic-button" text={t.micHint} show={!isRecording && !isCountingDown} placement="top" align="center" autoHideMs={6000} />
+                            <Hint id="assessment-mic-button" text={t.micHint} show={!isRecording && !isCountingDown && !hintsBlocked} placement="top" align="center" autoHideMs={6000} />
                         </div>
                     )}
                     <p className="min-h-[24px] text-center text-base font-semibold text-gray-600 dark:text-gray-400">
                         {isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : isRecorded ? t.hintRecorded : t.hintIdle}
                     </p>
-                    {!isRecorded && !isRecording && <MicPermissionHelp t={t} failed={!!rec.error} />}
+                    {!isRecorded && !isRecording && <MicPermissionHelp t={t} failed={!!rec.error} onActiveChange={onMicHelpActiveChange} />}
                     {rec.error && !isRecorded && (
                         <div className="w-full rounded-2xl bg-gray-900/5 p-4 text-center text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                             {t.micUnavailable}
@@ -355,7 +360,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                                     <RotateCcw size={17} />
                                     {t.redoLabel}
                                 </button>
-                                <Hint id="assessment-redo-button" text={t.redoHint} placement="top" align="start" autoHideMs={6000} />
+                                <Hint id="assessment-redo-button" text={t.redoHint} show={!hintsBlocked} placement="top" align="start" autoHideMs={6000} />
                             </div>
                             <div className="relative flex-[2]">
                                 <button
@@ -365,7 +370,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit }: Recor
                                     <Send size={17} />
                                     {t.submitLabel}
                                 </button>
-                                <Hint id="assessment-submit-button" text={t.submitHint} placement="top" align="end" autoHideMs={6000} />
+                                <Hint id="assessment-submit-button" text={t.submitHint} show={!hintsBlocked} placement="top" align="end" autoHideMs={6000} />
                             </div>
                         </div>
                     ) : (

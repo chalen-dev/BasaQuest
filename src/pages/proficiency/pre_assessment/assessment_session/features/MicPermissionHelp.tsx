@@ -15,7 +15,9 @@ import { useEffect, useState } from 'react'
 import { Lock, Mic, MousePointerClick, X } from 'lucide-react'
 import type { AssessmentStrings } from '../assessmentSessionStrings.ts'
 
-type MicState = 'prompt' | 'granted' | 'denied' | 'unknown'
+// 'checking' until the browser answers; 'unknown' when it can't say (the
+// Permissions API is missing or refuses the question).
+type MicState = 'checking' | 'prompt' | 'granted' | 'denied' | 'unknown'
 
 // How long a help card stays up, in ms, before it fades on its own. The prompt
 // card goes as soon as the pupil answers; the longer one is for "blocked".
@@ -24,19 +26,26 @@ const FADE_AFTER_BLOCKED_MS = 30000
 const FADE_DURATION_MS = 500
 
 function useMicPermission(): MicState {
-    const [state, setState] = useState<MicState>('unknown')
+    const [state, setState] = useState<MicState>('checking')
     useEffect(() => {
         let status: PermissionStatus | null = null
         let cancelled = false
         const update = () => status && !cancelled && setState(status.state as MicState)
+        if (!navigator.permissions) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setState('unknown')
+            return
+        }
         navigator.permissions
-            ?.query({ name: 'microphone' as PermissionName })
+            .query({ name: 'microphone' as PermissionName })
             .then((s) => {
                 status = s
                 update()
                 s.addEventListener('change', update)
             })
-            .catch(() => {})
+            .catch(() => {
+                if (!cancelled) setState('unknown')
+            })
         return () => {
             cancelled = true
             status?.removeEventListener('change', update)
@@ -78,7 +87,18 @@ function PromptPicture({ allowLabel }: { allowLabel: string }) {
     )
 }
 
-export function MicPermissionHelp({ t, failed }: { t: AssessmentStrings; failed: boolean }) {
+export function MicPermissionHelp({
+    t,
+    failed,
+    onActiveChange,
+}: {
+    t: AssessmentStrings
+    failed: boolean
+    // Tells the screen whether the microphone is still being sorted out, so
+    // its one-time hints can wait: true while the browser is being asked or
+    // while this card is showing.
+    onActiveChange?: (active: boolean) => void
+}) {
     const state = useMicPermission()
     // 'granted' with a failure means no mic device, which the existing
     // "microphone not available" fallback already covers.
@@ -109,7 +129,15 @@ export function MicPermissionHelp({ t, failed }: { t: AssessmentStrings; failed:
         return () => clearTimeout(timer)
     }, [leaving, kind])
 
-    if (seen !== kind || gone === kind || dismissed === kind) return null
+    const visible = seen === kind && gone !== kind && dismissed !== kind
+
+    useEffect(() => {
+        onActiveChange?.(state === 'checking' || visible)
+    }, [state, visible, onActiveChange])
+    // Leaving the screen (recording starts, say) frees the hints again.
+    useEffect(() => () => onActiveChange?.(false), [onActiveChange])
+
+    if (!visible) return null
 
     return (
         <div

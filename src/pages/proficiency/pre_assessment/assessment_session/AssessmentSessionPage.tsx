@@ -239,6 +239,10 @@ export const AssessmentSessionPage: React.FC = () => {
     const onlineStudentIds = useTeacherPresence(isAssisted ? ownProfile?.id : undefined)
     const assignAssessment = useAssignAssessmentMutation(ownProfile?.id)
     const [sending, setSending] = useState(false)
+    // True while the microphone permission is being sorted out (the browser's
+    // prompt or our help card is up): the screen's one-time hints wait for it.
+    // Starts true so they don't flash before the permission state is known.
+    const [micHelpActive, setMicHelpActive] = useState(true)
     const [step, setStep] = useState<Step>('intro')
     const [passage, setPassage] = useState<Passage | null>(null)
     const [submitted, setSubmitted] = useState(false)
@@ -779,8 +783,16 @@ export const AssessmentSessionPage: React.FC = () => {
             )}
             {showPassageStep && passage && !showInlineReview && (
                 <div className="grid gap-6 lg:h-[calc(100vh-14rem)] lg:grid-cols-[1.6fr_1fr]">
-                    <PassagePanel t={t} gradeLevel={gradeLevel} assessmentLang={assessmentLang} passage={passage} />
-                    <RecorderPanel t={t} submitted={submitted} submitting={submitAttempt.isPending} rec={rec} onSubmit={handleSubmit} />
+                    <PassagePanel t={t} gradeLevel={gradeLevel} assessmentLang={assessmentLang} passage={passage} hintsBlocked={micHelpActive} />
+                    <RecorderPanel
+                        t={t}
+                        submitted={submitted}
+                        submitting={submitAttempt.isPending}
+                        rec={rec}
+                        onSubmit={handleSubmit}
+                        hintsBlocked={micHelpActive}
+                        onMicHelpActiveChange={setMicHelpActive}
+                    />
                 </div>
             )}
             {showInlineReview && (

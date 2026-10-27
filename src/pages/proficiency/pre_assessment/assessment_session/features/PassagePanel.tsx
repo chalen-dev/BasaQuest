@@ -67,6 +67,10 @@ type PassagePanelProps = {
     gradeLevel: number
     assessmentLang: Lang
     passage: Passage
+    // True while the microphone permission is still being sorted out (see
+    // MicPermissionHelp.tsx): the one-time hints wait until then, so the
+    // screen isn't covered in speech bubbles at once.
+    hintsBlocked: boolean
 }
 type PageRange = { start: number; end: number }
 const MIN_WORDS = 40
@@ -85,7 +89,7 @@ function randomWordColor(isDark: boolean): string {
     const hue = Math.floor(Math.random() * 360)
     return isDark ? `hsl(${hue}, 65%, 60%)` : `hsl(${hue}, 82%, 83%)`
 }
-export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: PassagePanelProps) {
+export function PassagePanel({ t, gradeLevel, assessmentLang, passage, hintsBlocked }: PassagePanelProps) {
     const { theme } = useTheme()
     const isDark = theme === 'dark'
     const tokens = useMemo(() => passage.passage.split(/(\s+)/), [passage.passage])
@@ -207,7 +211,7 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
                         >
                             Clear Highlights
                         </button>
-                        <Hint id="assessment-clear-highlights" text={t.clearHighlightsHint} placement="bottom" align="end" autoHideMs={6000} />
+                        <Hint id="assessment-clear-highlights" text={t.clearHighlightsHint} show={!hintsBlocked} placement="bottom" align="end" autoHideMs={6000} />
                     </div>
                 )}
                 {showPagination && (
@@ -262,7 +266,7 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
                             >
                                 {t.prevPage}
                             </button>
-                            <Hint id="assessment-prev-page" text={t.prevPageHint} show={!isFirstPage} placement="top" align="start" autoHideMs={6000} />
+                            <Hint id="assessment-prev-page" text={t.prevPageHint} show={!isFirstPage && !hintsBlocked} placement="top" align="start" autoHideMs={6000} />
                         </div>
                         <div className="flex flex-1 items-center justify-center gap-2">
                             {pageRanges.map((_, i) => (
@@ -284,7 +288,7 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage }: Passage
                             >
                                 {t.nextPage}
                             </button>
-                            <Hint id="assessment-page-nav" text={t.pageNavHint} placement="top" align="end" autoHideMs={6000} />
+                            <Hint id="assessment-page-nav" text={t.pageNavHint} show={!hintsBlocked} placement="top" align="end" autoHideMs={6000} />
                         </div>
                     </div>
                     <p className="mt-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">
