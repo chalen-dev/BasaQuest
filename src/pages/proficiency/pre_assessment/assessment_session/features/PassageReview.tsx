@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { ClipboardCheck, RefreshCw } from 'lucide-react'
 import { StarRating } from '../../../../../components/ui/StarRating.tsx'
+import { DifficultyPicker } from './DifficultyPicker.tsx'
 import { useTheme } from '../../../../../contexts/ThemeContext.tsx'
 import { showConfirmation } from '../../../../../helpers/swalHelpers.ts'
 import { countWords, gradeFit, rateDifficulty } from '../../../../../lib/passageDifficulty.ts'
@@ -19,6 +20,10 @@ type PassageReviewProps = {
     lang: Lang
     gradeLevel: number
     gradeMissing: boolean
+    // What the teacher asked for; changed here to generate a new one at another level.
+    requestedDifficulty: number
+    suggestedDifficulty: number
+    onDifficultyChange: (value: number) => void
     onApprove: (passage: Passage) => void
     onRegenerate: () => void
 }
@@ -32,7 +37,7 @@ const FIT_STYLE = {
 const fieldClass =
     'w-full rounded-xl border-2 border-gray-900/10 bg-white px-4 py-3 text-base font-medium text-gray-900 outline-none focus:border-teal-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-50'
 
-export function PassageReview({ t, passage, lang, gradeLevel, gradeMissing, onApprove, onRegenerate }: PassageReviewProps) {
+export function PassageReview({ t, passage, lang, gradeLevel, gradeMissing, requestedDifficulty, suggestedDifficulty, onDifficultyChange, onApprove, onRegenerate }: PassageReviewProps) {
     const { theme } = useTheme()
     const [title, setTitle] = useState(passage.title)
     const [text, setText] = useState(passage.passage)
@@ -114,6 +119,14 @@ export function PassageReview({ t, passage, lang, gradeLevel, gradeMissing, onAp
                 />
                 {t.readConfirm}
             </label>
+
+            <DifficultyPicker
+                t={t}
+                value={requestedDifficulty}
+                suggested={suggestedDifficulty}
+                gradeLevel={gradeLevel}
+                onChange={onDifficultyChange}
+            />
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button

@@ -52,6 +52,15 @@ export function rateDifficulty(text: string, lang: Lang): Difficulty {
     return 5
 }
 
+// The star level suggested when a teacher is asked to pick one for a pupil's
+// grade: inside that grade's expected band (grades 1 and 2 differ so a Grade 2
+// pupil isn't given a Grade 1 reading).
+const SUGGESTED_STARS: Record<number, Difficulty> = { 1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 4 }
+
+export function suggestedStars(grade: number): Difficulty {
+    return SUGGESTED_STARS[Math.min(6, Math.max(1, Math.round(grade)))]
+}
+
 export type GradeFit = 'easier' | 'fits' | 'harder'
 
 // Whether a rating suits the pupil's grade: easier or harder than the usual

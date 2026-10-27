@@ -179,6 +179,8 @@ import { useRecorder } from './features/useRecorder.ts'
 import { useSubmitAttempt, useRetryScoring } from './features/useSubmitAttempt.ts'
 import { PassagePanel } from './features/PassagePanel.tsx'
 import { PassageReview } from './features/PassageReview.tsx'
+import { DifficultyPicker } from './features/DifficultyPicker.tsx'
+import { suggestedStars } from '../../../../lib/passageDifficulty.ts'
 import { RecorderPanel } from './features/RecorderPanel.tsx'
 import {
     PLACEHOLDER_PASSAGES,
@@ -261,6 +263,11 @@ export const AssessmentSessionPage: React.FC = () => {
     const { theme } = useTheme()
     const t = STRINGS[uiLang]
     const gradeLevel = activeProfile?.grade_level ?? 3
+    // How hard the teacher wants the passage (assisted sessions only), asked
+    // before generating; until they pick, the level suggested for the grade.
+    const [difficultyChoice, setDifficultyChoice] = useState<number | null>(null)
+    const suggestedDifficulty = suggestedStars(gradeLevel)
+    const requestedDifficulty = difficultyChoice ?? suggestedDifficulty
     const [step, setStep] = useState<Step>('intro')
     const [passage, setPassage] = useState<Passage | null>(null)
     const [submitted, setSubmitted] = useState(false)
@@ -324,7 +331,7 @@ export const AssessmentSessionPage: React.FC = () => {
         }
         try {
             const { data, error } = await supabase.functions.invoke<Passage>('generate-passage', {
-                body: { gradeLevel, lang: assessmentLang },
+                body: { gradeLevel, lang: assessmentLang, ...(isAssisted ? { difficulty: requestedDifficulty } : {}) },
             })
             if (error || !data || typeof data.passage !== 'string') {
                 throw error ?? new Error('Malformed response')
@@ -590,12 +597,21 @@ export const AssessmentSessionPage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+                        {isAssisted && (
+                            <DifficultyPicker
+                                t={t}
+                                value={requestedDifficulty}
+                                suggested={suggestedDifficulty}
+                                gradeLevel={gradeLevel}
+                                onChange={setDifficultyChoice}
+                            />
+                        )}
                         <button
                             onClick={() => generatePassage()}
                             className="mx-auto flex cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59] sm:mx-0"
                         >
                             <BookOpenCheck size={18} />
-                            {t.start}
+                            {isAssisted ? t.generateLabel : t.start}
                         </button>
                     </div>
                 </section>
@@ -653,6 +669,9 @@ export const AssessmentSessionPage: React.FC = () => {
                     lang={assessmentLang}
                     gradeLevel={gradeLevel}
                     gradeMissing={activeProfile?.grade_level == null}
+                    requestedDifficulty={requestedDifficulty}
+                    suggestedDifficulty={suggestedDifficulty}
+                    onDifficultyChange={setDifficultyChoice}
                     onApprove={handleApprovePassage}
                     onRegenerate={() => generatePassage(true)}
                 />

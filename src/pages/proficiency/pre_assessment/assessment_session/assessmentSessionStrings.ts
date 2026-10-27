@@ -143,6 +143,12 @@ export type AssessmentStrings = {
     submitHint: string
     // Teacher's read-through of a generated passage before the session
     // starts (see features/PassageReview.tsx).
+    // Difficulty the teacher picks before generating (features/DifficultyPicker.tsx).
+    pickDifficultyLabel: string
+    levelNames: string[]
+    suggestedForGrade: (grade: number) => string
+    useSuggested: (stars: number, grade: number) => string
+    generateLabel: string
     reviewKicker: string
     reviewTitle: string
     reviewDesc: string
@@ -234,6 +240,11 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         prevPageHint: 'Puwede ka ring bumalik sa naunang pahina para muling basahin! ⬅️',
         redoHint: 'Hindi kontento sa recording? Pindutin dito para ulitin! 🔁',
         submitHint: 'Tapos ka na? Pindutin dito para ipasa sa iyong guro! ✅',
+        pickDifficultyLabel: 'Piliin ang hirap ng talata bago ito gawin',
+        levelNames: ['Napakadali', 'Madali', 'Katamtaman', 'Mahirap', 'Napakahirap'],
+        suggestedForGrade: (g) => `Iminumungkahi para sa Baitang ${g}`,
+        useSuggested: (n, g) => `Gamitin ang mungkahi para sa Baitang ${g} (${n})`,
+        generateLabel: 'Gumawa ng talata',
         reviewKicker: 'Bago magsimula',
         reviewTitle: 'Suriin ang talata',
         reviewDesc: 'Basahin muna ang talatang ito. Puwede mo itong baguhin, o gumawa ng bago, bago mo ito ipabasa sa bata.',
@@ -315,6 +326,11 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         prevPageHint: 'You can go back to reread earlier pages too! ⬅️',
         redoHint: 'Not happy with your take? Tap here to record again! 🔁',
         submitHint: 'All done? Tap here to send it to your teacher! ✅',
+        pickDifficultyLabel: 'Choose how hard the passage should be before it is generated',
+        levelNames: ['Very easy', 'Easy', 'Medium', 'Hard', 'Very hard'],
+        suggestedForGrade: (g) => `Suggested for Grade ${g}`,
+        useSuggested: (n, g) => `Use the suggestion for Grade ${g} (${n})`,
+        generateLabel: 'Generate passage',
         reviewKicker: 'Before you start',
         reviewTitle: 'Check the passage',
         reviewDesc: 'Read this passage first. You can edit it, or generate a new one, before the pupil reads it.',

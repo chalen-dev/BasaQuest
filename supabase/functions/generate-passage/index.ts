@@ -31,16 +31,31 @@ function gradeSpec(grade: number): GradeSpec {
     return table[g]
 }
 
-function buildPrompt(gradeLevel: number, lang: 'fil' | 'en') {
+// The teacher can ask for a difficulty from 1 (easy) to 5 (difficult) before
+// generating. It steers sentence and word length; the grade still sets the
+// passage length and topics. The app rates the result with the same idea
+// (src/lib/passageDifficulty.ts), so these lengths line up with its stars.
+const DIFFICULTY_NOTE: Record<number, string> = {
+    1: 'very easy: sentences of 3-6 words, only very common one- and two-syllable words',
+    2: 'easy: sentences of 6-9 words, familiar everyday words',
+    3: 'medium: sentences of 8-13 words, mostly familiar words with a few longer ones',
+    4: 'challenging: sentences of 11-17 words, descriptive and some multi-syllable words',
+    5: 'difficult: sentences of 15-22 words, rich vocabulary and varied sentence structure',
+}
+
+function buildPrompt(gradeLevel: number, lang: 'fil' | 'en', difficulty: number | null) {
     const g = Math.min(6, Math.max(1, Math.round(gradeLevel)))
     const spec = gradeSpec(g)
     const language = lang === 'fil' ? 'Filipino (Tagalog)' : 'English'
+    const difficultyLine = difficulty
+        ? `\n- Difficulty: ${difficulty} out of 5 (${DIFFICULTY_NOTE[difficulty]}). Where this differs from the reading level above, follow this difficulty for sentence and word length; keep the passage length and topic requirements.`
+        : ''
 
     return `You are writing an oral reading passage for a Filipino elementary school pupil in Grade ${g}, for a one-on-one reading fluency check-in where the pupil reads the passage ALOUD to a teacher. This is NOT a comprehension quiz — only the passage itself is needed.
 
 Write the passage in ${language}. Requirements:
 - Length: ${spec.minWords}-${spec.maxWords} words.
-- Reading level: ${spec.note}.
+- Reading level: ${spec.note}.${difficultyLine}
 - Content: warm, wholesome, culturally familiar to a Filipino child (home, barangay, school, sari-sari store, palengke, fiesta, nature, friendship, family) — never scary, violent, or sad.
 - Write in plain prose, natural spoken rhythm — avoid tongue-twisters, unusual proper names, or words a child that age wouldn't know how to pronounce.
 - Language: write ONLY in ${language}, in both the title and the passage. Do not mix in words from any other language${lang === 'fil' ? ' (no English words such as "school", "mother" or "happy"; use the Filipino word instead)' : ' (no Filipino or Tagalog words such as "nanay", "bahay" or "po")'}. Proper names of people and places are the only exception.
@@ -91,9 +106,12 @@ Deno.serve(async (req: Request) => {
         const body = await req.json().catch(() => null)
         const gradeLevel = Number(body?.gradeLevel)
         const lang = body?.lang === 'en' ? 'en' : body?.lang === 'fil' ? 'fil' : null
+        // Optional: left out for a pupil's own session, where nobody picks one.
+        const rawDifficulty = body?.difficulty
+        const difficulty = Number.isInteger(rawDifficulty) && rawDifficulty >= 1 && rawDifficulty <= 5 ? (rawDifficulty as number) : null
 
         if (!Number.isFinite(gradeLevel) || gradeLevel < 1 || gradeLevel > 6 || !lang) {
-            return jsonResponse({ error: 'Expected { gradeLevel: 1-6, lang: "fil" | "en" } in the request body.' }, 400)
+            return jsonResponse({ error: 'Expected { gradeLevel: 1-6, lang: "fil" | "en", difficulty?: 1-5 } in the request body.' }, 400)
         }
 
         const geminiRes = await fetch(
@@ -102,7 +120,7 @@ Deno.serve(async (req: Request) => {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: buildPrompt(gradeLevel, lang) }] }],
+                    contents: [{ parts: [{ text: buildPrompt(gradeLevel, lang, difficulty) }] }],
                     generationConfig: {
                         responseMimeType: 'application/json',
                         responseSchema: RESPONSE_SCHEMA,
