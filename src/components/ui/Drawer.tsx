@@ -1,5 +1,6 @@
 // File: src/components/ui/Drawer.tsx
 import React, { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 interface DrawerProps {
@@ -17,12 +18,10 @@ interface DrawerProps {
 // needs an "edit this thing" or "add this thing" panel instead of a
 // permanently-docked sidebar.
 //
-// Both the backdrop and the panel start at top-16 instead of the very
-// top of the viewport — otherwise they render above the sticky app
-// header (same stacking-order issue: React mounts this after the
-// header in the tree, so it wins even at an equal z-index) and cover it
-// completely while open. top-16 (64px) is sized to this app's header;
-// adjust it here if the header's height ever changes.
+// Rendered on document.body and starting at the very top of the viewport, so
+// it always sits above the fixed app header (which the page layout would
+// otherwise keep it underneath) whatever height that header is, with the
+// header dimmed behind the backdrop.
 export const Drawer: React.FC<DrawerProps> = ({ open, onClose, title, subtitle, icon, children }) => {
     useEffect(() => {
         if (!open) return
@@ -33,12 +32,12 @@ export const Drawer: React.FC<DrawerProps> = ({ open, onClose, title, subtitle, 
         return () => document.removeEventListener('keydown', handleKey)
     }, [open, onClose])
 
-    return (
+    return createPortal(
         <>
             <div
                 aria-hidden="true"
                 onClick={onClose}
-                className={`fixed inset-x-0 top-16 bottom-0 z-40 cursor-pointer bg-gray-950/50 transition-opacity duration-300 ${
+                className={`fixed inset-0 z-[100] cursor-pointer bg-gray-950/50 transition-opacity duration-300 ${
                     open ? 'opacity-100' : 'pointer-events-none opacity-0'
                 }`}
             />
@@ -46,7 +45,7 @@ export const Drawer: React.FC<DrawerProps> = ({ open, onClose, title, subtitle, 
                 role="dialog"
                 aria-modal="true"
                 aria-hidden={!open}
-                className={`fixed right-0 top-16 bottom-0 z-50 w-full max-w-lg transform bg-white shadow-2xl transition-transform duration-300 ease-out dark:bg-gray-900 ${
+                className={`fixed inset-y-0 right-0 z-[101] w-full max-w-lg transform bg-white shadow-2xl transition-transform duration-300 ease-out dark:bg-gray-900 ${
                     open ? 'translate-x-0' : 'pointer-events-none translate-x-full'
                 }`}
             >
@@ -69,7 +68,8 @@ export const Drawer: React.FC<DrawerProps> = ({ open, onClose, title, subtitle, 
                     <div className="flex-1 overflow-y-auto px-6 py-6">{children}</div>
                 </div>
             </div>
-        </>
+        </>,
+        document.body,
     )
 }
 
