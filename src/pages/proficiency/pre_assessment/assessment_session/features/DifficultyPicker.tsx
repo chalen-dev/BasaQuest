@@ -17,7 +17,7 @@ export function DifficultyPicker({ t, value, suggested, gradeLevel, onChange }: 
     return (
         <div className="flex flex-col gap-2 rounded-2xl bg-gray-900/5 p-4 dark:bg-gray-100/5">
             <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t.pickDifficultyLabel}</span>
-            <div role="radiogroup" aria-label={t.pickDifficultyLabel} className="flex items-center gap-1">
+            <div role="radiogroup" aria-label={t.pickDifficultyLabel} className="flex flex-wrap items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
                     <button
                         key={n}

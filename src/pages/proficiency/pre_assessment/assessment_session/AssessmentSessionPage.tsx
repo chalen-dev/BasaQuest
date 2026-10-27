@@ -525,7 +525,7 @@ export const AssessmentSessionPage: React.FC = () => {
     return (
         <div
             className={
-                showPassageStep || showInlineReview || step === 'loading'
+                showPassageStep || showInlineReview || step === 'loading' || step === 'review'
                     ? 'mx-auto w-full max-w-[1350px] px-6 pb-6 pt-2 sm:px-10'
                     : 'mx-auto max-w-3xl px-4 pb-12 pt-2'
             }
