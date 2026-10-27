@@ -6,6 +6,7 @@
 // picture file and every word that shares it (e.g. mango + mangga), so a
 // replace or approve applies to all of its words at once.
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Check, Eye, FlaskConical, ImagePlus, Loader2, Pencil, Plus, Replace, Trash2, Undo2, X } from 'lucide-react'
 import { useTheme } from '../../../contexts/ThemeContext'
@@ -670,9 +671,11 @@ export default function WordImagesPage() {
             )}
 
             {/* The editor for one picture: opens from the pencil on a card so
-                the cards themselves stay small. */}
-            {editingGroup && (
-                <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Edit picture">
+                the cards themselves stay small. Rendered on document.body so it
+                sits above the fixed site header, which the page layout would
+                otherwise keep it underneath. */}
+            {editingGroup && createPortal(
+                <div className="fixed inset-0 z-[100] flex justify-end" role="dialog" aria-modal="true" aria-label="Edit picture">
                     <button
                         type="button"
                         aria-label="Close the editor"
@@ -784,7 +787,8 @@ export default function WordImagesPage() {
                             </div>
                         </section>
                     </aside>
-                </div>
+                </div>,
+                document.body,
             )}
         </div>
     )
