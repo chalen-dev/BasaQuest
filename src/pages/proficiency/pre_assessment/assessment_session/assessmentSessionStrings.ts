@@ -17,7 +17,8 @@ export type Passage = {
 
 // 'review' is the teacher's read-through of a generated passage, only used
 // for an assisted ("Now") session.
-export type Step = 'intro' | 'loading' | 'review' | 'passage' | 'error'
+// 'waiting' is a pupil's own session with no passage from their teacher yet.
+export type Step = 'intro' | 'loading' | 'review' | 'waiting' | 'passage' | 'error'
 
 // Hard cap on a single take, in seconds, so a forgotten-running mic can't
 // produce an unbounded recording. NOT derived from any real Azure/Deepgram
@@ -143,6 +144,10 @@ export type AssessmentStrings = {
     submitHint: string
     // Teacher's read-through of a generated passage before the session
     // starts (see features/PassageReview.tsx).
+    // A pupil with no passage from their teacher yet.
+    waitingTitle: string
+    waitingDesc: string
+    checkAgainLabel: string
     // Difficulty the teacher picks before generating (features/DifficultyPicker.tsx).
     pickDifficultyLabel: string
     levelNames: string[]
@@ -252,6 +257,9 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         prevPageHint: 'Puwede ka ring bumalik sa naunang pahina para muling basahin! ⬅️',
         redoHint: 'Hindi kontento sa recording? Pindutin dito para ulitin! 🔁',
         submitHint: 'Tapos ka na? Pindutin dito para ipasa sa iyong guro! ✅',
+        waitingTitle: 'Inihahanda pa ng iyong guro ang talata mo',
+        waitingDesc: 'Wala pang talatang naghihintay sa iyo sa wikang ito. Sabihin sa iyong guro, tapos pindutin ang "Tingnan muli".',
+        checkAgainLabel: 'Tingnan muli',
         pickDifficultyLabel: 'Piliin ang hirap ng talata bago ito gawin',
         levelNames: ['Napakadali', 'Madali', 'Katamtaman', 'Mahirap', 'Napakahirap'],
         suggestedForGrade: (g) => `Iminumungkahi para sa Baitang ${g}`,
@@ -349,6 +357,9 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         prevPageHint: 'You can go back to reread earlier pages too! ⬅️',
         redoHint: 'Not happy with your take? Tap here to record again! 🔁',
         submitHint: 'All done? Tap here to send it to your teacher! ✅',
+        waitingTitle: 'Your teacher is still getting your passage ready',
+        waitingDesc: 'There is no passage waiting for you in this language yet. Tell your teacher, then press "Check again".',
+        checkAgainLabel: 'Check again',
         pickDifficultyLabel: 'Choose how hard the passage should be before it is generated',
         levelNames: ['Very easy', 'Easy', 'Medium', 'Hard', 'Very hard'],
         suggestedForGrade: (g) => `Suggested for Grade ${g}`,

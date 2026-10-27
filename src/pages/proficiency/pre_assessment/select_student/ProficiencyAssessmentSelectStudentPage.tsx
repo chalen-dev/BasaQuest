@@ -96,6 +96,7 @@ const STRINGS: Record<Lang, {
     clearLabel: string
     clearConfirmTitle: (name: string) => string
     clearConfirmText: string
+    clearOnlineWarning: (name: string) => string
     clearConfirmButton: string
     clearSuccessToast: string
     noStudents: string
@@ -147,6 +148,7 @@ const STRINGS: Record<Lang, {
         clearLabel: 'Burahin ang nagawang talata',
         clearConfirmTitle: (name) => `Burahin ang talata ni ${name}?`,
         clearConfirmText: 'Mabubura ang nagawang talata, at makakagawa ka ng bago.',
+        clearOnlineWarning: (name) => `Naka-online ngayon si ${name} at maaaring binabasa na ito. Mananatili sa kanya ang talatang nakabukas na, pero wala na siyang makikita kapag nag-reload siya.`,
         clearConfirmButton: 'Oo, burahin',
         clearSuccessToast: 'Nabura na ang talata.',
         noStudents: 'Wala pang estudyanteng naka-enrol.',
@@ -198,6 +200,7 @@ const STRINGS: Record<Lang, {
         clearLabel: 'Clear the generated passage',
         clearConfirmTitle: (name) => `Clear ${name}'s passage?`,
         clearConfirmText: 'The generated passage will be deleted so you can make a new one.',
+        clearOnlineWarning: (name) => `${name} is online right now and may be reading it. They keep the passage they already have open, but would find nothing if they reload.`,
         clearConfirmButton: 'Yes, clear it',
         clearSuccessToast: 'Passage cleared.',
         noStudents: 'No students enrolled yet.',
@@ -284,11 +287,14 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
         navigate(`/reading/proficiency/assessment/session?lang=${selectedLang}&studentId=${studentId}&studentName=${encodeURIComponent(studentName)}`)
     }
     // Throws away the pupil's saved passage so a fresh one can be made.
+    // A pupil who is logged in right now may be reading it, so the
+    // confirmation says so: they would keep the text they already have, but
+    // a reload would find nothing.
     const handleClearPassage = async (studentId: string, studentName: string) => {
         if (!selectedLang) return
         const confirmed = await showConfirmation(
             t.clearConfirmTitle(studentName),
-            t.clearConfirmText,
+            onlineIdsSet.has(studentId) ? `${t.clearConfirmText} ${t.clearOnlineWarning(studentName)}` : t.clearConfirmText,
             theme === 'dark',
             'warning',
             t.clearConfirmButton

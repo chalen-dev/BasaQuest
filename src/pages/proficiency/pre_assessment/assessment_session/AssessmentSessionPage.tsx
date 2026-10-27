@@ -32,27 +32,20 @@
 // simply won't have anything to intercept when Exit is used, avoiding a
 // redundant double-save.
 //
-// PASSAGE CACHING (sessionStorage): a generated passage now survives a
-// browser reload — previously, refreshing this page always dropped
-// straight back to the 'intro' step, and clicking Start again called
-// generatePassage() from scratch, spending another round of AI credits
-// (real Gemini credits when USE_PLACEHOLDER_PASSAGE is off in devFlags.ts)
-// on a passage that had already been generated moments earlier. Now every
-// successfully generated passage is stashed in sessionStorage under a key
-// scoped to (language, which student this session is for) via
-// writeCachedPassage() below, and on mount — see the assessmentLang effect
-// — readCachedPassage() is checked FIRST; a hit skips straight to the
-// 'passage' step with the cached text instead of showing 'intro' at all.
-// generatePassage() itself also checks the cache before calling the real
-// API, so even an explicit Start click after a lost cache-miss reload
-// won't double-spend credits if a cached passage is still there.
-// sessionStorage (not localStorage) is deliberate — it survives a reload/
-// refresh (the actual complaint) but clears once the tab is closed, so
-// nobody ends up permanently stuck re-reading a months-old passage.
-// The cache is cleared the moment a take is actually submitted (see
-// handleSubmit) — once a reading has been turned in, the NEXT check-in
-// for this student+language should get a genuinely fresh passage, not
-// keep replaying the one that was just recorded against.
+// SAVED PASSAGES (server, see savedPassages.ts): only a teacher-run session
+// ("Now" mode, studentId in the URL) generates a passage. The teacher picks a
+// difficulty, generates, reads and validates it on the 'review' step (see
+// PassageReview.tsx), then either starts the session here or sends it to the
+// pupil's own device. Every generated, edited or validated passage is saved
+// in the check_in_passages table (one per pupil and language), so a reload —
+// or another device — finds it again instead of spending more AI credits, and
+// the student picker can badge pupils who already have one. A pupil's own
+// session NEVER generates: it loads the passage their teacher validated and
+// sent, and shows a 'waiting' screen when there is none (for example, the
+// teacher cleared it). A pupil who is already reading keeps the passage they
+// have; clearing it only affects the next load. The saved passage is deleted
+// the moment a take is submitted (see handleSubmit) — the text now lives with
+// the attempt, and the NEXT check-in should get a fresh passage.
 //
 // LOADING STATES → SKELETONS (see components/ui/Skeleton.tsx): all three
 // OwlLoader spinners on this page now show placeholder shapes instead:
@@ -201,10 +194,8 @@ import {
     type WordReviewOverride,
 } from '../../../students/review/hooks.ts'
 import { AttemptWordReview, type AttemptWordReviewHandle } from '../../../students/review/features/AttemptWordReview.tsx'
-// A pupil's own passage cache (see this file's PASSAGE CACHING header comment
-// above) lives in ../passageCache.ts; a teacher-run session's passage is saved
-// on the server instead, in ../savedPassages.ts.
-import { clearCachedPassage, readCachedPassage, writeCachedPassage } from '../passageCache.ts'
+// Passages are saved on the server (see this file's SAVED PASSAGES header
+// comment above), in ../savedPassages.ts.
 import {
     deleteSavedPassage,
     fetchSavedPassage,
@@ -220,7 +211,6 @@ export const AssessmentSessionPage: React.FC = () => {
     const studentIdParam = searchParams.get('studentId')
     const studentNameParam = searchParams.get('studentName')
     const isAssisted = !!studentIdParam
-    const passageCacheStudentKey = isAssisted ? (studentIdParam as string) : 'self'
     const { profile: ownProfile, loading: ownProfileLoading } = useProfile()
     const { profile: assistedProfile, loading: assistedProfileLoading } = useAssistedStudentProfile(studentIdParam)
     const activeProfile = isAssisted ? assistedProfile : ownProfile
@@ -278,23 +268,15 @@ export const AssessmentSessionPage: React.FC = () => {
         },
         silent: true,
     })
-    // An assisted session starts with the teacher reading the passage
-    // ('review', see PassageReview.tsx); a pupil's own session goes
-    // straight to the passage.
-    const stepAfterGenerate: Step = isAssisted ? 'review' : 'passage'
-    // `fresh` skips the cache: the teacher's "generate a new one" must not
-    // hand the same passage back.
-    // Where this session's passage is kept: a teacher-run session saves it on
-    // the server (so it survives the tab and shows on the student picker, see
-    // savedPassages.ts); a pupil's own session keeps it in the tab.
-    // Resolves once saved (so "Send" can wait for it before telling the pupil's
-    // device to look for it); rejects if the save fails.
+    // Only a teacher-run session generates a passage, and the teacher reads
+    // it first ('review', see PassageReview.tsx). A pupil only ever reads a
+    // passage their teacher validated and sent, so they never generate one.
+    // Passages are saved on the server (savedPassages.ts), so they survive the
+    // tab and show on the student picker. persistPassage resolves once saved
+    // (so "Send" can wait for it before telling the pupil's device to look for
+    // it) and rejects if the save fails.
     const persistPassage = async (lang: Lang, toStore: Passage, approved: boolean): Promise<void> => {
-        if (!isAssisted) {
-            writeCachedPassage(lang, passageCacheStudentKey, toStore, approved)
-            return
-        }
-        if (!ownProfile?.id) throw new Error('Not signed in')
+        if (!isAssisted || !ownProfile?.id) throw new Error('Only a teacher can save a passage')
         await saveSavedPassage({
             teacherId: ownProfile.id,
             studentId: studentIdParam as string,
@@ -310,7 +292,6 @@ export const AssessmentSessionPage: React.FC = () => {
     // A reading was turned in: the passage now lives with the attempt, so the
     // saved copy goes (a pupil's own session clears their sent passage too).
     const clearStoredPassage = (lang: Lang) => {
-        clearCachedPassage(lang, passageCacheStudentKey)
         const owner = isAssisted ? studentIdParam : ownProfile?.id
         if (!owner) return
         deleteSavedPassage(owner, lang).catch((err) => console.error('AssessmentSession: failed to clear the saved passage', err))
@@ -323,18 +304,14 @@ export const AssessmentSessionPage: React.FC = () => {
         setPassageApproved(saved.approved)
         setStep(isAssisted ? 'review' : 'passage')
     }
+    // `fresh` skips the saved passage: the teacher's "generate a new one" must
+    // not hand the same passage back.
     const generatePassage = async (fresh = false) => {
-        if (!assessmentLang) return
-        // Saved-passage check first — a Start click after a reload (or on
-        // another device, for a teacher-run session) should never re-spend
-        // credits on a passage that already exists. See PASSAGE CACHING comment.
-        let cached: SavedPassage | null = null
-        if (!fresh) {
-            cached = isAssisted
-                ? await fetchSavedPassage(studentIdParam as string, assessmentLang).catch(() => null)
-                : (readCachedPassage(assessmentLang, passageCacheStudentKey) ??
-                  (ownProfile?.id ? await fetchSavedPassage(ownProfile.id, assessmentLang).catch(() => null) : null))
-        }
+        if (!assessmentLang || !isAssisted) return
+        // Saved-passage check first: a Generate click after a reload (or on
+        // another device) should never re-spend credits on a passage that
+        // already exists.
+        const cached = fresh ? null : await fetchSavedPassage(studentIdParam as string, assessmentLang).catch(() => null)
         if (cached) {
             showSaved(cached)
             return
@@ -345,35 +322,31 @@ export const AssessmentSessionPage: React.FC = () => {
             await new Promise((resolve) => setTimeout(resolve, 400))
             const placeholder = PLACEHOLDER_PASSAGES[assessmentLang]
             setPassage(placeholder)
-            storePassage(assessmentLang, placeholder, !isAssisted)
-            setStep(stepAfterGenerate)
+            storePassage(assessmentLang, placeholder, false)
+            setStep('review')
             return
         }
         try {
             const { data, error } = await supabase.functions.invoke<Passage>('generate-passage', {
-                body: { gradeLevel, lang: assessmentLang, ...(isAssisted ? { difficulty: requestedDifficulty } : {}) },
+                body: { gradeLevel, lang: assessmentLang, difficulty: requestedDifficulty },
             })
             if (error || !data || typeof data.passage !== 'string') {
                 throw error ?? new Error('Malformed response')
             }
             setPassage(data)
-            storePassage(assessmentLang, data, !isAssisted)
-            setStep(stepAfterGenerate)
+            storePassage(assessmentLang, data, false)
+            setStep('review')
         } catch (err) {
             console.error('AssessmentSession: failed to generate passage', err)
             setStep('error')
         }
     }
-    // On mount, and whenever the language/assisted-student identity
-    // changes, check for a cached passage FIRST (see PASSAGE CACHING
-    // header comment) — a hit restores straight to the 'passage' step
-    // with no API call at all, which is what makes a plain browser
-    // reload no longer waste a fresh generation. A miss falls back to
-    // the original behavior of resetting to 'intro'.
     // Looking up a saved passage takes a moment, so `restoring` holds the
     // skeleton until it answers (a failed load just counts as "nothing saved").
-    // A teacher-run session looks up the pupil's passage; a pupil's own session
-    // looks in the tab first, then for a passage their teacher sent them.
+    // A teacher-run session looks up the pupil's passage (to generate one if
+    // there is none); a pupil's own session looks for the passage their
+    // teacher validated and sent, and WAITS if there is none ('waiting')
+    // instead of making one up.
     const [restoring, setRestoring] = useState(true)
     const [passageApproved, setPassageApproved] = useState(false)
     const applySaved = (saved: SavedPassage | null) => {
@@ -381,9 +354,15 @@ export const AssessmentSessionPage: React.FC = () => {
             showSaved(saved)
         } else {
             setPassage(null)
-            setStep('intro')
+            setStep(isAssisted ? 'intro' : 'waiting')
         }
         setRestoring(false)
+    }
+    // The pupil's "check again" on the waiting screen.
+    const checkForPassage = async () => {
+        if (!assessmentLang || !ownProfile?.id) return
+        setRestoring(true)
+        applySaved(await fetchSavedPassage(ownProfile.id, assessmentLang).catch(() => null))
     }
     useEffect(() => {
         if (!assessmentLang) {
@@ -395,7 +374,7 @@ export const AssessmentSessionPage: React.FC = () => {
         if (!isAssisted) return
         let cancelled = false
         setRestoring(true)
-        fetchSavedPassage(passageCacheStudentKey, assessmentLang)
+        fetchSavedPassage(studentIdParam as string, assessmentLang)
             .catch(() => null)
             .then((saved) => {
                 if (!cancelled) applySaved(saved)
@@ -404,17 +383,12 @@ export const AssessmentSessionPage: React.FC = () => {
             cancelled = true
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [assessmentLang, passageCacheStudentKey])
+    }, [assessmentLang, studentIdParam])
     useEffect(() => {
         if (!assessmentLang || isAssisted) return
-        const cached = readCachedPassage(assessmentLang, passageCacheStudentKey)
-        if (cached) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            applySaved(cached)
-            return
-        }
         if (ownProfileLoading) return
         if (!ownProfile?.id) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             applySaved(null)
             return
         }
@@ -660,7 +634,21 @@ export const AssessmentSessionPage: React.FC = () => {
                     <Skeleton className="mx-auto mt-5 h-11 w-40 rounded-full sm:mx-0" />
                 </section>
             )}
-            {!showSkeleton && isNonReader && step === 'intro' && (
+            {!showSkeleton && !isNonReader && step === 'waiting' && (
+                <section className="flex flex-col items-center gap-4 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">
+                    <Owl mood="neutral" size={72} bob />
+                    <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.waitingTitle}</h2>
+                    <p className="max-w-md text-sm font-medium text-gray-600 dark:text-gray-400">{t.waitingDesc}</p>
+                    <button
+                        onClick={checkForPassage}
+                        className="flex cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                    >
+                        <RefreshCw size={16} />
+                        {t.checkAgainLabel}
+                    </button>
+                </section>
+            )}
+            {!showSkeleton && isNonReader && (step === 'intro' || step === 'waiting') && (
                 <section className="flex flex-col items-center gap-4 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-8 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
                     <Owl mood="neutral" size={80} bob />
                     <span className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
@@ -712,7 +700,7 @@ export const AssessmentSessionPage: React.FC = () => {
                             className="mx-auto flex cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59] sm:mx-0"
                         >
                             <BookOpenCheck size={18} />
-                            {isAssisted ? t.generateLabel : t.start}
+                            {t.generateLabel}
                         </button>
                     </div>
                 </section>

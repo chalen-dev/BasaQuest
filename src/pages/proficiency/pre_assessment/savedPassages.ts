@@ -3,8 +3,9 @@
 // and language in the check_in_passages table (see its migration for why and
 // for the 7-day expiry). The session screen loads, saves and clears a pupil's
 // passage here, and the student picker reads the list to show its badges.
-// A pupil's own session doesn't use this; it keeps its passage in the tab
-// (see passageCache.ts).
+// A pupil's own session only READS its passage from here (once the teacher
+// has validated and sent it) and deletes it after submitting; pupils never
+// generate or save one.
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient.ts'
 import type { Lang } from '../../../components/buttons/LangToggle.tsx'
