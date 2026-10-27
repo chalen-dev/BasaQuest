@@ -60,14 +60,14 @@ export default function CoachPreviewPage() {
     const [selectedWord, setSelectedWord] = useState<string | null>(initialWord || null)
     const [open, setOpen] = useState(true)
     const backdropRef = useRef<CoachTableBackdropHandle>(null)
-    const { speak } = usePronounceWord()
+    const { speak, isLoading: pronounceLoading } = usePronounceWord()
     const content = useMemo(
         () => (sentence.trim() ? sentenceFromText(sentence, inputWord) : sentenceFor(inputWord, lang)),
         [inputWord, lang, sentence],
     )
     // The sentence is the context: a phrase or cue word in it picks the right
     // picture when the word has several meanings.
-    const { data: wordImage } = useWordImageQuery(selectedWord, lang, content.words)
+    const { data: wordImage, isLoading: imageLoading } = useWordImageQuery(selectedWord, lang, content.words)
     const firstRender = useRef(true)
     useEffect(() => {
         // initialContent paints the first render; later edits (a typed word,
@@ -121,6 +121,8 @@ export default function CoachPreviewPage() {
                         animate
                         word={selectedWord}
                         image={wordImage}
+                        imageLoading={imageLoading}
+                        pronounceLoading={pronounceLoading}
                         onClose={() => setOpen(false)}
                         onPronounce={(word) => speak(word, lang)}
                         closeLabel="Close the notebook"

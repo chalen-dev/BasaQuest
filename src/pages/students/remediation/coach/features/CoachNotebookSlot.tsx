@@ -17,8 +17,8 @@
 // context, so everything tracks the notebook's on-screen size at any width.
 // The parent must therefore sit inside a `containerType: 'size'` element
 // (the slot renders its own <style> for the fade timing).
-import type { CSSProperties } from 'react'
-import { Image as ImageIcon, Volume2, X } from 'lucide-react'
+import { useState, type CSSProperties } from 'react'
+import { Image as ImageIcon, Loader2, Volume2, X } from 'lucide-react'
 import type { WordImage } from '../../../../../hooks/useWordImage.ts'
 
 // Where the notebook's content sits, laid directly over NOTEBOOK_ART's
@@ -86,6 +86,11 @@ type CoachNotebookSlotProps = {
     closeLabel: string
     pronounceLabel: string
     placeholderText: string
+    // The picture is still being looked up (the picture itself may also still be
+    // downloading, which the slot tracks on its own). Shows a spinner in the frame.
+    imageLoading?: boolean
+    // The pronunciation audio is still being fetched: the speaker icon becomes a spinner.
+    pronounceLoading?: boolean
 }
 
 export function CoachNotebookSlot({
@@ -99,7 +104,13 @@ export function CoachNotebookSlot({
     closeLabel,
     pronounceLabel,
     placeholderText,
+    imageLoading = false,
+    pronounceLoading = false,
 }: CoachNotebookSlotProps) {
+    // The picture file the browser has finished downloading. A new picture shows
+    // the spinner again until its own load event fires.
+    const [loadedUrl, setLoadedUrl] = useState<string | null>(null)
+    const pictureLoading = imageLoading || (!!image && loadedUrl !== image.url)
     return (
         <>
         <style>{NOTEBOOK_SLOT_CSS}</style>
@@ -152,6 +163,8 @@ export function CoachNotebookSlot({
                         <button
                             type="button"
                             onClick={() => onPronounce(word)}
+                            disabled={pronounceLoading}
+                            aria-busy={pronounceLoading}
                             aria-label={pronounceLabel}
                             className="flex shrink-0 items-center justify-center rounded-full border-2 border-[var(--coach-nb-soft)] bg-[var(--coach-nb-btn)] text-[var(--coach-nb-ink)] shadow-sm transition-colors duration-150 hover:border-[var(--coach-nb-accent)]"
                             style={{
@@ -159,7 +172,11 @@ export function CoachNotebookSlot({
                                 height: 'clamp(26px, 3.4cqw, 42px)',
                             }}
                         >
-                            <Volume2 style={{ width: 'clamp(12px, 1.6cqw, 17px)', height: 'clamp(12px, 1.6cqw, 17px)' }} />
+                            {pronounceLoading ? (
+                                <Loader2 className="animate-spin" style={{ width: 'clamp(12px, 1.6cqw, 17px)', height: 'clamp(12px, 1.6cqw, 17px)' }} />
+                            ) : (
+                                <Volume2 style={{ width: 'clamp(12px, 1.6cqw, 17px)', height: 'clamp(12px, 1.6cqw, 17px)' }} />
+                            )}
                         </button>
                     </div>
                     {/* Word picture (word_images table, see useWordImage.ts).
@@ -168,17 +185,25 @@ export function CoachNotebookSlot({
                     (border/background var(--word-soft)/var(--word-button),
                     icon stroke var(--word-accent) at .55 opacity). */}
                     <div
-                        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border-2"
+                        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border-2"
                         style={{ backgroundColor: 'var(--coach-nb-btn)', borderColor: 'var(--coach-nb-soft)' }}
                     >
                         {image ? (
                             <img
+                                key={image.url}
                                 src={image.url}
                                 alt={word}
                                 title={image.credit ?? undefined}
-                                className="h-full w-full object-contain p-2"
+                                className={`h-full w-full object-contain p-2 transition-opacity duration-200 ${pictureLoading ? 'opacity-0' : 'opacity-100'}`}
+                                ref={(el) => {
+                                    // A picture already in the browser cache can finish before
+                                    // onLoad is attached.
+                                    if (el?.complete && el.naturalWidth > 0) setLoadedUrl(image.url)
+                                }}
+                                onLoad={() => setLoadedUrl(image.url)}
+                                onError={() => setLoadedUrl(image.url)}
                             />
-                        ) : (
+                        ) : imageLoading ? null : (
                             <ImageIcon
                                 strokeWidth={2}
                                 style={{
@@ -186,6 +211,19 @@ export function CoachNotebookSlot({
                                     height: 'clamp(30px, 4.6cqw, 58px)',
                                     color: 'var(--coach-nb-accent)',
                                     opacity: 0.55,
+                                }}
+                            />
+                        )}
+                        {pictureLoading && (
+                            <Loader2
+                                role="status"
+                                aria-label="Loading picture"
+                                className="absolute animate-spin"
+                                strokeWidth={2.5}
+                                style={{
+                                    width: 'clamp(30px, 4.6cqw, 58px)',
+                                    height: 'clamp(30px, 4.6cqw, 58px)',
+                                    color: 'var(--coach-nb-accent)',
                                 }}
                             />
                         )}

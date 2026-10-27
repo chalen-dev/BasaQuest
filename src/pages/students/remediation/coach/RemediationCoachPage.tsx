@@ -458,7 +458,7 @@ export default function RemediationCoachPage() {
     const t = STRINGS[lang]
     const nt = NOTEBOOK_STRINGS[lang]
     const { data: material, isLoading, error } = useRemediationMaterialQuery(materialId)
-    const { speak } = usePronounceWord()
+    const { speak, isLoading: pronounceLoading } = usePronounceWord()
     const backdropRef = useRef<CoachTableBackdropHandle>(null)
 
     // Seeded once from the query, same reasoning as RemediationSession.tsx:
@@ -521,15 +521,17 @@ export default function RemediationCoachPage() {
     // A word Gemini tagged as a name never looks up its own picture ("Maya"
     // the girl must not get the maya bird). A merely guessed name does look
     // it up, and keeps that picture if the bank has one.
-    const { data: wordImage } = useWordImageQuery(
+    const { data: wordImage, isLoading: wordImageLoading } = useWordImageQuery(
         selectedName && !selectedName.guessed ? null : selectedWord,
         material?.language,
         // The page's own words: a phrase around the tapped word, or a cue word
         // near it, picks the right picture when a word has several meanings.
         currentPage?.content.words,
     )
-    const { data: namePicture } = useWordImageQuery(selectedName ? NAME_PICTURE_WORD[selectedName.kind] : null, 'en')
+    const { data: namePicture, isLoading: namePictureLoading } = useWordImageQuery(selectedName ? NAME_PICTURE_WORD[selectedName.kind] : null, 'en')
     const showNameCard = !!selectedName && (!selectedName.guessed || !wordImage)
+    // Show the notebook's picture spinner while whichever lookup is in flight finishes.
+    const notebookImageLoading = wordImageLoading || (showNameCard && namePictureLoading)
     const notebookImage = showNameCard ? namePicture : wordImage
     // The owl's speech-bubble text for the current page -- see this
     // file's header comment ("COACH TIPS"). Computed here (rather than
@@ -867,6 +869,8 @@ export default function RemediationCoachPage() {
                             animate={companionAnimated}
                             word={selectedWord}
                             image={notebookImage}
+                            imageLoading={notebookImageLoading}
+                            pronounceLoading={pronounceLoading}
                             // The caption describes the word in the story, so it
                             // follows the passage's own language ("Pangalan ng
                             // hayop" under a Filipino story), not the app toggle.
