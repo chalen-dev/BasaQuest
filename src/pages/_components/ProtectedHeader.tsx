@@ -92,7 +92,7 @@ function isNavItemActive(item: NavItem, pathname: string) {
 }
 
 function navLinkClass(active: boolean) {
-    return `whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-bold xl:px-5 xl:py-2 xl:text-base transition-colors duration-300 ${
+    return `whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-bold xl:px-4 xl:text-[0.95rem] transition-colors duration-300 ${
         active
             ? 'bg-gray-900 text-white dark:bg-gray-50 dark:text-gray-900'
             : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
@@ -143,7 +143,7 @@ export default function ProtectedHeader() {
 
     return (
         <header className="fixed inset-x-0 top-0 z-40 border-b border-gray-900/10 bg-orange-50/30 backdrop-blur-sm transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-950/35">
-            <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
+            <div className="mx-auto flex max-w-[84rem] items-center gap-2.5 px-4 py-3">
                 <NavLink to="/home" className="flex shrink-0 items-center gap-2">
                     {/* Brand mark uses the static neutral owl, not a mood
                         image — the header logo shouldn't shift expression
@@ -163,7 +163,7 @@ export default function ProtectedHeader() {
                         </div>
                     </div>
                 </NavLink>
-                <nav className="hidden flex-1 items-center gap-2 pl-4 lg:flex">
+                <nav className="hidden flex-1 items-center gap-1.5 pl-3 lg:flex">
                     {navItems.map((item) => (
                         <div key={item.to} className="relative">
                             <NavLink
@@ -207,8 +207,8 @@ export default function ProtectedHeader() {
                                 Test
                             </span>
                         )}
-                        <div className="hidden text-right leading-tight sm:block">
-                            <div className="text-sm font-bold text-gray-900 dark:text-gray-50">{username}</div>
+                        <div className="hidden max-w-[8.5rem] text-right leading-tight sm:block">
+                            <div className="truncate text-sm font-bold text-gray-900 dark:text-gray-50">{username}</div>
                             <div className="text-[0.8125rem] font-semibold text-gray-500 dark:text-gray-400">
                                 {profile ? (ROLE_LABEL[lang][profile.role] ?? profile.role) : ''}
                             </div>
@@ -226,7 +226,7 @@ export default function ProtectedHeader() {
                     </button>
                 </Tooltip>
             </div>
-            <nav className="mx-auto flex max-w-7xl flex-wrap gap-2 px-4 pb-3 lg:hidden">
+            <nav className="mx-auto flex max-w-[84rem] flex-wrap gap-2 px-4 pb-3 lg:hidden">
                 {navItems.map((item) => (
                     <div key={item.to} className="relative">
                         <NavLink
