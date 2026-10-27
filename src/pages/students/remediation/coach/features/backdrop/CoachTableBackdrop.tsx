@@ -608,8 +608,12 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                     .coach-night-layer { opacity: 0; pointer-events: none; transition: opacity 300ms ease; }
                     .coach-artwork[data-coach-theme="night"] .coach-night-layer { opacity: 1; }
                     .coach-interaction-layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
-                    .coach-book-control { cursor: pointer; outline: none; }
+                    .coach-book-control { cursor: pointer; outline: none; transition: opacity 200ms ease, filter 200ms ease; }
                     .coach-book-control[aria-disabled="true"] { opacity: .36; cursor: default; pointer-events: none; }
+                    /* Previous/Next that cannot be used right now (first or last page, or a
+                    page turning) go flat grey, not just faint, so they read as switched
+                    off next to the coloured, usable one. The microphone is left alone. */
+                    #coach-previous[aria-disabled="true"], #coach-next[aria-disabled="true"] { opacity: .45; filter: grayscale(1) contrast(.85); }
                     .coach-book-control .coach-focus-ring { opacity: 0; fill: none; stroke: var(--coach-arrow); stroke-width: 4; stroke-dasharray: 7 5; }
                     .coach-book-control:focus-visible .coach-focus-ring { opacity: 1; }
                     .coach-book-control:not([aria-disabled="true"]):hover .coach-button-highlight { opacity: .6; }
