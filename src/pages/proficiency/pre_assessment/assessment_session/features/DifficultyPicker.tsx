@@ -1,7 +1,8 @@
 // File: src/pages/proficiency/pre_assessment/assessment_session/features/DifficultyPicker.tsx
 // The teacher's 1-5 star choice of how hard the passage should be, asked
 // before a passage is generated (and again when generating a new one). Marks
-// the level suggested for the pupil's grade.
+// the level suggested for the pupil's grade. `compact` tightens it for the
+// passage check screen's settings panel.
 import { Star } from 'lucide-react'
 import type { AssessmentStrings } from '../assessmentSessionStrings.ts'
 
@@ -11,11 +12,12 @@ type DifficultyPickerProps = {
     suggested: number
     gradeLevel: number
     onChange: (value: number) => void
+    compact?: boolean
 }
 
-export function DifficultyPicker({ t, value, suggested, gradeLevel, onChange }: DifficultyPickerProps) {
+export function DifficultyPicker({ t, value, suggested, gradeLevel, onChange, compact = false }: DifficultyPickerProps) {
     return (
-        <div className="flex flex-col gap-2 rounded-2xl bg-gray-900/5 p-4 dark:bg-gray-100/5">
+        <div className={`flex flex-col rounded-2xl bg-gray-900/5 dark:bg-gray-100/5 ${compact ? 'gap-1.5 p-3' : 'gap-2 p-4'}`}>
             <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t.pickDifficultyLabel}</span>
             <div role="radiogroup" aria-label={t.pickDifficultyLabel} className="flex flex-wrap items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -26,10 +28,10 @@ export function DifficultyPicker({ t, value, suggested, gradeLevel, onChange }: 
                         aria-checked={value === n}
                         aria-label={`${n} / 5 · ${t.levelNames[n - 1]}`}
                         onClick={() => onChange(n)}
-                        className="cursor-pointer rounded-lg p-1 transition-transform duration-100 hover:scale-110 focus-visible:outline-2 focus-visible:outline-teal-500"
+                        className={`cursor-pointer rounded-lg transition-transform duration-100 hover:scale-110 focus-visible:outline-2 focus-visible:outline-teal-500 ${compact ? 'p-0.5' : 'p-1'}`}
                     >
                         <Star
-                            size={32}
+                            size={compact ? 26 : 32}
                             strokeWidth={2}
                             className={
                                 n <= value

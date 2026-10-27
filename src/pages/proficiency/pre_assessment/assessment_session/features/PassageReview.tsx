@@ -49,6 +49,11 @@ const FIT_STYLE = {
 const panelClass =
     'flex h-full min-h-0 flex-col rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10'
 
+// The right-hand settings panel: same card as the passage, with tighter
+// padding so everything fits on a desktop screen.
+const sidePanelClass =
+    'flex h-full min-h-0 flex-col rounded-3xl border border-gray-900/5 bg-white p-5 shadow-sm dark:border-gray-100/10 dark:bg-gray-900'
+
 export function PassageReview({
     t,
     passage,
@@ -130,26 +135,28 @@ export function PassageReview({
                 />
             </section>
 
-            <section className={`${panelClass} gap-5 overflow-y-auto`}>
+            {/* Compact on purpose: on a desktop screen every setting and both
+            buttons fit without scrolling this panel. It only scrolls as a
+            last resort on a very short window. */}
+            <section className={`${sidePanelClass} gap-3 overflow-y-auto`}>
                 <div>
                     <span className="text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
                         {t.reviewKicker}
                     </span>
-                    <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{t.reviewTitle}</h1>
-                    <p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-400">{t.reviewDesc}</p>
+                    <h1 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.reviewTitle}</h1>
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{t.reviewDesc}</p>
                 </div>
 
-                <div className="flex flex-col gap-2 rounded-2xl bg-gray-900/5 p-4 dark:bg-gray-100/5">
-                    <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t.difficultyLabel}</span>
+                <div className="flex flex-col gap-1.5 rounded-2xl bg-gray-900/5 p-3 dark:bg-gray-100/5">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <StarRating value={stars} label={`${stars} / 5`} size={24} />
-                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{t.difficultyScale}</span>
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t.difficultyLabel}</span>
+                        <StarRating value={stars} label={`${stars} / 5`} size={20} />
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${FIT_STYLE[fit]}`}>{fitText}</span>
                     </div>
-                    <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${FIT_STYLE[fit]}`}>{fitText}</span>
                     {gradeMissing && (
                         <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">{t.gradeNotSet(gradeLevel)}</span>
                     )}
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t.difficultyNote}</span>
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{t.difficultyNote}</span>
                 </div>
 
                 <DifficultyPicker
@@ -158,17 +165,18 @@ export function PassageReview({
                     suggested={suggestedDifficulty}
                     gradeLevel={gradeLevel}
                     onChange={onDifficultyChange}
+                    compact
                 />
                 <button
                     type="button"
                     onClick={handleRegenerate}
-                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-2.5 text-sm font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
+                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-2 text-sm font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
                 >
-                    <RefreshCw size={16} />
+                    <RefreshCw size={15} />
                     {t.regenerateLabel}
                 </button>
 
-                <div className="mt-auto flex flex-col gap-4 border-t-2 border-dashed border-gray-900/10 pt-4 dark:border-gray-100/10">
+                <div className="mt-auto flex flex-col gap-2.5 border-t-2 border-dashed border-gray-900/10 pt-3 dark:border-gray-100/10">
                     <label className="flex cursor-pointer items-start gap-3 text-sm font-semibold text-gray-700 dark:text-gray-200">
                         <input
                             type="checkbox"
@@ -182,18 +190,18 @@ export function PassageReview({
                         type="button"
                         onClick={() => onStartNow({ title: title.trim(), passage: text.trim() })}
                         disabled={!canApprove || sending}
-                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-6 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:hover:translate-y-0 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:hover:translate-y-0 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
                     >
-                        <Play size={18} />
+                        <Play size={17} />
                         {t.startNowLabel}
                     </button>
                     <button
                         type="button"
                         onClick={() => onSend({ title: title.trim(), passage: text.trim() })}
                         disabled={!canApprove || sending || studentOnline}
-                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-teal-500/40 px-6 py-2.5 text-base font-bold text-teal-700 transition-colors duration-150 hover:bg-teal-500/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:border-teal-400/40 dark:text-teal-300"
+                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-teal-500/40 px-6 py-2 text-sm font-bold text-teal-700 transition-colors duration-150 hover:bg-teal-500/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:border-teal-400/40 dark:text-teal-300"
                     >
-                        {sending ? <Loader2 size={18} className="animate-spin" /> : studentOnline ? <WifiOff size={18} /> : <Send size={18} />}
+                        {sending ? <Loader2 size={17} className="animate-spin" /> : studentOnline ? <WifiOff size={17} /> : <Send size={17} />}
                         {t.sendLabel}
                     </button>
                     {studentOnline && (
