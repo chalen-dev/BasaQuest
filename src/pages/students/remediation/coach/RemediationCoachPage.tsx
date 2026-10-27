@@ -867,7 +867,10 @@ export default function RemediationCoachPage() {
                             animate={companionAnimated}
                             word={selectedWord}
                             image={notebookImage}
-                            caption={showNameCard && selectedName ? nt.names[selectedName.kind] : null}
+                            // The caption describes the word in the story, so it
+                            // follows the passage's own language ("Pangalan ng
+                            // hayop" under a Filipino story), not the app toggle.
+                            caption={showNameCard && selectedName ? NOTEBOOK_STRINGS[material.language].names[selectedName.kind] : null}
                             onClose={() => setCompanionMode('owl')}
                             onPronounce={(word) => speak(word, material.language)}
                             closeLabel={nt.closeNotebook}
