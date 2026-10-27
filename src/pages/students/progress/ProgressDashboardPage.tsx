@@ -148,7 +148,7 @@ export const ProgressDashboardPage: React.FC = () => {
     const navigate = useNavigate()
     const t = STRINGS[lang]
     const [sort, setSort] = useState<ProgressSort>('attention')
-    const { data: rows, isLoading, error } = useTeacherDashboardSummaryQuery(profile?.id, sort)
+    const { data: rows, isPending: isLoading, error } = useTeacherDashboardSummaryQuery(profile?.id, sort)
 
     const goToPupil = (row: (typeof rows extends (infer R)[] | undefined ? R : never)) => {
         // Whichever language's latest scored attempt is more recent is

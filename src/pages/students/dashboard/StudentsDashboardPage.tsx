@@ -115,9 +115,9 @@ export const StudentsDashboardPage: React.FC = () => {
     const { profile } = useProfile()
     const navigate = useNavigate()
     const t = STRINGS[lang]
-    const { data: dashboardStats, isLoading: statsLoading } = useDashboardStatsQuery(profile?.id)
-    const { data: pendingCount, isLoading: pendingLoading } = usePendingReviewCountQuery(profile?.id)
-    const { data: recentAttempts, isLoading: attemptsLoading } = useRecentAttemptsQuery(profile?.id, RECENT_ATTEMPTS_LIMIT)
+    const { data: dashboardStats, isPending: statsLoading } = useDashboardStatsQuery(profile?.id)
+    const { data: pendingCount, isPending: pendingLoading } = usePendingReviewCountQuery(profile?.id)
+    const { data: recentAttempts, isPending: attemptsLoading } = useRecentAttemptsQuery(profile?.id, RECENT_ATTEMPTS_LIMIT)
     const [filter, setFilter] = useState<ActivityFilter>('all')
     const pendingAttempts = (recentAttempts ?? []).filter((a) => a.reviewed_at == null)
     const doneAttempts = (recentAttempts ?? []).filter((a) => a.reviewed_at != null)

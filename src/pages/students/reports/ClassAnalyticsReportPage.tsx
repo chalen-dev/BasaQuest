@@ -304,7 +304,7 @@ export const ClassAnalyticsReportPage: React.FC = () => {
     // call here would change the query key (and refetch) on every render.
     const { start, end } = useMemo(() => periodFromPreset(preset, customStart, customEnd), [preset, customStart, customEnd])
 
-    const { data: report, isLoading, error } = useGetClassAnalyticsReportQuery(profile?.id, start, end)
+    const { data: report, isPending: isLoading, error } = useGetClassAnalyticsReportQuery(profile?.id, start, end)
     const remediationRate = report && report.remediation.generated_count > 0
         ? Math.round((report.remediation.practiced_count / report.remediation.generated_count) * 100)
         : null

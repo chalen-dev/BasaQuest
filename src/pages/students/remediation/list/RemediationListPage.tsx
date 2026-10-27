@@ -77,7 +77,7 @@ export const RemediationListPage: React.FC = () => {
     const navigate = useNavigate()
     const t = STRINGS[lang]
     const [page, setPage] = useState(0)
-    const { data, isLoading, error } = useStudentsWithRemediationQuery({ teacherId: profile?.id, page })
+    const { data, isPending: isLoading, error } = useStudentsWithRemediationQuery({ teacherId: profile?.id, page })
     const students = data?.students ?? []
     const total = data?.total ?? 0
     const pageCount = Math.max(1, Math.ceil(total / REMEDIATION_PAGE_SIZE))

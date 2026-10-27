@@ -134,7 +134,7 @@ export const ResultsListPage: React.FC = () => {
     const navigate = useNavigate()
     const t = STRINGS[lang]
     const [page, setPage] = useState(0)
-    const { data, isLoading, error } = useReviewedAttemptsQuery({ teacherId: profile?.id, page })
+    const { data, isPending: isLoading, error } = useReviewedAttemptsQuery({ teacherId: profile?.id, page })
     const attempts = data?.attempts ?? []
     const total = data?.total ?? 0
     const pageCount = Math.max(1, Math.ceil(total / REVIEW_PAGE_SIZE))
