@@ -517,8 +517,22 @@ export const AssessmentSessionPage: React.FC = () => {
                 durationSeconds: rec.seconds,
             })
             setAttemptId(result.attemptId)
-            setSubmitted(true)
             clearStoredPassage(assessmentLang)
+            if (!isAssisted) {
+                // A pupil is done once the reading is in: the teacher reviews
+                // it before any result exists, so there is nothing to show
+                // here. Back to the practice page, with a thank-you.
+                showToast(
+                    uiLang === 'fil'
+                        ? 'Naipadala na ang pagbasa mo! Rerepasuhin ito ng iyong guro.'
+                        : 'Your reading was sent! Your teacher will review it.',
+                    'success',
+                    theme === 'dark',
+                )
+                navigate('/reading/proficiency')
+                return
+            }
+            setSubmitted(true)
         } catch (err) {
             console.error('AssessmentSession: failed to submit attempt', err)
         }
