@@ -163,7 +163,19 @@ export type AssessmentStrings = {
     gradeNotSet: (grade: number) => string
     wordCount: (n: number) => string
     readConfirm: string
-    approveStart: string
+    // How to run the check-in once the passage is validated.
+    startNowLabel: string
+    sendLabel: string
+    sendOnlineNote: string
+    validatedBadge: string
+    startNowConfirmTitle: (name: string) => string
+    startNowConfirmText: string
+    startNowConfirmButton: string
+    sendConfirmTitle: (name: string) => string
+    sendConfirmText: string
+    sendConfirmButton: string
+    sendSuccessToast: (name: string) => string
+    sendErrorToast: string
     regenerateLabel: string
     regenerateConfirmTitle: string
     regenerateConfirmText: string
@@ -259,7 +271,18 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         gradeNotSet: (g) => `Walang nakatakdang baitang ang batang ito, kaya Baitang ${g} ang ginamit.`,
         wordCount: (n) => `${n} salita`,
         readConfirm: 'Nabasa ko ang talata at angkop ito para sa batang ito.',
-        approveStart: 'Aprubahan at simulan',
+        startNowLabel: 'Simulan ngayon sa device na ito',
+        sendLabel: 'Ipadala sa device ng estudyante',
+        sendOnlineNote: 'Naka-online ang estudyante. Paalisin muna sa sistema para maipadala, o gamitin ang "Simulan ngayon".',
+        validatedBadge: 'Nasuri na',
+        startNowConfirmTitle: (name) => `Simulan na ang pagsusuri kay ${name}?`,
+        startNowConfirmText: 'Siguraduhing magkasama na kayo ng estudyanteng ito sa device na ito bago magpatuloy.',
+        startNowConfirmButton: 'Oo, simulan',
+        sendConfirmTitle: (name) => `Ipadala ang pagsusuri kay ${name}?`,
+        sendConfirmText: 'Awtomatiko itong bubukas sa account ng estudyante sa susunod nilang pag-login, kasama ang talatang nasuri mo.',
+        sendConfirmButton: 'Oo, ipadala',
+        sendSuccessToast: (name) => `Naipadala kay ${name}!`,
+        sendErrorToast: 'Hindi naipadala. Pakisubukang muli.',
         regenerateLabel: 'Gumawa ng bago',
         regenerateConfirmTitle: 'Gumawa ng bagong talata?',
         regenerateConfirmText: 'Mawawala ang kasalukuyang talata at ang anumang binago mo rito.',
@@ -345,7 +368,18 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         gradeNotSet: (g) => `This pupil has no grade set, so Grade ${g} was used.`,
         wordCount: (n) => `${n} words`,
         readConfirm: 'I have read this passage and it suits this pupil.',
-        approveStart: 'Approve and start',
+        startNowLabel: 'Start now on this device',
+        sendLabel: "Send to the student's device",
+        sendOnlineNote: 'The student is online. Ask them to log out first to send it, or use "Start now".',
+        validatedBadge: 'Validated',
+        startNowConfirmTitle: (name) => `Start the check-in for ${name} now?`,
+        startNowConfirmText: 'Make sure this student is actually with you on this device before continuing.',
+        startNowConfirmButton: 'Yes, start it',
+        sendConfirmTitle: (name) => `Send the check-in to ${name}?`,
+        sendConfirmText: "This will open automatically on the student's account the next time they log in, with the passage you validated.",
+        sendConfirmButton: 'Yes, send it',
+        sendSuccessToast: (name) => `Sent to ${name}!`,
+        sendErrorToast: "Couldn't send it. Please try again.",
         regenerateLabel: 'Generate a new one',
         regenerateConfirmTitle: 'Generate a new passage?',
         regenerateConfirmText: 'The current passage, and anything you changed in it, will be replaced.',

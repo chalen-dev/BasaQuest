@@ -8,7 +8,7 @@
 // text is edited) and whether it suits the pupil's grade, and must tick "I
 // have read this passage" before the session begins.
 import { useState } from 'react'
-import { ClipboardCheck, RefreshCw } from 'lucide-react'
+import { Loader2, Play, RefreshCw, Send, WifiOff } from 'lucide-react'
 import { StarRating } from '../../../../../components/ui/StarRating.tsx'
 import { useTheme } from '../../../../../contexts/ThemeContext.tsx'
 import { showConfirmation } from '../../../../../helpers/swalHelpers.ts'
@@ -27,7 +27,16 @@ type PassageReviewProps = {
     requestedDifficulty: number
     suggestedDifficulty: number
     onDifficultyChange: (value: number) => void
-    onApprove: (passage: Passage) => void
+    // The passage was validated on an earlier visit (the teacher is coming
+    // back to start or send it), so the "I have read it" box starts ticked.
+    alreadyApproved: boolean
+    // A pupil who is logged in right now can't be sent a check-in (it opens
+    // on their next login), so "Send" is off for them.
+    studentOnline: boolean
+    sending: boolean
+    // Both choices save the (possibly edited) passage as validated first.
+    onStartNow: (passage: Passage) => void
+    onSend: (passage: Passage) => void
     onRegenerate: () => void
 }
 
@@ -49,13 +58,17 @@ export function PassageReview({
     requestedDifficulty,
     suggestedDifficulty,
     onDifficultyChange,
-    onApprove,
+    alreadyApproved,
+    studentOnline,
+    sending,
+    onStartNow,
+    onSend,
     onRegenerate,
 }: PassageReviewProps) {
     const { theme } = useTheme()
     const [title, setTitle] = useState(passage.title)
     const [text, setText] = useState(passage.passage)
-    const [readIt, setReadIt] = useState(false)
+    const [readIt, setReadIt] = useState(alreadyApproved)
 
     const stars = rateDifficulty(text, lang)
     const fit = gradeFit(stars, gradeLevel)
@@ -91,6 +104,11 @@ export function PassageReview({
                         <StarRating value={stars} label={`${t.difficultyLabel}: ${stars} / 5`} size={16} />
                     </span>
                     <div className="flex-1" />
+                    {alreadyApproved && !edited && (
+                        <span className="rounded-full bg-green-500/15 px-3 py-1 text-xs font-bold text-green-700 dark:text-green-400">
+                            {t.validatedBadge}
+                        </span>
+                    )}
                     {edited && (
                         <span className="rounded-full bg-violet-500/15 px-3 py-1 text-xs font-bold text-violet-700 dark:text-violet-300">
                             {t.editedBadge}
@@ -162,13 +180,25 @@ export function PassageReview({
                     </label>
                     <button
                         type="button"
-                        onClick={() => onApprove({ title: title.trim(), passage: text.trim() })}
-                        disabled={!canApprove}
+                        onClick={() => onStartNow({ title: title.trim(), passage: text.trim() })}
+                        disabled={!canApprove || sending}
                         className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-6 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:hover:translate-y-0 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
                     >
-                        <ClipboardCheck size={18} />
-                        {t.approveStart}
+                        <Play size={18} />
+                        {t.startNowLabel}
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => onSend({ title: title.trim(), passage: text.trim() })}
+                        disabled={!canApprove || sending || studentOnline}
+                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-teal-500/40 px-6 py-2.5 text-base font-bold text-teal-700 transition-colors duration-150 hover:bg-teal-500/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:border-teal-400/40 dark:text-teal-300"
+                    >
+                        {sending ? <Loader2 size={18} className="animate-spin" /> : studentOnline ? <WifiOff size={18} /> : <Send size={18} />}
+                        {t.sendLabel}
+                    </button>
+                    {studentOnline && (
+                        <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">{t.sendOnlineNote}</span>
+                    )}
                 </div>
             </section>
         </div>

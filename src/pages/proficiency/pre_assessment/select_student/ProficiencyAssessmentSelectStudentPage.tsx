@@ -8,23 +8,21 @@
 // into the session.
 //
 // Teacher flow: the compact language row, then "Select a Student" below
-// it. Each row now offers two ways to run a check-in:
-//   - "Now" — starts the session immediately in THIS tab, on the
-//     teacher's own account, for one-on-one same-device use. No login as
-//     the student, no second tab/session at all — the student's id/name
-//     just ride along on the URL so AssessmentSession.tsx can pull their
-//     grade level and (eventually, once built) attribute a saved result
-//     to them instead of to the teacher. Asks for confirmation first,
-//     same pattern as "Send" — it's a deliberate action, not an
-//     accidental-tap-safe one.
-//   - "Send" — unchanged: writes a pending assigned_assessments row that
-//     auto-opens on the STUDENT's own account next time they log in.
-//     Still disabled while they're online, since that flow only fires on
-//     their next fresh login.
-// The old "Log in as this student" feature (StudentList.tsx) is being
-// retired in favor of "Now" — it opened a second isolated-session tab
-// that could get clobbered on reload since both tabs shared the same
-// browser. "Now" avoids that entirely by never creating a second session.
+// it. A row only SELECTS the pupil: its one button opens the passage check
+// screen (AssessmentSessionPage's 'review' step), labelled by what the
+// pupil's saved passage needs next (generate / validate / open), with a
+// badge for the same status and a bin to clear a generated passage. The
+// choice of how to run the check-in now lives on that screen, after the
+// teacher has validated the passage:
+//   - "Start now" — runs the session in THIS tab, on the teacher's own
+//     account, for one-on-one same-device use.
+//   - "Send" — writes a pending assigned_assessments row that opens on the
+//     STUDENT's own account next time they log in, with the validated
+//     passage waiting for them (see savedPassages.ts).
+// A pending "Send" still shows its Pending badge and Cancel button here.
+// The old "Log in as this student" feature (StudentList.tsx) was retired:
+// it opened a second isolated-session tab that could get clobbered on
+// reload since both tabs shared the same browser.
 //
 // LOADING STATE (student list): skeleton rows (see
 // components/ui/Skeleton.tsx) matching studentRow's own shape (name +
@@ -32,8 +30,9 @@
 // instead of a centered OwlLoader spinner.
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check, FileCheck, FileClock, Languages, Play, Send, WifiOff, Wifi, X } from 'lucide-react'
-import { useSavedPassageStatusesQuery } from '../savedPassages.ts'
+import { ArrowLeft, ArrowRight, Check, FileCheck, FileClock, Languages, Send, Trash2, Wifi, X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { deleteSavedPassage, useSavedPassageStatusesQuery } from '../savedPassages.ts'
 import { Owl } from '../../../../components/ui/Owl.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import { Pagination } from '../../../../components/ui/Pagination.tsx'
@@ -47,7 +46,6 @@ import { showConfirmation, showToast } from '../../../../helpers/swalHelpers.ts'
 import {
     ASSIGNABLE_PAGE_SIZE,
     useAssignableStudentsQuery,
-    useAssignAssessmentMutation,
     useCancelAssignedAssessmentMutation,
     type AssignableOnlineFilter,
     type AssignableReaderFilter,
@@ -90,22 +88,23 @@ const STRINGS: Record<Lang, {
     passageReadyBadge: string
     passageReadyTip: string
     cancelLabel: string
-    assignLabel: string
-    startNowLabel: string
+    // The row's one action opens the passage check screen, labelled by what
+    // that pupil's saved passage needs next.
+    openNewLabel: string
+    openValidateLabel: string
+    openReadyLabel: string
+    clearLabel: string
+    clearConfirmTitle: (name: string) => string
+    clearConfirmText: string
+    clearConfirmButton: string
+    clearSuccessToast: string
     noStudents: string
     noResults: string
     gradeLabel: (n: number) => string
-    assignConfirmTitle: (name: string) => string
-    assignConfirmText: string
-    assignConfirmButton: string
-    assignSuccessToast: (name: string) => string
     cancelConfirmTitle: string
     cancelConfirmText: string
     cancelConfirmButton: string
     cancelSuccessToast: string
-    startNowConfirmTitle: (name: string) => string
-    startNowConfirmText: string
-    startNowConfirmButton: string
 }> = {
     fil: {
         back: 'Bumalik',
@@ -120,7 +119,7 @@ const STRINGS: Record<Lang, {
         startLabel: 'Simulan',
         studentPickerKicker: 'Pangalawang Hakbang',
         studentPickerTitle: 'Pumili ng Estudyante',
-        studentPickerDesc: 'Gamitin ang "Ngayon" kung magkasama kayo ng estudyante sa parehong device ngayon. Gamitin ang "Ipadala" kung awtomatiko itong bubukas sa sarili nilang account sa susunod nilang pag-login.',
+        studentPickerDesc: 'Pumili ng estudyante. Gagawa o bubuksan mo ang talata niya, susuriin ito, at saka mo pipiliin kung gagawin ito ngayon sa device na ito o ipapadala sa device ng estudyante.',
         pickLanguageFirst: 'Pumili muna ng wika sa itaas.',
         searchLabel: 'Maghanap',
         searchPlaceholder: 'Pangalan o username...',
@@ -138,26 +137,25 @@ const STRINGS: Record<Lang, {
         nonReaderBadge: 'Non-reader',
         pendingBadge: 'Naghihintay',
         passageUnvalidatedBadge: 'Kailangang suriin',
-        passageUnvalidatedTip: 'May nagawa nang talata para sa batang ito na hindi pa nasusuri. Pindutin ang Ngayon para ipagpatuloy.',
+        passageUnvalidatedTip: 'May nagawa nang talata para sa batang ito na hindi pa nasusuri.',
         passageReadyBadge: 'Handa na ang talata',
-        passageReadyTip: 'Nasuri na ang talata para sa batang ito. Pindutin ang Ngayon para magsimulang mag-record.',
+        passageReadyTip: 'Nasuri na ang talata para sa batang ito.',
         cancelLabel: 'Kanselahin',
-        assignLabel: 'Ipadala',
-        startNowLabel: 'Ngayon',
+        openNewLabel: 'Gumawa ng talata',
+        openValidateLabel: 'Suriin ang talata',
+        openReadyLabel: 'Buksan',
+        clearLabel: 'Burahin ang nagawang talata',
+        clearConfirmTitle: (name) => `Burahin ang talata ni ${name}?`,
+        clearConfirmText: 'Mabubura ang nagawang talata, at makakagawa ka ng bago.',
+        clearConfirmButton: 'Oo, burahin',
+        clearSuccessToast: 'Nabura na ang talata.',
         noStudents: 'Wala pang estudyanteng naka-enrol.',
         noResults: 'Walang nahanap.',
         gradeLabel: (n) => `Baitang ${n}`,
-        assignConfirmTitle: (name) => `Ipadala ang pagsusuri kay ${name}?`,
-        assignConfirmText: 'Awtomatiko itong bubukas sa account ng estudyante sa susunod nilang pag-login.',
-        assignConfirmButton: 'Oo, ipadala',
-        assignSuccessToast: (name) => `Naipadala kay ${name}!`,
         cancelConfirmTitle: 'Kanselahin ang naka-pending na pagsusuri?',
         cancelConfirmText: 'Hindi na ito awtomatikong bubukas sa estudyante.',
         cancelConfirmButton: 'Oo, kanselahin',
         cancelSuccessToast: 'Nakansela na.',
-        startNowConfirmTitle: (name) => `Simulan na ang pagsusuri kay ${name}?`,
-        startNowConfirmText: 'Siguraduhing magkasama na kayo ng estudyanteng ito sa device na ito bago magpatuloy.',
-        startNowConfirmButton: 'Oo, simulan',
     },
     en: {
         back: 'Back',
@@ -172,7 +170,7 @@ const STRINGS: Record<Lang, {
         startLabel: 'Start',
         studentPickerKicker: 'Second Step',
         studentPickerTitle: 'Select a Student',
-        studentPickerDesc: 'Use "Now" if you and the student are together on this device right now. Use "Send" if it should open automatically on their own account the next time they log in.',
+        studentPickerDesc: "Pick a student. You will generate or open their passage, validate it, and then choose whether to run the check-in now on this device or send it to the student's own device.",
         pickLanguageFirst: 'Pick a language above first.',
         searchLabel: 'Search',
         searchPlaceholder: 'Name or username...',
@@ -190,26 +188,25 @@ const STRINGS: Record<Lang, {
         nonReaderBadge: 'Non-reader',
         pendingBadge: 'Pending',
         passageUnvalidatedBadge: 'Needs validation',
-        passageUnvalidatedTip: 'A passage was already generated for this pupil but not validated yet. Press Now to continue.',
+        passageUnvalidatedTip: 'A passage was already generated for this pupil but not validated yet.',
         passageReadyBadge: 'Passage ready',
-        passageReadyTip: 'The passage for this pupil is validated. Press Now to start recording.',
+        passageReadyTip: 'The passage for this pupil is validated.',
         cancelLabel: 'Cancel',
-        assignLabel: 'Send',
-        startNowLabel: 'Now',
+        openNewLabel: 'Generate passage',
+        openValidateLabel: 'Validate passage',
+        openReadyLabel: 'Open',
+        clearLabel: 'Clear the generated passage',
+        clearConfirmTitle: (name) => `Clear ${name}'s passage?`,
+        clearConfirmText: 'The generated passage will be deleted so you can make a new one.',
+        clearConfirmButton: 'Yes, clear it',
+        clearSuccessToast: 'Passage cleared.',
         noStudents: 'No students enrolled yet.',
         noResults: 'No matches found.',
         gradeLabel: (n) => `Grade ${n}`,
-        assignConfirmTitle: (name) => `Send the check-in to ${name}?`,
-        assignConfirmText: "This will open automatically on the student's account the next time they log in.",
-        assignConfirmButton: 'Yes, send it',
         cancelConfirmTitle: 'Cancel the pending check-in?',
         cancelConfirmText: "It won't open automatically for the student anymore.",
         cancelConfirmButton: 'Yes, cancel',
         cancelSuccessToast: 'Cancelled.',
-        assignSuccessToast: (name) => `Sent to ${name}!`,
-        startNowConfirmTitle: (name) => `Start the check-in for ${name} now?`,
-        startNowConfirmText: 'Make sure this student is actually with you on this device before continuing.',
-        startNowConfirmButton: 'Yes, start it',
     },
 }
 export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
@@ -250,7 +247,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
     const pageCount = Math.max(1, Math.ceil(total / ASSIGNABLE_PAGE_SIZE))
     const hasFilters = debouncedSearch.length > 0 || gradeFilter.length > 0 || readerFilter.length > 0 || onlineFilter !== 'offline'
     const { data: savedPassages } = useSavedPassageStatusesQuery(isTeacher ? profile?.id : undefined, selectedLang)
-    const assignMutation = useAssignAssessmentMutation(profile?.id)
+    const queryClient = useQueryClient()
     const cancelMutation = useCancelAssignedAssessmentMutation(profile?.id)
     const chooseLanguage = (chosen: Lang) => {
         if (isTeacher) {
@@ -258,23 +255,6 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
             return
         }
         navigate(`/reading/proficiency/assessment/session?lang=${chosen}`)
-    }
-    const handleAssign = async (studentId: string, studentName: string) => {
-        if (!selectedLang) return
-        const confirmed = await showConfirmation(
-            t.assignConfirmTitle(studentName),
-            t.assignConfirmText,
-            theme === 'dark',
-            'question',
-            t.assignConfirmButton
-        )
-        if (!confirmed) return
-        try {
-            await assignMutation.mutateAsync({ studentId, lang: selectedLang })
-            showToast(t.assignSuccessToast(studentName), 'success', theme === 'dark')
-        } catch (err) {
-            console.error('PreAssessment: failed to assign assessment', err)
-        }
     }
     const handleCancel = async (assignmentId: string) => {
         const confirmed = await showConfirmation(
@@ -292,27 +272,35 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
             console.error('PreAssessment: failed to cancel assignment', err)
         }
     }
-    // Starts the check-in immediately in this same tab, on the teacher's
-    // own account — no login-as, no second session. Asks for confirmation
-    // first (same "question" icon pattern as handleAssign) since it's a
-    // deliberate action, not something a stray tap should trigger. The
-    // student's id/name then ride along on the URL so AssessmentSession.tsx
-    // can look up their grade level (and, once result-saving is built,
-    // attribute the result to them instead of to auth.uid()). Available
-    // regardless of online/offline status, unlike "Send" — it doesn't
-    // touch the student's own account at all, so their presence is
-    // irrelevant here.
-    const handleStartNow = async (studentId: string, studentName: string) => {
+    // Opens the passage check screen for this pupil (in this same tab, on the
+    // teacher's own account). That screen generates a passage, or loads the
+    // one already saved for them, and is where the teacher validates it and
+    // then chooses "Start now" (this device) or "Send" (the pupil's own
+    // device). The pupil's id/name ride along on the URL so
+    // AssessmentSession.tsx can look up their grade level and attribute the
+    // result to them.
+    const handleOpen = (studentId: string, studentName: string) => {
+        if (!selectedLang) return
+        navigate(`/reading/proficiency/assessment/session?lang=${selectedLang}&studentId=${studentId}&studentName=${encodeURIComponent(studentName)}`)
+    }
+    // Throws away the pupil's saved passage so a fresh one can be made.
+    const handleClearPassage = async (studentId: string, studentName: string) => {
         if (!selectedLang) return
         const confirmed = await showConfirmation(
-            t.startNowConfirmTitle(studentName),
-            t.startNowConfirmText,
+            t.clearConfirmTitle(studentName),
+            t.clearConfirmText,
             theme === 'dark',
-            'question',
-            t.startNowConfirmButton
+            'warning',
+            t.clearConfirmButton
         )
         if (!confirmed) return
-        navigate(`/reading/proficiency/assessment/session?lang=${selectedLang}&studentId=${studentId}&studentName=${encodeURIComponent(studentName)}`)
+        try {
+            await deleteSavedPassage(studentId, selectedLang)
+            await queryClient.invalidateQueries({ queryKey: ['saved-passages'] })
+            showToast(t.clearSuccessToast, 'success', theme === 'dark')
+        } catch (err) {
+            console.error('PreAssessment: failed to clear the saved passage', err)
+        }
     }
     const gradeFilterOptions = [
         { value: '', label: t.gradeFilterAll },
@@ -519,20 +507,22 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                     </button>
                 ) : (
                     <div className="flex shrink-0 items-center gap-2">
+                        {savedStatus && (
+                            <button
+                                onClick={() => handleClearPassage(student.id, name)}
+                                aria-label={t.clearLabel}
+                                title={t.clearLabel}
+                                className="flex shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-rose-500/30 p-1.5 text-rose-600 transition-colors duration-150 hover:bg-rose-500/10 dark:border-rose-400/30 dark:text-rose-400"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )}
                         <button
-                            onClick={() => handleStartNow(student.id, name)}
-                            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border-2 border-teal-500/30 px-3.5 py-1.5 text-xs font-bold text-teal-700 transition-colors duration-150 hover:bg-teal-500/10 dark:border-teal-400/30 dark:text-teal-300 dark:hover:bg-teal-400/10"
+                            onClick={() => handleOpen(student.id, name)}
+                            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-4 py-1.5 text-xs font-bold text-white shadow-[0_3px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_3px_0_0_#115e59]"
                         >
-                            <Play size={13} />
-                            {t.startNowLabel}
-                        </button>
-                        <button
-                            onClick={() => handleAssign(student.id, name)}
-                            disabled={online || assignMutation.isPending}
-                            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-4 py-1.5 text-xs font-bold text-white shadow-[0_3px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 dark:bg-teal-600 dark:shadow-[0_3px_0_0_#115e59]"
-                        >
-                            {online ? <WifiOff size={13} /> : <Send size={13} />}
-                            {t.assignLabel}
+                            <ArrowRight size={13} />
+                            {savedStatus === 'approved' ? t.openReadyLabel : savedStatus === 'needs_validation' ? t.openValidateLabel : t.openNewLabel}
                         </button>
                     </div>
                 )}

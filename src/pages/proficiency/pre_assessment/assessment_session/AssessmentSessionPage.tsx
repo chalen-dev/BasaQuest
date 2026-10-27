@@ -172,8 +172,9 @@ import { useProfile } from '../../../../hooks/useProfile.ts'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { supabase } from '../../../../lib/supabaseClient.ts'
-import { showToast } from '../../../../helpers/swalHelpers.ts'
-import { useAssistedStudentProfile } from '../hooks.ts'
+import { showConfirmation, showToast } from '../../../../helpers/swalHelpers.ts'
+import { useTeacherPresence } from '../../../../hooks/useTeacherPresence.ts'
+import { useAssignAssessmentMutation, useAssistedStudentProfile } from '../hooks.ts'
 import { useUnsavedChangesBlocker } from '../../../../hooks/useUnsavedChangesBlocker.ts'
 import { useRecorder } from './features/useRecorder.ts'
 import { useSubmitAttempt, useRetryScoring } from './features/useSubmitAttempt.ts'
@@ -233,6 +234,11 @@ export const AssessmentSessionPage: React.FC = () => {
     const [difficultyChoice, setDifficultyChoice] = useState<number | null>(null)
     const suggestedDifficulty = suggestedStars(gradeLevel)
     const requestedDifficulty = difficultyChoice ?? suggestedDifficulty
+    // Pupils logged in right now can't be sent a check-in (it opens on their
+    // next login), so the check screen turns "Send" off for them.
+    const onlineStudentIds = useTeacherPresence(isAssisted ? ownProfile?.id : undefined)
+    const assignAssessment = useAssignAssessmentMutation(ownProfile?.id)
+    const [sending, setSending] = useState(false)
     const [step, setStep] = useState<Step>('intro')
     const [passage, setPassage] = useState<Passage | null>(null)
     const [submitted, setSubmitted] = useState(false)
@@ -277,29 +283,41 @@ export const AssessmentSessionPage: React.FC = () => {
     // Where this session's passage is kept: a teacher-run session saves it on
     // the server (so it survives the tab and shows on the student picker, see
     // savedPassages.ts); a pupil's own session keeps it in the tab.
-    const storePassage = (lang: Lang, toStore: Passage, approved: boolean) => {
+    // Resolves once saved (so "Send" can wait for it before telling the pupil's
+    // device to look for it); rejects if the save fails.
+    const persistPassage = async (lang: Lang, toStore: Passage, approved: boolean): Promise<void> => {
         if (!isAssisted) {
             writeCachedPassage(lang, passageCacheStudentKey, toStore, approved)
             return
         }
-        if (!ownProfile?.id) return
-        saveSavedPassage({
+        if (!ownProfile?.id) throw new Error('Not signed in')
+        await saveSavedPassage({
             teacherId: ownProfile.id,
             studentId: studentIdParam as string,
             lang,
             passage: toStore,
             difficulty: requestedDifficulty,
             approved,
-        }).catch((err) => console.error('AssessmentSession: failed to save the passage', err))
+        })
     }
+    const storePassage = (lang: Lang, toStore: Passage, approved: boolean) => {
+        persistPassage(lang, toStore, approved).catch((err) => console.error('AssessmentSession: failed to save the passage', err))
+    }
+    // A reading was turned in: the passage now lives with the attempt, so the
+    // saved copy goes (a pupil's own session clears their sent passage too).
     const clearStoredPassage = (lang: Lang) => {
-        if (!isAssisted) {
-            clearCachedPassage(lang, passageCacheStudentKey)
-            return
-        }
-        deleteSavedPassage(studentIdParam as string, lang).catch((err) =>
-            console.error('AssessmentSession: failed to clear the saved passage', err),
-        )
+        clearCachedPassage(lang, passageCacheStudentKey)
+        const owner = isAssisted ? studentIdParam : ownProfile?.id
+        if (!owner) return
+        deleteSavedPassage(owner, lang).catch((err) => console.error('AssessmentSession: failed to clear the saved passage', err))
+    }
+    // Shows a saved passage: a teacher sees it on the check screen first (the
+    // saved one may still need validating, or be waiting to start or send); a
+    // pupil's own passage is already validated and goes straight to reading.
+    const showSaved = (saved: SavedPassage) => {
+        setPassage({ title: saved.title, passage: saved.passage })
+        setPassageApproved(saved.approved)
+        setStep(isAssisted ? 'review' : 'passage')
     }
     const generatePassage = async (fresh = false) => {
         if (!assessmentLang) return
@@ -310,13 +328,14 @@ export const AssessmentSessionPage: React.FC = () => {
         if (!fresh) {
             cached = isAssisted
                 ? await fetchSavedPassage(studentIdParam as string, assessmentLang).catch(() => null)
-                : readCachedPassage(assessmentLang, passageCacheStudentKey)
+                : (readCachedPassage(assessmentLang, passageCacheStudentKey) ??
+                  (ownProfile?.id ? await fetchSavedPassage(ownProfile.id, assessmentLang).catch(() => null) : null))
         }
         if (cached) {
-            setPassage({ title: cached.title, passage: cached.passage })
-            setStep(cached.approved ? 'passage' : 'review')
+            showSaved(cached)
             return
         }
+        setPassageApproved(false)
         setStep('loading')
         if (USE_PLACEHOLDER_PASSAGE) {
             await new Promise((resolve) => setTimeout(resolve, 400))
@@ -347,10 +366,21 @@ export const AssessmentSessionPage: React.FC = () => {
     // with no API call at all, which is what makes a plain browser
     // reload no longer waste a fresh generation. A miss falls back to
     // the original behavior of resetting to 'intro'.
-    // A teacher-run session loads the pupil's saved passage from the server,
-    // so `restoring` holds the skeleton until that answers (a failed load just
-    // counts as "nothing saved").
-    const [restoring, setRestoring] = useState(isAssisted)
+    // Looking up a saved passage takes a moment, so `restoring` holds the
+    // skeleton until it answers (a failed load just counts as "nothing saved").
+    // A teacher-run session looks up the pupil's passage; a pupil's own session
+    // looks in the tab first, then for a passage their teacher sent them.
+    const [restoring, setRestoring] = useState(true)
+    const [passageApproved, setPassageApproved] = useState(false)
+    const applySaved = (saved: SavedPassage | null) => {
+        if (saved) {
+            showSaved(saved)
+        } else {
+            setPassage(null)
+            setStep('intro')
+        }
+        setRestoring(false)
+    }
     useEffect(() => {
         if (!assessmentLang) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -358,33 +388,43 @@ export const AssessmentSessionPage: React.FC = () => {
             setPassage(null)
             return
         }
-        const applySaved = (saved: SavedPassage | null) => {
-            if (saved) {
-                setPassage({ title: saved.title, passage: saved.passage })
-                setStep(saved.approved ? 'passage' : 'review')
-            } else {
-                setPassage(null)
-                setStep('intro')
-            }
-        }
-        if (!isAssisted) {
-            applySaved(readCachedPassage(assessmentLang, passageCacheStudentKey))
-            return
-        }
+        if (!isAssisted) return
         let cancelled = false
         setRestoring(true)
         fetchSavedPassage(passageCacheStudentKey, assessmentLang)
             .catch(() => null)
             .then((saved) => {
-                if (cancelled) return
-                applySaved(saved)
-                setRestoring(false)
+                if (!cancelled) applySaved(saved)
             })
         return () => {
             cancelled = true
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [assessmentLang, passageCacheStudentKey])
+    useEffect(() => {
+        if (!assessmentLang || isAssisted) return
+        const cached = readCachedPassage(assessmentLang, passageCacheStudentKey)
+        if (cached) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            applySaved(cached)
+            return
+        }
+        if (ownProfileLoading) return
+        if (!ownProfile?.id) {
+            applySaved(null)
+            return
+        }
+        let cancelled = false
+        fetchSavedPassage(ownProfile.id, assessmentLang)
+            .catch(() => null)
+            .then((saved) => {
+                if (!cancelled) applySaved(saved)
+            })
+        return () => {
+            cancelled = true
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [assessmentLang, ownProfile?.id, ownProfileLoading])
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSubmitted(false)
@@ -415,6 +455,50 @@ export const AssessmentSessionPage: React.FC = () => {
     // The intro-card skeleton shows while the profile loads, and, for a
     // teacher-run session, while the pupil's saved passage is being looked up.
     const showSkeleton = profileLoading || restoring
+    // The teacher validated the passage (and maybe edited it) and chose to run
+    // the check-in right here, on this device with the pupil beside them.
+    const handleStartNow = async (approved: Passage) => {
+        const confirmed = await showConfirmation(
+            t.startNowConfirmTitle(studentNameParam ?? ''),
+            t.startNowConfirmText,
+            theme === 'dark',
+            'question',
+            t.startNowConfirmButton,
+        )
+        if (!confirmed) return
+        setPassage(approved)
+        setPassageApproved(true)
+        storePassage(assessmentLang, approved, true)
+        setStep('passage')
+    }
+    // ...or to send it to the pupil's own device: save the validated passage
+    // first (their session reads it from there), then queue the check-in to
+    // open on their next login, replacing any earlier pending one.
+    const handleSend = async (approved: Passage) => {
+        if (!studentIdParam || !ownProfile?.id) return
+        const confirmed = await showConfirmation(
+            t.sendConfirmTitle(studentNameParam ?? ''),
+            t.sendConfirmText,
+            theme === 'dark',
+            'question',
+            t.sendConfirmButton,
+        )
+        if (!confirmed) return
+        setSending(true)
+        try {
+            await persistPassage(assessmentLang, approved, true)
+            const { error: clearError } = await supabase.from('assigned_assessments').delete().eq('student_id', studentIdParam)
+            if (clearError) throw clearError
+            await assignAssessment.mutateAsync({ studentId: studentIdParam, lang: assessmentLang })
+            showToast(t.sendSuccessToast(studentNameParam ?? ''), 'success', theme === 'dark')
+            navigate('/reading/proficiency/assessment')
+        } catch (err) {
+            console.error('AssessmentSession: failed to send the check-in', err)
+            showToast(t.sendErrorToast, 'error', theme === 'dark')
+        } finally {
+            setSending(false)
+        }
+    }
     // Uploads the take, creates its assessment_attempts row, and (English
     // only) kicks off scoring — see this file's header comment and
     // useSubmitAttempt.ts for the full breakdown. Falls back to the old
@@ -427,13 +511,6 @@ export const AssessmentSessionPage: React.FC = () => {
     // a reading has actually been turned in, the next check-in for this
     // student+language should get a genuinely fresh passage rather than
     // keep serving the one just recorded against.
-    // The teacher read the passage (and maybe edited it): keep that version
-    // as the one this session uses, and remember it was approved.
-    const handleApprovePassage = (approved: Passage) => {
-        setPassage(approved)
-        storePassage(assessmentLang, approved, true)
-        setStep('passage')
-    }
     const handleSubmit = async () => {
         if (!passage) return
         if (!rec.blob) {
@@ -692,7 +769,11 @@ export const AssessmentSessionPage: React.FC = () => {
                     requestedDifficulty={requestedDifficulty}
                     suggestedDifficulty={suggestedDifficulty}
                     onDifficultyChange={setDifficultyChoice}
-                    onApprove={handleApprovePassage}
+                    alreadyApproved={passageApproved}
+                    studentOnline={!!studentIdParam && onlineStudentIds.has(studentIdParam)}
+                    sending={sending}
+                    onStartNow={handleStartNow}
+                    onSend={handleSend}
                     onRegenerate={() => generatePassage(true)}
                 />
             )}
