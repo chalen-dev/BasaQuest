@@ -165,7 +165,9 @@ async function runScoring(attemptId: string, language: Lang, passageText: string
         if (!res.ok) {
             const detail = await res.text().catch(() => '')
             console.error(`useSubmitAttempt: scoring request failed (${res.status})`, detail)
-            await markAttemptFailed(attemptId, `Scoring request failed (${res.status}).`)
+            // 422 = the service itself judged the recording empty and already
+            // wrote that reason onto the attempt; keep it, don't overwrite.
+            if (res.status !== 422) await markAttemptFailed(attemptId, `Scoring request failed (${res.status}).`)
         }
         // On success, the word rows + status: 'scored' were already
         // written by the time this response arrived (see the NOTE above).

@@ -163,6 +163,7 @@ import { Owl } from '../../../../components/ui/Owl.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
 import { useQueryClient } from '@tanstack/react-query'
+import { findRecordingProblem } from './features/recordingCheck.ts'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { supabase } from '../../../../lib/supabaseClient.ts'
@@ -497,6 +498,24 @@ export const AssessmentSessionPage: React.FC = () => {
         if (!passage) return
         if (!rec.blob) {
             setSubmitted(true)
+            return
+        }
+        // Turn back an empty or far-too-short take before it is uploaded:
+        // scoring is paid by the second of audio.
+        const problem = findRecordingProblem(rec.seconds, rec.voicedSeconds, passage.passage.split(/\s+/).filter(Boolean).length)
+        if (problem) {
+            showToast(
+                problem === 'silent'
+                    ? uiLang === 'fil'
+                        ? 'Hindi ka namin narinig. Lumapit sa mikropono at basahin muli ang talata.'
+                        : "We couldn't hear you. Move closer to the microphone and read the passage again."
+                    : uiLang === 'fil'
+                        ? 'Masyadong maikli ang recording para sa buong talata. Basahin ang buong talata, pagkatapos ay subukan muli.'
+                        : 'That recording is too short for the whole passage. Read all of it, then try again.',
+                'warning',
+                theme === 'dark',
+                { closable: true, timer: 7000 },
+            )
             return
         }
         const studentId = isAssisted ? studentIdParam : ownProfile?.id

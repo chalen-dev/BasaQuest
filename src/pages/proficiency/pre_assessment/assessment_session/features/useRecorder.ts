@@ -101,6 +101,10 @@ const NOISE_WINDOW_MS = 1200
 const NOISE_WARMUP_MS = 400
 const NOISE_ON_THRESHOLD = 0.16
 const NOISE_OFF_THRESHOLD = 0.1
+// Waveform loudness (RMS, 0-1) above which a frame counts as someone
+// speaking. Quiet rooms sit around 0.002-0.01, normal speech well above
+// 0.02; set low so a soft-spoken child is not treated as silent.
+const VOICE_RMS_THRESHOLD = 0.015
 export function useRecorder() {
     const [status, setStatus] = useState<RecorderStatus>('idle')
     const [seconds, setSeconds] = useState(0)
@@ -128,6 +132,10 @@ export function useRecorder() {
     // live mic stream nobody asked for anymore.
     const prepareGenRef = useRef(0)
     const displayedBarsRef = useRef<number[]>(new Array(WAVEFORM_BARS).fill(0))
+    // Milliseconds of the current take with a voice in it (see the loop),
+    // and the finished take's total in seconds once recording has stopped.
+    const voicedMsRef = useRef(0)
+    const [voicedSeconds, setVoicedSeconds] = useState(0)
     const noiseBufRef = useRef<{ t: number; v: number }[]>([])
     const cleanupAudio = useCallback(() => {
         if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
@@ -156,6 +164,8 @@ export function useRecorder() {
         setIsNoisy(false)
         noiseBufRef.current = []
         displayedBarsRef.current = new Array(WAVEFORM_BARS).fill(0)
+        voicedMsRef.current = 0
+        setVoicedSeconds(0)
         if (audioUrl) {
             URL.revokeObjectURL(audioUrl)
             setAudioUrl(null)
@@ -186,6 +196,7 @@ export function useRecorder() {
             mr.onstop = () => {
                 const recordedBlob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' })
                 setBlob(recordedBlob)
+                setVoicedSeconds(voicedMsRef.current / 1000)
                 setAudioUrl(URL.createObjectURL(recordedBlob))
                 cleanupAudio()
                 setLevel(0)
@@ -229,8 +240,25 @@ export function useRecorder() {
                 )
                 binEdges.push(bin)
             }
+            const timeData = new Uint8Array(analyser.fftSize)
+            let lastFrameAt = 0
             const loop = () => {
                 analyser.getByteFrequencyData(freqData)
+                // Voice time: a frame counts as voiced when the raw waveform's
+                // loudness (RMS around the 128 midpoint) clears the bar. Only
+                // used to tell an empty take from a real one, so it is kept
+                // lenient. dt is capped so a stalled tab can't add a lot.
+                analyser.getByteTimeDomainData(timeData)
+                let squares = 0
+                for (let i = 0; i < timeData.length; i++) {
+                    const centered = (timeData[i] - 128) / 128
+                    squares += centered * centered
+                }
+                const frameAt = performance.now()
+                if (lastFrameAt && Math.sqrt(squares / timeData.length) > VOICE_RMS_THRESHOLD) {
+                    voicedMsRef.current += Math.min(100, frameAt - lastFrameAt)
+                }
+                lastFrameAt = frameAt
                 const displayed = displayedBarsRef.current
                 let rawSum = 0
                 for (let i = 0; i < WAVEFORM_BARS; i++) {
@@ -361,6 +389,8 @@ export function useRecorder() {
         setIsNoisy(false)
         noiseBufRef.current = []
         displayedBarsRef.current = new Array(WAVEFORM_BARS).fill(0)
+        voicedMsRef.current = 0
+        setVoicedSeconds(0)
     }, [audioUrl])
     const simulate = useCallback((secs = 38) => {
         setSeconds(secs)
@@ -368,5 +398,5 @@ export function useRecorder() {
         setAudioUrl(null)
         setBlob(null)
     }, [])
-    return { status, seconds, audioUrl, blob, level, levels, isNoisy, error, start, prepare, begin, cancelPrepare, stop, reset, simulate }
+    return { status, seconds, voicedSeconds, audioUrl, blob, level, levels, isNoisy, error, start, prepare, begin, cancelPrepare, stop, reset, simulate }
 }
