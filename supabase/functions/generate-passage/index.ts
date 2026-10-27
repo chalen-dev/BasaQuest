@@ -59,6 +59,7 @@ Write the passage in ${language}. Requirements:
 - Content: warm, wholesome, culturally familiar to a Filipino child (home, barangay, school, sari-sari store, palengke, fiesta, nature, friendship, family) — never scary, violent, or sad.
 - Write in plain prose, natural spoken rhythm — avoid tongue-twisters, unusual proper names, or words a child that age wouldn't know how to pronounce.
 - Language: write ONLY in ${language}, in both the title and the passage. Do not mix in words from any other language${lang === 'fil' ? ' (no English words such as "school", "mother" or "happy"; use the Filipino word instead)' : ' (no Filipino or Tagalog words such as "nanay", "bahay" or "po")'}. Proper names of people and places are the only exception.
+- Symbols: never use em dashes, en dashes or any other symbol a child cannot read aloud. Use commas and periods instead. Hyphens inside a single word (like "bahay-kubo") are fine.
 - Give the passage a short, friendly title.
 
 Return ONLY the JSON object matching the response schema. No text outside the JSON.`
@@ -78,6 +79,18 @@ function jsonResponse(body: unknown, status: number) {
         status,
         headers: { ...corsHeaders, 'content-type': 'application/json' },
     })
+}
+
+// Dashes can't be read aloud, and a spaced one becomes a "word" of its own
+// wherever the passage is split on spaces, so the pupil is marked wrong for it.
+// The prompt asks for none; this catches any that slip through, turning each
+// into a comma (and joining cleanly when one follows other punctuation).
+function replaceDashes(text: string): string {
+    return text
+        .replace(/[ \t]*[—–―][ \t]*/g, ', ')
+        .replace(/([,.;:!?]),[ \t]*/g, '$1 ')
+        .replace(/[ \t]{2,}/g, ' ')
+        .trim()
 }
 
 function isValidPassage(input: unknown): input is { title: string; passage: string } {
@@ -152,7 +165,7 @@ Deno.serve(async (req: Request) => {
             return jsonResponse({ error: 'Got an unexpected response while generating the passage. Please try again.' }, 502)
         }
 
-        return jsonResponse(parsed, 200)
+        return jsonResponse({ title: replaceDashes(parsed.title), passage: replaceDashes(parsed.passage) }, 200)
     } catch (err) {
         console.error('generate-passage: unexpected error', err)
         return jsonResponse({ error: 'Something went wrong generating the passage.' }, 500)

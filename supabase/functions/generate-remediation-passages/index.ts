@@ -102,6 +102,7 @@ For EACH passage, produce:
 
 Requirements:
 - Language: write ONLY in ${language}, including the coachTip. Do not mix in words from any other language${lang === 'fil' ? ' (no English words such as "school", "mother" or "happy"; use the Filipino word instead)' : ' (no Filipino or Tagalog words such as "nanay", "bahay" or "po")'}. Proper names of people and places are the only exception. If a word in the list is not in ${language}, still keep it as a target but do not add other words from its language.
+- Symbols: never use em dashes, en dashes or any other symbol a child cannot read aloud. Use commas and periods instead. Hyphens inside a single word (like "bahay-kubo") are fine.
 - Content: warm, wholesome, everyday, culturally familiar to a Filipino child (home, school, barangay, nature, family, friendship) — never scary, violent, or sad.
 - Plain, natural spoken rhythm — a child that age should be able to read each passage aloud comfortably. Never force an unnatural sentence just to cram in vocabulary.
 - Every word in the input list must appear as a target word in at least one passage you return.
@@ -171,6 +172,38 @@ function sanitizeNames(passage: PassageItem): PassageItem {
     const { names: _discard, ...rest } = passage
     void _discard
     return names.length > 0 ? { ...rest, names } : rest
+}
+// Dashes can't be read aloud, and a dash token on its own would be counted as
+// a word the pupil has to say. The prompt asks for none; this removes any that
+// slip through: a lone dash token is dropped (its comma goes on the word
+// before it), and a word with a dash inside is split in two with a comma.
+// Every index that points into passageWords is moved to match.
+const DASH_PATTERN = /[—–―]/
+function stripDashes(passage: PassageItem): PassageItem {
+    if (!passage.passageWords.some((w) => DASH_PATTERN.test(w))) return passage
+    const words: string[] = []
+    const newIndex: number[] = []
+    for (const word of passage.passageWords) {
+        newIndex.push(words.length)
+        if (!DASH_PATTERN.test(word)) {
+            words.push(word)
+            continue
+        }
+        const pieces = word.split(/[—–―]/).filter((p) => p.length > 0)
+        if (pieces.length === 0) {
+            if (words.length > 0 && !/[,.;:!?]$/.test(words[words.length - 1])) words[words.length - 1] += ','
+            continue
+        }
+        pieces.forEach((piece, i) => words.push(i < pieces.length - 1 && !/[,.;:!?]$/.test(piece) ? `${piece},` : piece))
+    }
+    const last = Math.max(0, words.length - 1)
+    const remap = (i: number) => Math.min(newIndex[i] ?? last, last)
+    const targetIndices = Array.from(new Set(passage.targetIndices.map(remap)))
+    const rawNames = (passage as { names?: { index: number; kind: string }[] }).names
+    const names = Array.isArray(rawNames)
+        ? rawNames.map((n) => ({ ...n, index: remap(n.index) }))
+        : undefined
+    return { ...passage, passageWords: words, targetIndices, ...(names ? { names } : {}) } as PassageItem
 }
 function isValidPassageList(input: unknown): input is PassageItem[] {
     if (!Array.isArray(input) || input.length === 0) return false
@@ -253,7 +286,7 @@ Deno.serve(async (req: Request) => {
             console.error('generate-remediation-passages: malformed Gemini payload', JSON.stringify(geminiData))
             return jsonResponse({ error: 'Got an unexpected response while generating passages. Please try again.' }, 502)
         }
-        return jsonResponse(parsed.map(sanitizeNames), 200)
+        return jsonResponse(parsed.map(stripDashes).map(sanitizeNames), 200)
     } catch (err) {
         console.error('generate-remediation-passages: unexpected error', err)
         return jsonResponse({ error: 'Something went wrong generating passages.' }, 500)
