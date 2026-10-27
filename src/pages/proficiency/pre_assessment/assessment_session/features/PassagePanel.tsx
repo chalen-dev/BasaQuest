@@ -266,7 +266,7 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage, hintsBloc
                             >
                                 {t.prevPage}
                             </button>
-                            <Hint id="assessment-prev-page" text={t.prevPageHint} show={!isFirstPage && !hintsBlocked} placement="top" align="start" autoHideMs={6000} />
+                            <Hint id="assessment-prev-page" text={t.prevPageHint} show={!isFirstPage && !hintsBlocked} placement="bottom" align="start" autoHideMs={6000} />
                         </div>
                         <div className="flex flex-1 items-center justify-center gap-2">
                             {pageRanges.map((_, i) => (
@@ -288,7 +288,7 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage, hintsBloc
                             >
                                 {t.nextPage}
                             </button>
-                            <Hint id="assessment-page-nav" text={t.pageNavHint} show={!hintsBlocked} placement="top" align="end" autoHideMs={6000} />
+                            <Hint id="assessment-page-nav" text={t.pageNavHint} show={!hintsBlocked} placement="bottom" align="end" autoHideMs={6000} />
                         </div>
                     </div>
                     <p className="mt-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">
