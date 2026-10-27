@@ -36,6 +36,7 @@ import {
     type WordReviewOverride,
 } from './hooks'
 import { AttemptWordReview, type AttemptWordReviewHandle } from './features/AttemptWordReview'
+import { useRetryScoring } from '../../proficiency/pre_assessment/assessment_session/features/useSubmitAttempt'
 const STRINGS: Record<Lang, {
     back: string
     for: string
@@ -45,6 +46,9 @@ const STRINGS: Record<Lang, {
     scoringDesc: string
     failedTitle: string
     failedDesc: string
+    retryButton: string
+    retryingLabel: string
+    retryFailedToast: string
     notFoundTitle: string
     notFoundDesc: string
     confirmedToast: string
@@ -65,7 +69,10 @@ const STRINGS: Record<Lang, {
         scoringTitle: 'Isinasagawa pa ang Pagsusuri',
         scoringDesc: 'Sinusuri pa ng sistema ang pagbasang ito. Maghintay lang ng ilang segundo.',
         failedTitle: 'Hindi Nasuri',
-        failedDesc: 'May problema sa pagsusuri sa pagbasang ito. Wala pang paraan para subukan ulit dito.',
+        failedDesc: 'May problema sa pagsusuri sa pagbasang ito. Maaari mo itong subukan muli; nasa sistema pa ang recording.',
+        retryButton: 'Subukan Muli',
+        retryingLabel: 'Sinusuri...',
+        retryFailedToast: 'Hindi pa rin nasuri. Pakisubukang muli mamaya.',
         notFoundTitle: 'Hindi Nahanap',
         notFoundDesc: 'Hindi na available ang pagbasang ito.',
         confirmedToast: 'Nakumpirma ang resulta.',
@@ -86,7 +93,10 @@ const STRINGS: Record<Lang, {
         scoringTitle: 'Scoring In Progress',
         scoringDesc: 'This reading is still being scored. This should only take a few seconds.',
         failedTitle: 'Scoring Failed',
-        failedDesc: "There was a problem scoring this reading. There's no retry option here yet.",
+        failedDesc: "There was a problem scoring this reading. The recording is still saved, so you can try again.",
+        retryButton: 'Try Again',
+        retryingLabel: 'Scoring...',
+        retryFailedToast: "Still couldn't score it. Please try again in a bit.",
         notFoundTitle: 'Not Found',
         notFoundDesc: "This reading isn't available anymore.",
         confirmedToast: 'Results confirmed.',
@@ -130,7 +140,8 @@ export const TeacherReviewAttemptPage: React.FC = () => {
     const { theme } = useTheme()
     const { profile } = useProfile()
     const t = STRINGS[lang]
-    const { data: attempt, isLoading: attemptLoading, error: attemptError } = useAttemptQuery(attemptId)
+    const { data: attempt, isLoading: attemptLoading, error: attemptError, refetch: refetchAttempt } = useAttemptQuery(attemptId)
+    const retryScoring = useRetryScoring()
     const { data: words, isLoading: wordsLoading } = useAttemptWordsQuery(attemptId, attempt?.status === 'scored')
     const { data: student } = useStudentProfileQuery(attempt?.student_id)
     const submitReview = useSubmitReviewMutation(profile?.id)
@@ -197,6 +208,19 @@ export const TeacherReviewAttemptPage: React.FC = () => {
     // actually needed, based on the real hasUnsavedChanges state rather
     // than firing unconditionally just because the word-review UI
     // happens to be showing.
+    // Re-runs scoring with the teacher's own login, so it works even when the
+    // pupil's session was what the scoring service turned away.
+    const handleRetry = async () => {
+        if (!attempt) return
+        try {
+            await retryScoring.mutateAsync({ attemptId: attempt.id, language: attempt.language, passageText: attempt.passage_text })
+        } catch (err) {
+            console.error('TeacherReviewAttempt: failed to retry scoring', err)
+        } finally {
+            const { data } = await refetchAttempt()
+            if (data?.status === 'failed') showToast(t.retryFailedToast, 'error', theme === 'dark')
+        }
+    }
     const handleBack = () => {
         navigate('/students/review')
     }
@@ -252,6 +276,13 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                     {attempt.error_message && (
                         <p className="max-w-sm text-xs font-semibold text-gray-400 dark:text-gray-500">{attempt.error_message}</p>
                     )}
+                    <button
+                        onClick={handleRetry}
+                        disabled={retryScoring.isPending}
+                        className="mt-1 cursor-pointer rounded-full bg-teal-500 px-6 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                    >
+                        {retryScoring.isPending ? t.retryingLabel : t.retryButton}
+                    </button>
                 </section>
             ) : attempt.reviewed_at ? (
                 <Navigate to={`/students/review/${attemptId}/results`} replace />

@@ -522,13 +522,16 @@ export const AssessmentSessionPage: React.FC = () => {
                 // A pupil is done once the reading is in: the teacher reviews
                 // it before any result exists, so there is nothing to show
                 // here. Back to the practice page, with a thank-you.
-                showToast(
-                    uiLang === 'fil'
+                // Scoring can fail on our side after the recording is saved;
+                // say so, so the pupil tells their teacher (who can retry it).
+                const message = result.scoringFailed
+                    ? uiLang === 'fil'
+                        ? 'Na-save ang pagbasa mo, pero hindi ito nasuri ng sistema. Sabihin sa iyong guro.'
+                        : "Your reading was saved, but we couldn't process it. Please tell your teacher."
+                    : uiLang === 'fil'
                         ? 'Naipadala na ang pagbasa mo! Rerepasuhin ito ng iyong guro.'
-                        : 'Your reading was sent! Your teacher will review it.',
-                    'success',
-                    theme === 'dark',
-                )
+                        : 'Your reading was sent! Your teacher will review it.'
+                showToast(message, result.scoringFailed ? 'warning' : 'success', theme === 'dark')
                 navigate('/reading/proficiency')
                 return
             }

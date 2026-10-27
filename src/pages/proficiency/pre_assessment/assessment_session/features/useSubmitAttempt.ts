@@ -64,6 +64,9 @@ export type SubmitAttemptArgs = {
 
 export type SubmitAttemptResult = {
     attemptId: string
+    // True when scoring ran but ended in status 'failed' (the recording itself
+    // is saved), so the pupil can be told instead of shown a plain success.
+    scoringFailed: boolean
 }
 
 function extensionFor(blob: Blob): string {
@@ -207,7 +210,8 @@ export function useSubmitAttempt() {
                 throw new Error(`Failed to create attempt: ${insertError.message}`)
             }
             await runScoring(attemptId, args.language, args.passageText, args.durationSeconds)
-            return { attemptId }
+            const { data: after } = await supabase.from('assessment_attempts').select('status').eq('id', attemptId).maybeSingle()
+            return { attemptId, scoringFailed: after?.status === 'failed' }
         },
     })
 }
