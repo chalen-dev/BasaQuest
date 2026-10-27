@@ -162,6 +162,7 @@ import { BookOpenCheck, RefreshCw, UserRound } from 'lucide-react'
 import { Owl } from '../../../../components/ui/Owl.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { supabase } from '../../../../lib/supabaseClient.ts'
@@ -204,6 +205,7 @@ import {
 } from '../savedPassages.ts'
 export const AssessmentSessionPage: React.FC = () => {
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const [searchParams] = useSearchParams()
     const { registerReviewSaveHandler } = useOutletContext<AssessmentSessionOutletContext>()
     const rawLang = searchParams.get('lang')
@@ -294,7 +296,9 @@ export const AssessmentSessionPage: React.FC = () => {
     const clearStoredPassage = (lang: Lang) => {
         const owner = isAssisted ? studentIdParam : ownProfile?.id
         if (!owner) return
-        deleteSavedPassage(owner, lang).catch((err) => console.error('AssessmentSession: failed to clear the saved passage', err))
+        deleteSavedPassage(owner, lang)
+            .then(() => queryClient.invalidateQueries({ queryKey: ['ready-passages'] }))
+            .catch((err) => console.error('AssessmentSession: failed to clear the saved passage', err))
     }
     // Shows a saved passage: a teacher sees it on the check screen first (the
     // saved one may still need validating, or be waiting to start or send); a

@@ -71,6 +71,29 @@ export async function deleteSavedPassage(studentId: string, lang: Lang): Promise
     if (error) throw error
 }
 
+// For a pupil: the languages they have a teacher-validated passage waiting in
+// (at most two, since a pupil has one passage per language). Drives the
+// "passage ready" card on the practice page and the badge on its nav tab.
+// RLS already limits a pupil to their own approved, unexpired rows; polled so
+// a passage sent while they are on the page shows up without a reload.
+export function useReadyPassageLangsQuery(studentId: string | undefined) {
+    return useQuery({
+        queryKey: ['ready-passages', studentId],
+        enabled: !!studentId,
+        refetchInterval: 30_000,
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('check_in_passages')
+                .select('language')
+                .eq('student_id', studentId as string)
+                .eq('status', 'approved')
+                .gt('expires_at', notExpired())
+            if (error) throw error
+            return (data ?? []).map((row) => row.language as Lang)
+        },
+    })
+}
+
 // For the student picker: which pupils have a saved passage in this language,
 // and whether it is validated yet.
 export function useSavedPassageStatusesQuery(teacherId: string | undefined, lang: Lang | null) {

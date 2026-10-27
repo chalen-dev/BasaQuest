@@ -9,6 +9,7 @@ import { useProfile } from '../../../hooks/useProfile.ts'
 import { useLang } from '../../../contexts/LangContext.tsx'
 import type { Lang } from '../../../components/buttons/LangToggle.tsx'
 import { BookCover } from './components/BookCover.tsx'
+import { useReadyPassageLangsQuery } from '../pre_assessment/savedPassages.ts'
 // Ported from the earlier prototype's `data/mock.js` BOOKS list (reading-track
 // entries only), now paired with the matching Scene name for the cover art.
 type Material = {
@@ -49,6 +50,7 @@ const STRINGS: Record<Lang, {
     preAssessmentTitle: string
     preAssessmentDesc: string
     preAssessmentCta: string
+    langName: Record<Lang, string>
     foundationalHeading: string
     foundationalDesc: string
     materialsHeading: string
@@ -59,10 +61,11 @@ const STRINGS: Record<Lang, {
     fil: {
         greetingTitle: (name) => `Magsanay tayo, ${name}!`,
         greetingDesc: 'Piliin ang talatang nais mong pagsanayan. Walang marka dito — tulong lang.',
-        preAssessmentKicker: 'Unang Hakbang',
+        preAssessmentKicker: 'Handa na ang talata mo',
         preAssessmentTitle: 'Pagsusuri sa Kasanayan sa Pagbasa',
-        preAssessmentDesc: 'Bago pumili ng materyales, alamin muna natin kung gaano ka kahusay magbasa ngayon — hindi ito iskor, gabay lang ito para sa iyo at sa iyong guro.',
+        preAssessmentDesc: 'Nagpadala ang iyong guro ng talatang babasahin mo nang malakas. Hindi ito iskor, gabay lang ito para sa iyo at sa iyong guro. Pindutin ang buton kapag handa ka na.',
         preAssessmentCta: 'Simulan ang Pagsusuri',
+        langName: { fil: 'Filipino', en: 'English' },
         foundationalHeading: 'Batayang mga Salita at Tunog',
         foundationalDesc: 'Magsanay sa mga letra, pantig, at simpleng salita bago tumuntong sa mas mahabang talata — mabuting simula para sa bagong nagbabasa.',
         materialsHeading: 'O piliin ang isang materyales',
@@ -73,10 +76,11 @@ const STRINGS: Record<Lang, {
     en: {
         greetingTitle: (name) => `Let's practice, ${name}!`,
         greetingDesc: "Pick a passage you'd like to practice. Nothing here is graded — it's just for support.",
-        preAssessmentKicker: 'First Step',
+        preAssessmentKicker: 'Your passage is ready',
         preAssessmentTitle: 'Reading Skills Check-In',
-        preAssessmentDesc: "Before picking a passage, let's see how you're reading right now — this isn't a score, just guidance for you and your teacher.",
+        preAssessmentDesc: "Your teacher sent you a passage to read aloud. This isn't a score, just guidance for you and your teacher. Tap the button when you're ready.",
         preAssessmentCta: 'Start the Check-In',
+        langName: { fil: 'Filipino', en: 'English' },
         foundationalHeading: 'Foundational Words & Sounds',
         foundationalDesc: "Practice letters, syllables, and simple words before moving to longer passages — a good starting point for new readers.",
         materialsHeading: 'Or pick a reading material',
@@ -92,6 +96,8 @@ export const MaterialSelectionPage: React.FC = () => {
     const { lang } = useLang()
     const t = STRINGS[lang]
     const username = (user?.user_metadata?.username as string | undefined) ?? user?.email?.split('@')[0] ?? 'Guest'
+    const isPupil = profile?.role === 'student'
+    const { data: readyLangs = [] } = useReadyPassageLangsQuery(isPupil ? profile?.id : undefined)
     const gradeSection = profile?.grade_level
         ? [t.grade(profile.grade_level), profile.section].filter(Boolean).join(' · ')
         : null
@@ -135,27 +141,37 @@ export const MaterialSelectionPage: React.FC = () => {
                 </div>
             </section>
             {/* Row 1 — pre-assessment: a single wide card, visually distinct
-                from the material cards below since it isn't a passage pick */}
-            <button
-                onClick={() => navigate('/reading/proficiency/assessment')}
-                className="group mb-8 flex w-full cursor-pointer flex-col items-start gap-4 rounded-2xl border-2 border-teal-500/20 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-500/40 hover:shadow-md dark:border-teal-400/20 dark:bg-gray-900 dark:hover:border-teal-400/40 sm:flex-row sm:items-center sm:justify-between"
-            >
-                <div className="flex items-center gap-4">
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-500 text-white shadow-[0_4px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]">
-                        <ClipboardCheck size={26} />
-                    </span>
-                    <div>
-                        <span className="text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
-                            {t.preAssessmentKicker}
+                from the material cards below since it isn't a passage pick.
+                A pupil can't start a check-in on their own: it only shows up
+                once their teacher has sent a validated passage, with one
+                button per language they have one in. */}
+            {isPupil && readyLangs.length > 0 && (
+                <div className="mb-8 flex w-full flex-col items-start gap-4 rounded-2xl border-2 border-teal-500/20 bg-white p-6 text-left shadow-sm dark:border-teal-400/20 dark:bg-gray-900 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-500 text-white shadow-[0_4px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]">
+                            <ClipboardCheck size={26} />
                         </span>
-                        <h3 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.preAssessmentTitle}</h3>
-                        <p className="max-w-xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.preAssessmentDesc}</p>
+                        <div>
+                            <span className="text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                                {t.preAssessmentKicker}
+                            </span>
+                            <h3 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.preAssessmentTitle}</h3>
+                            <p className="max-w-xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.preAssessmentDesc}</p>
+                        </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                        {readyLangs.map((readyLang) => (
+                            <button
+                                key={readyLang}
+                                onClick={() => navigate(`/reading/proficiency/assessment/session?lang=${readyLang}`)}
+                                className="flex cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                            >
+                                {readyLangs.length > 1 ? `${t.preAssessmentCta} · ${t.langName[readyLang]}` : t.preAssessmentCta}
+                            </button>
+                        ))}
                     </div>
                 </div>
-                <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-teal-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-transform duration-150 group-hover:translate-x-1 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]">
-                    {t.preAssessmentCta}
-                </span>
-            </button>
+            )}
             {/* Row 2 — foundational words/sounds: its own row of book-style
                 cards (one per language/level), same shape as the materials
                 grid below, so multiple entries can sit side by side */}

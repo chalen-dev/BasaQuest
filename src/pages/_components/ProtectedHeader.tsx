@@ -11,6 +11,7 @@ import { LangToggle, type Lang } from '../../components/buttons/LangToggle.tsx'
 import { ThemeToggleButton } from '../../components/buttons/ThemeToggleButton.tsx'
 import { showConfirmation, showToast } from '../../helpers/swalHelpers.ts'
 import { usePendingReviewCountQuery } from '../students/review/hooks.ts'
+import { useReadyPassageLangsQuery } from '../proficiency/pre_assessment/savedPassages.ts'
 
 type NavItem = { to: string; label: string; matchPrefixes?: string[]; badge?: number }
 
@@ -114,11 +115,21 @@ export default function ProtectedHeader() {
     // this pill at all).
     const { data: pendingReviewCount } = usePendingReviewCountQuery(isTeacher ? profile?.id : undefined)
 
+    // A pupil's "Fluent Reading" tab shows how many check-in passages their
+    // teacher has sent and are waiting for them.
+    const isStudent = profile?.role === 'student'
+    const { data: readyPassages } = useReadyPassageLangsQuery(isStudent ? profile?.id : undefined)
+    const studentNavItems = NAV_ITEMS[lang].map((item) =>
+        item.to === '/reading/proficiency' ? { ...item, badge: readyPassages?.length } : item,
+    )
+
     const navItems: NavItem[] = isTeacher
         ? [...NAV_ITEMS[lang], { to: '/dashboard', label: STUDENT_DASHBOARD_LABEL[lang], matchPrefixes: STUDENTS_MATCH_PREFIXES, badge: pendingReviewCount }]
         : isAdmin
             ? [...NAV_ITEMS[lang], { to: '/admin/recording', label: 'Record Students', matchPrefixes: ['/admin/recording', '/admin/students'] }]
-            : NAV_ITEMS[lang]
+            : isStudent
+                ? studentNavItems
+                : NAV_ITEMS[lang]
 
     const handleLogout = async () => {
         const confirmed = await showConfirmation(t.logoutTitle, t.logoutText, theme === 'dark', 'warning', t.logoutConfirm)
