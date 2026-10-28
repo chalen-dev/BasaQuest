@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ClipboardCheck, Star } from 'lucide-react'
 import { Owl } from '../../../components/ui/Owl.tsx'
 import { HomeButton } from '../../../components/buttons/HomeButton.tsx'
+import { FluentReadingSubNav } from '../components/FluentReadingSubNav.tsx'
 import { useAuth } from '../../../contexts/AuthContext.tsx'
 import { useProfile } from '../../../hooks/useProfile.ts'
 import { useLang } from '../../../contexts/LangContext.tsx'
@@ -128,9 +129,15 @@ export const MaterialSelectionPage: React.FC = () => {
         : null
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-                <HomeButton />
-            </div>
+            {profile?.role === 'teacher' ? (
+                <div className="no-print mb-4">
+                    <FluentReadingSubNav />
+                </div>
+            ) : (
+                <div className="mb-4 flex flex-wrap items-center gap-3">
+                    <HomeButton />
+                </div>
+            )}
             <section className="relative mb-8 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
                 <div
                     className="absolute inset-0 dark:hidden"

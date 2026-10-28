@@ -22,6 +22,7 @@ import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
 import { Pagination } from '../../../../components/ui/Pagination.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
+import { SourceBadge } from '../../../../components/ui/SourceBadge'
 import type { Lang } from '../../../../components/buttons/LangToggle.tsx'
 import { REMEDIATION_PAGE_SIZE, useStudentsWithRemediationQuery } from '../hooks.ts'
 const STRINGS: Record<Lang, {
@@ -153,6 +154,7 @@ export const RemediationListPage: React.FC = () => {
                                                 {t.gradeLabel(student.grade_level)}
                                             </span>
                                         )}
+                                        <SourceBadge source="fluent_reading" />
                                     </div>
                                     <div className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-gray-400 dark:text-gray-500">
                                         <Clock size={15} />

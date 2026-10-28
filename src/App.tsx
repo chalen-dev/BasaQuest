@@ -16,6 +16,7 @@ import ResultsListPage from "./pages/proficiency/results/ResultsListPage.tsx";
 import RemediationListPage from "./pages/proficiency/remediation/list/RemediationListPage.tsx";
 import StudentRemediationDetailPage from "./pages/proficiency/remediation/list/StudentRemediationDetailPage.tsx";
 import StudentsLayout from "./pages/students/layouts/StudentsLayout.tsx";
+import FluentReadingLayout from "./pages/proficiency/components/FluentReadingLayout.tsx";
 import RemediationSessionLayout from "./pages/proficiency/remediation/session/layouts/RemediationSessionLayout.tsx";
 import RemediationSessionPage from "./pages/proficiency/remediation/session/RemediationSessionPage.tsx";
 import RemediationCoachLayout from "./pages/proficiency/remediation/coach/layouts/RemediationCoachLayout.tsx";
@@ -135,6 +136,14 @@ const router = createBrowserRouter(
                         <Route path="/reading/proficiency" element={<MaterialSelectionPage />} />
                         <Route path="/reading/proficiency/results" element={<MyResultsPage />} />
                         <Route path="/reading/proficiency/assessment" element={<ProficiencyAssessmentSelectStudentPage />} />
+                        {/* Fluent Reading's own Review / Results / Remediation for the
+                        teacher: the same pages as the Students tab's, under the
+                        Fluent Reading sub-nav (see FluentReadingSubNav.tsx). */}
+                        <Route element={<FluentReadingLayout />}>
+                            <Route path="/reading/proficiency/teacher/review" element={<ReviewListPage />} />
+                            <Route path="/reading/proficiency/teacher/results" element={<ResultsListPage />} />
+                            <Route path="/reading/proficiency/teacher/remediation" element={<RemediationListPage />} />
+                        </Route>
                         {/* Admin-only: the child-recording capture page.
                         Nested inside ProtectedRoute (must be logged in)
                         and ProtectedLayout (shares the normal header/

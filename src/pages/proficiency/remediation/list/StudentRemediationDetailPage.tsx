@@ -43,6 +43,7 @@ import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
 import { showConfirmation, showToast } from '../../../../helpers/swalHelpers.ts'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
+import { SourceBadge } from '../../../../components/ui/SourceBadge'
 import { Owl } from '../../../../components/ui/Owl.tsx'
 import type { Lang } from '../../../../components/buttons/LangToggle.tsx'
 import { useStudentProfileQuery } from '../../review/hooks.ts'
@@ -189,6 +190,7 @@ function MaterialCard({
                         </div>
                     )}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <SourceBadge source="fluent_reading" size="sm" />
                         <span className="rounded-full bg-gray-900/5 px-2.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                             {material.language === 'fil' ? t.filipinoLabel : t.englishLabel}
                         </span>
@@ -277,6 +279,7 @@ function DraftCard({ draft, t, onResume }: { draft: RemediationMaterialDraft; t:
                     )}
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <SourceBadge source="fluent_reading" size="sm" />
                     <span className="rounded-full bg-gray-900/5 px-2.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                         {draft.language === 'fil' ? t.filipinoLabel : t.englishLabel}
                     </span>
