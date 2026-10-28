@@ -74,6 +74,7 @@ import {
     useSaveRemediationDraftMutation,
     type RemediationPassage,
 } from '../remediation/hooks'
+import { pregenerateAudio } from '../remediation/session/features/usePronounceWord'
 import { STRINGS } from './features/remediationPassagePreviewStrings'
 import {
     MAX_WORDS_PER_REQUEST,
@@ -298,6 +299,9 @@ export default function RemediationPassagePreviewPage() {
             // screen worth waiting on it for -- see
             // useDeleteRemediationDraftMutation's own comment.
             deleteDraft.mutate({ attemptId, studentId: attempt.student_id })
+            // Approved passages get their audio made now, in the background, so the
+            // pupil's Listen and word buttons are instant (see pregenerateAudio).
+            if (passages && passages.length > 0) void pregenerateAudio(passages, attempt.language)
             showToast(t.saveSuccessToast, 'success', theme === 'dark')
             navigate(`/students/remediation/${attempt.student_id}`)
         } catch (err) {

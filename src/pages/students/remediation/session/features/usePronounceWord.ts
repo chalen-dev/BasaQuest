@@ -38,6 +38,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../../../../lib/supabaseClient'
 import { USE_PLACEHOLDER_PRONUNCIATION } from '../../../../../../devFlags'
+import type { RemediationPassage } from '../../hooks.ts'
 
 type PronounceLanguage = 'en' | 'fil'
 
@@ -155,6 +156,26 @@ export function prefetchAudio(text: string, language: PronounceLanguage, whole =
             warmed.set(url, audio)
         })
         .catch(() => {})
+}
+
+// Called when a teacher saves a passage set: makes the server generate and store
+// every passage's audio and its target words' audio now, so the pupil never waits
+// on Azure for them. One at a time, so a big set does not fire dozens of requests
+// at once; clips that already exist cost nothing (only the existence check runs).
+// Fire-and-forget, never throws; a failure just means that clip is made on first play.
+export async function pregenerateAudio(passages: RemediationPassage[], language: PronounceLanguage) {
+    if (USE_PLACEHOLDER_PRONUNCIATION) return
+    const seenWords = new Set<string>()
+    for (const passage of passages) {
+        await resolveAudioUrl(passage.passageWords.join(' '), language, true).catch(() => {})
+        for (const index of passage.targetIndices) {
+            const word = (passage.passageWords[index] ?? '').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+            const key = slugifyWord(word)
+            if (!key || seenWords.has(key)) continue
+            seenWords.add(key)
+            await resolveAudioUrl(word, language, false).catch(() => {})
+        }
+    }
 }
 
 export function usePronounceWord() {
