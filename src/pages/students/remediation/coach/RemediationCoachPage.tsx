@@ -240,6 +240,7 @@ import {
     readPracticed,
     useRemediationMaterialQuery,
     type NameKind,
+    type PassageGloss,
     type PassageName,
     type RemediationPassage,
     type RemediationWordEntry,
@@ -407,13 +408,14 @@ function renderHighlightedTip(text: string, targetWords: string[]): ReactNode {
 // reaching back into RemediationPassage/RemediationWordEntry directly,
 // so the rest of the component doesn't need to branch on material mode
 // more than once.
-type CoachPage = { content: CoachSentenceContent; coachTip: string; names?: PassageName[] }
+type CoachPage = { content: CoachSentenceContent; coachTip: string; names?: PassageName[]; glosses?: PassageGloss[] }
 
 function pagesFromPassages(passages: RemediationPassage[], lang: 'fil' | 'en'): CoachPage[] {
     return passages.map((passage, index) => ({
         content: { words: passage.passageWords, targetIndices: passage.targetIndices },
         coachTip: getCoachTipText(passage, index, lang),
         names: passage.names,
+        glosses: passage.glosses,
     }))
 }
 
@@ -492,6 +494,9 @@ export default function RemediationCoachPage() {
     // Set when the tapped token is a name (Gemini's tag, or the
     // capitalization guess for untagged passages) — see nameMatchFor().
     const [selectedName, setSelectedName] = useState<NameMatch | null>(null)
+    // What the tapped word means in this passage, from the generator (see
+    // RemediationPassage.glosses); steers the picture choice.
+    const [selectedGloss, setSelectedGloss] = useState<string | null>(null)
 
     useEffect(() => {
         if (material && !seeded) {
@@ -527,6 +532,7 @@ export default function RemediationCoachPage() {
         // The page's own words: a phrase around the tapped word, or a cue word
         // near it, picks the right picture when a word has several meanings.
         currentPage?.content.words,
+        selectedGloss,
     )
     const { data: namePicture, isLoading: namePictureLoading } = useWordImageQuery(selectedName ? NAME_PICTURE_WORD[selectedName.kind] : null, 'en')
     const showNameCard = !!selectedName && (!selectedName.guessed || !wordImage)
@@ -612,6 +618,8 @@ export default function RemediationCoachPage() {
         // leaves nothing.
         setSelectedWord(stripPunctuation(word) || word)
         setSelectedName(nameMatchFor(currentPage, word))
+        const tappedIndex = currentPage ? currentPage.content.words.indexOf(word) : -1
+        setSelectedGloss(currentPage?.glosses?.find((g) => g.index === tappedIndex)?.gloss ?? null)
         setCompanionMode('notebook')
         setCompanionAnimated(true)
     }

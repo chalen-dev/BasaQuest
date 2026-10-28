@@ -99,9 +99,10 @@ For EACH passage, produce:
    - "place": the name of a specific place — a town, barangay, school, province, country, park or landmark (e.g. "Maynila", "Baguio", "Sto. Niño Elementary").
    - "animal": the given name of a pet or animal character (e.g. a dog called "Bantay").
    Only real proper names qualify. Ordinary words are NEVER names, even when capitalized at the start of a sentence, and a word that is both a name and a common word (e.g. "Maya", also a bird) counts as a name only when the passage uses it as one. If the passage has no names, return an empty array.
+6. "glosses": for every token that is a common noun, plus every token that has more than one common meaning in ${language} (like Filipino "puno", which can mean a tree or full, or English "bat"), a one-word English meaning of the word AS USED IN THIS PASSAGE, as { "index": the token's 0-based position in passageWords, "gloss": one lowercase English word, such as "tree", "full", "rabbit" }. Use the plain dictionary form (singular noun), never a phrase. Skip names, particles and grammar words ("ang", "ng", "the", "of"). If a word has no sensible single English word, leave it out.
 
 Requirements:
-- Language: write ONLY in ${language}, including the coachTip. Do not mix in words from any other language${lang === 'fil' ? ' (no English words such as "school", "mother" or "happy"; use the Filipino word instead)' : ' (no Filipino or Tagalog words such as "nanay", "bahay" or "po")'}. Proper names of people and places are the only exception. If a word in the list is not in ${language}, still keep it as a target but do not add other words from its language.
+- Language: write ONLY in ${language}, including the coachTip (the one exception: each "gloss" is always one English word). Do not mix in words from any other language${lang === 'fil' ? ' (no English words such as "school", "mother" or "happy"; use the Filipino word instead)' : ' (no Filipino or Tagalog words such as "nanay", "bahay" or "po")'}. Proper names of people and places are the only exception. If a word in the list is not in ${language}, still keep it as a target but do not add other words from its language.
 - Symbols: never use em dashes, en dashes or any other symbol a child cannot read aloud. Use commas and periods instead. Hyphens inside a single word (like "bahay-kubo") are fine.
 - Content: warm, wholesome, everyday, culturally familiar to a Filipino child (home, school, barangay, nature, family, friendship) — never scary, violent, or sad.
 - Plain, natural spoken rhythm — a child that age should be able to read each passage aloud comfortably. Never force an unnatural sentence just to cram in vocabulary.
@@ -117,6 +118,18 @@ const RESPONSE_SCHEMA = {
             targetWords: { type: 'ARRAY', items: { type: 'STRING' }, description: 'The input words this passage targets, in their exact given form.' },
             targetIndices: { type: 'ARRAY', items: { type: 'INTEGER' }, description: 'Every 0-based position within passageWords that is an occurrence of one of targetWords.' },
             coachTip: { type: 'STRING', description: 'A short reading-coach tip about this passage\'s target words, addressed to the pupil.' },
+            glosses: {
+                type: 'ARRAY',
+                description: 'A one-word English meaning, as used in this passage, for each common noun and each word with several meanings. Empty if there are none.',
+                items: {
+                    type: 'OBJECT',
+                    properties: {
+                        index: { type: 'INTEGER', description: '0-based position of the word within passageWords.' },
+                        gloss: { type: 'STRING', description: 'One lowercase English word, e.g. tree, full, rabbit.' },
+                    },
+                    required: ['index', 'gloss'],
+                },
+            },
             names: {
                 type: 'ARRAY',
                 description: 'Every proper name in the passage with its kind, judged from context. Empty if there are none.',
@@ -145,6 +158,33 @@ type PassageItem = {
     targetIndices: number[]
     coachTip: string
     names?: { index: number; kind: NameKind }[]
+    glosses?: { index: number; gloss: string }[]
+}
+// Meanings are a nicety too: keep only entries that point at a real token and
+// hold a short single English word, or drop the field.
+function sanitizeGlosses(passage: PassageItem): PassageItem {
+    const raw = (passage as { glosses?: unknown }).glosses
+    const seen = new Set<number>()
+    const glosses: { index: number; gloss: string }[] = []
+    if (Array.isArray(raw)) {
+        for (const entry of raw) {
+            const e = entry as { index?: unknown; gloss?: unknown }
+            const gloss = typeof e?.gloss === 'string' ? e.gloss.trim().toLowerCase() : ''
+            if (
+                Number.isInteger(e?.index) &&
+                (e.index as number) >= 0 &&
+                (e.index as number) < passage.passageWords.length &&
+                /^[a-z][a-z'-]{0,29}$/.test(gloss) &&
+                !seen.has(e.index as number)
+            ) {
+                seen.add(e.index as number)
+                glosses.push({ index: e.index as number, gloss })
+            }
+        }
+    }
+    const { glosses: _discard, ...rest } = passage
+    void _discard
+    return glosses.length > 0 ? { ...rest, glosses } : rest
 }
 // Name tags are a nicety, never a reason to throw a whole passage away: keep
 // only the entries that point at a real token with a known kind, and drop the
@@ -203,7 +243,11 @@ function stripDashes(passage: PassageItem): PassageItem {
     const names = Array.isArray(rawNames)
         ? rawNames.map((n) => ({ ...n, index: remap(n.index) }))
         : undefined
-    return { ...passage, passageWords: words, targetIndices, ...(names ? { names } : {}) } as PassageItem
+    const rawGlosses = (passage as { glosses?: { index: number; gloss: string }[] }).glosses
+    const glosses = Array.isArray(rawGlosses)
+        ? rawGlosses.map((g) => ({ ...g, index: remap(g.index) }))
+        : undefined
+    return { ...passage, passageWords: words, targetIndices, ...(names ? { names } : {}), ...(glosses ? { glosses } : {}) } as PassageItem
 }
 function isValidPassageList(input: unknown): input is PassageItem[] {
     if (!Array.isArray(input) || input.length === 0) return false
@@ -286,7 +330,7 @@ Deno.serve(async (req: Request) => {
             console.error('generate-remediation-passages: malformed Gemini payload', JSON.stringify(geminiData))
             return jsonResponse({ error: 'Got an unexpected response while generating passages. Please try again.' }, 502)
         }
-        return jsonResponse(parsed.map(stripDashes).map(sanitizeNames), 200)
+        return jsonResponse(parsed.map(stripDashes).map(sanitizeNames).map(sanitizeGlosses), 200)
     } catch (err) {
         console.error('generate-remediation-passages: unexpected error', err)
         return jsonResponse({ error: 'Something went wrong generating passages.' }, 500)

@@ -48,16 +48,22 @@ const PICTURE_COLUMNS = 'image_path, credit, word, sense, cues, is_default'
 
 // Resolves to null when this word has no picture, so callers keep their
 // placeholder. `context` is the words of the page the word was tapped in; with
-// it, phrases and cue words can choose the right picture. Pictures rarely
-// change, so cache them for the session.
+// it, phrases and cue words can choose the right picture. `gloss` is what the
+// word means in this sentence, as one English word (tree for "puno" in
+// "malaking puno ng niyog"), written by the passage generator: it picks the
+// picture whose meaning label matches, and stands in for the word when the
+// bank has no picture under the word itself. Pictures rarely change, so cache
+// them for the session.
 export function useWordImageQuery(
     word: string | null | undefined,
     language: 'en' | 'fil' | undefined,
     context?: string[],
+    gloss?: string | null,
 ) {
     const key = word ? normalizeImageWord(word) : ''
     const { phrases, nearby } = contextAround(key, context)
-    const contextKey = `${phrases.join('|')}#${nearby.join('|')}`
+    const glossKey = gloss ? normalizeImageWord(gloss) : ''
+    const contextKey = `${phrases.join('|')}#${nearby.join('|')}#${glossKey}`
     return useQuery({
         queryKey: ['word_image', language, key, contextKey] as const,
         enabled: key !== '' && !!language,
@@ -89,8 +95,24 @@ export function useWordImageQuery(
                 .eq('language', language as string)
                 .eq('word', key)
             if (error) throw error
-            const picked = pickPicture((data ?? []) as PictureRow[], nearby)
-            return picked ? toImage(picked) : null
+            const rows = (data ?? []) as PictureRow[]
+            // The generator's meaning for this word beats guessing from cue words.
+            const byGloss = glossKey ? rows.find((row) => row.sense.toLowerCase() === glossKey) : undefined
+            const picked = byGloss ?? pickPicture(rows, nearby)
+            if (picked) return toImage(picked)
+
+            // Nothing under the word itself: use the picture for its English meaning.
+            if (glossKey && language !== 'en') {
+                const { data: enData, error: enError } = await supabase
+                    .from('word_images')
+                    .select(PICTURE_COLUMNS)
+                    .eq('language', 'en')
+                    .eq('word', glossKey)
+                if (enError) throw enError
+                const viaGloss = pickPicture((enData ?? []) as PictureRow[], nearby)
+                if (viaGloss) return toImage(viaGloss)
+            }
+            return null
         },
     })
 }

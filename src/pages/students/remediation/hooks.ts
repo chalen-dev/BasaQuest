@@ -106,7 +106,13 @@ export type RemediationPassage = {
     // existed or that contain no names — the coach falls back to a
     // capitalization rule for those.
     names?: PassageName[]
+    // What each common noun / many-meaning word means in THIS passage, as one
+    // English word (index = position in passageWords). The coach uses it to pick
+    // the right picture ("puno" = tree, not full) or to borrow the English
+    // word's picture. Absent on passages generated before this existed.
+    glosses?: PassageGloss[]
 }
+export type PassageGloss = { index: number; gloss: string }
 export type NameKind = 'girl' | 'boy' | 'person' | 'place' | 'animal'
 export type PassageName = { index: number; kind: NameKind }
 export type RemediationMaterial = {
