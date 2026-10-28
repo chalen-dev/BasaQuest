@@ -36,10 +36,10 @@ export type CoachSentenceContent = {
 
 const STORY_LEFT = 940
 const STORY_WIDTH = 576
-const STORY_TOP = 200
+const STORY_TOP = 222
 // Baseline of the page heading, level with the Listen button the backdrop draws beside it.
 const HEADING_BASELINE = 146
-const STORY_BOTTOM = 545
+const STORY_BOTTOM = 560
 const STORY_BODY_LEADING = 1.48
 
 function wrapWords(measure: SVGTextElement, words: string[], fontSize: number): string[] {
