@@ -132,6 +132,12 @@ export type CoachTableBackdropProps = {
     nextLabel: string
     onPrevious: () => void
     onNext: () => void
+    /** The "Listen to the passage" button drawn on the page's heading line, beside
+     * the passage counter. Hidden when `onListen` is omitted; fades out and back in
+     * with the other controls during a page turn. */
+    listenLabel?: string
+    listenState?: 'idle' | 'loading' | 'playing'
+    onListen?: () => void
     /** Called with a word's own text whenever the reader taps it in the
      * story (see this file's header comment, "WORD NOTEBOOK"). Optional
      * -- word taps are simply inert if omitted. */
@@ -161,6 +167,9 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
             nextLabel,
             onPrevious,
             onNext,
+            listenLabel = '',
+            listenState = 'idle',
+            onListen,
             onWordSelect,
             selectedWord = null,
             notebookOpen = false,
@@ -188,6 +197,7 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
         const previousBtnRef = useRef<SVGGElement>(null)
         const nextBtnRef = useRef<SVGGElement>(null)
         const micBtnRef = useRef<SVGGElement>(null)
+        const listenBtnRef = useRef<SVGGElement>(null)
 
         // Mutable engine state that must never trigger a re-render mid-turn
         // (900ms of rAF frames -- re-rendering React on every frame was
@@ -310,6 +320,7 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                 const prevBtn = previousBtnRef.current
                 const nextBtn = nextBtnRef.current
                 const micBtn = micBtnRef.current
+                const listenBtn = listenBtnRef.current
                 const micOpacity = toOpacity === 0 ? 0 : MIC_RESTING_OPACITY
                 if (prevBtn) prevBtn.style.transition = 'opacity 120ms ease'
                 if (nextBtn) nextBtn.style.transition = 'opacity 120ms ease'
@@ -317,6 +328,10 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                 if (prevBtn) prevBtn.style.opacity = String(toOpacity)
                 if (nextBtn) nextBtn.style.opacity = String(toOpacity)
                 if (micBtn) micBtn.style.opacity = String(micOpacity)
+                if (listenBtn) {
+                    listenBtn.style.transition = 'opacity 120ms ease'
+                    listenBtn.style.opacity = String(toOpacity)
+                }
                 window.setTimeout(resolve, 120)
             })
         }, [])
@@ -565,6 +580,36 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                         onKeyDown={nextDisabled ? undefined : handleControlKeyDown(onNextClick)}
                     >
                         <circle r="64" cy="5" fill="var(--coach-ring)" opacity=".23" filter="url(#coach-control-shadow)"/><circle r="69" fill="none" stroke="var(--coach-ring)" strokeWidth="5" opacity=".48"/><circle r="62" fill="var(--coach-disc)" opacity=".4"/><circle r="55" fill="url(#coach-control-disc)"/><circle className="coach-button-highlight" r="55" fill="none" stroke="var(--coach-shine)" strokeWidth="3" opacity=".7"/><path d="M-8 -27 Q-14 -31 -14 -22 V22 Q-14 31 -7 26 L20 5 Q27 0 20 -6Z" transform="scale(1 1)" fill="var(--coach-arrow)"/><circle className="coach-focus-ring" r="76"/></g>
+                    {onListen && (
+                        <g
+                            ref={listenBtnRef}
+                            id="coach-listen"
+                            className="coach-book-control"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={listenLabel}
+                            aria-busy={listenState === 'loading'}
+                            transform="translate(1366 139)"
+                            onClick={listenState === 'loading' ? undefined : onListen}
+                            onKeyDown={listenState === 'loading' ? undefined : handleControlKeyDown(onListen)}
+                        >
+                            <rect x="-150" y="-22" width="300" height="44" rx="22" fill="var(--coach-disc)" stroke="var(--coach-ring)" strokeWidth="3"/>
+                            <rect className="coach-button-highlight" x="-150" y="-22" width="300" height="44" rx="22" fill="none" stroke="var(--coach-shine)" strokeWidth="2" opacity=".7"/>
+                            <g transform="translate(-126 -12)" fill="none" stroke="var(--coach-story-ink)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                {listenState === 'loading' ? (
+                                    <circle className="coach-listen-spin" cx="12" cy="12" r="8" strokeDasharray="30 20"/>
+                                ) : listenState === 'playing' ? (
+                                    <rect x="6" y="6" width="12" height="12" rx="2" fill="var(--coach-story-ink)"/>
+                                ) : (
+                                    <>
+                                        <path d="M11 5 6 9H2v6h4l5 4V5Z"/>
+                                        <path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>
+                                    </>
+                                )}
+                            </g>
+                            <text x="-92" y="7" fontSize="20" fontWeight="700" fill="var(--coach-story-ink)" fontFamily="ui-rounded, 'Trebuchet MS', Verdana, sans-serif">{listenLabel}</text>
+                        </g>
+                    )}
                 </svg>
 
                 {children}
@@ -617,6 +662,8 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                     .coach-book-control .coach-focus-ring { opacity: 0; fill: none; stroke: var(--coach-arrow); stroke-width: 4; stroke-dasharray: 7 5; }
                     .coach-book-control:focus-visible .coach-focus-ring { opacity: 1; }
                     .coach-book-control:not([aria-disabled="true"]):hover .coach-button-highlight { opacity: .6; }
+                    .coach-listen-spin { transform-box: fill-box; transform-origin: center; animation: coach-listen-spin 800ms linear infinite; }
+                    @keyframes coach-listen-spin { to { transform: rotate(360deg); } }
                     .coach-recording-pulse { opacity: 0; fill: none; stroke: var(--coach-mic); stroke-width: 5; transform-box: fill-box; transform-origin: center; }
                     #coach-microphone[aria-pressed="true"] .coach-recording-pulse { animation: coach-recording 1500ms ease-out infinite; }
                     @keyframes coach-recording { 0% { opacity: .55; transform: scale(.95); } 100% { opacity: 0; transform: scale(1.2); } }

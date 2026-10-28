@@ -40,7 +40,8 @@ const SAMPLES: { words: string[]; targetIndices: number[] }[] = [
 
 function contentFor(index: number, verdictMode: 'none' | 'pass' | 'fail'): CoachSentenceContent {
     const sample = SAMPLES[index]
-    if (verdictMode === 'none') return { words: sample.words, targetIndices: sample.targetIndices }
+    const heading = `Passage ${index + 1} of ${SAMPLES.length}`
+    if (verdictMode === 'none') return { words: sample.words, targetIndices: sample.targetIndices, heading }
     const targetSet = new Set(sample.targetIndices)
     const verdicts: (CoachWordVerdict | null)[] = sample.words.map((_, i) => {
         if (targetSet.has(i)) return verdictMode === 'pass' ? 'correct' : 'miscue'
@@ -49,7 +50,7 @@ function contentFor(index: number, verdictMode: 'none' | 'pass' | 'fail'): Coach
         // actually visible, not just the target-word case.
         return i % 3 === 1 ? 'miscue' : i % 3 === 0 ? 'correct' : null
     })
-    return { words: sample.words, targetIndices: sample.targetIndices, verdicts }
+    return { words: sample.words, targetIndices: sample.targetIndices, verdicts, heading }
 }
 
 export default function CoachBackdropTestPage() {
@@ -92,6 +93,8 @@ export default function CoachBackdropTestPage() {
                     nextLabel="Next sample"
                     onPrevious={() => void goTo(index - 1, 'previous')}
                     onNext={() => void goTo(index + 1, 'next')}
+                    listenLabel="Listen to the passage"
+                    onListen={() => {}}
                 />
             </div>
 

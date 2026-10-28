@@ -231,7 +231,7 @@
 // what's actually on the page.
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Bird, NotebookText, Square, Volume2 } from 'lucide-react'
+import { Bird, NotebookText, Volume2 } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useWordImageQuery } from '../../../../hooks/useWordImage.ts'
 import { AnimatedOwl } from '../../../../components/ui/AnimatedOwl.tsx'
@@ -412,7 +412,11 @@ type CoachPage = { content: CoachSentenceContent; coachTip: string; names?: Pass
 
 function pagesFromPassages(passages: RemediationPassage[], lang: 'fil' | 'en'): CoachPage[] {
     return passages.map((passage, index) => ({
-        content: { words: passage.passageWords, targetIndices: passage.targetIndices },
+        content: {
+            words: passage.passageWords,
+            targetIndices: passage.targetIndices,
+            heading: STRINGS[lang].passageCounter(index + 1, passages.length),
+        },
         coachTip: getCoachTipText(passage, index, lang),
         names: passage.names,
         glosses: passage.glosses,
@@ -443,7 +447,11 @@ function nameMatchFor(page: CoachPage | null, word: string): NameMatch | null {
 
 function pagesFromWords(words: RemediationWordEntry[], lang: 'fil' | 'en'): CoachPage[] {
     return words.map((entry, index) => ({
-        content: { words: getSentenceWords(entry), targetIndices: [getTargetIndex(entry)] },
+        content: {
+            words: getSentenceWords(entry),
+            targetIndices: [getTargetIndex(entry)],
+            heading: STRINGS[lang].wordCounter(index + 1, words.length),
+        },
         coachTip: getCoachTipText(entry, index, lang),
     }))
 }
@@ -811,6 +819,13 @@ export default function RemediationCoachPage() {
                         onPrevious={handlePrevious}
                         onNext={handleNext}
                         onWordSelect={handleWordSelect}
+                        listenLabel={passagePlaying ? t.stopListening : t.listenToPassage}
+                        listenState={passageLoading ? 'loading' : passagePlaying ? 'playing' : 'idle'}
+                        onListen={() =>
+                            passagePlaying
+                                ? stopPassage()
+                                : void speakPassage(currentPage.content.words.join(' '), material.language, true)
+                        }
                         selectedWord={selectedWord}
                         notebookOpen={notebookOpen}
                     >
@@ -913,43 +928,6 @@ export default function RemediationCoachPage() {
                             placeholderText={nt.placeholder}
                         />
                     </CoachTableBackdrop>
-
-                    {/* Footer row on the book's right page, under the
-                    previous/mic/next controls (same 1670x941 viewBox the
-                    backdrop uses, as percentages): read-aloud on the left,
-                    "Passage n of N" on the right. The row itself ignores
-                    pointer events so it never blocks the page; only the
-                    button takes clicks. */}
-                    <div
-                        className="pointer-events-none absolute flex items-center justify-between"
-                        style={{ left: '54%', width: '39%', top: '85.2%', fontSize: 'clamp(11px, 1.35cqw, 19px)' }}
-                    >
-                        <button
-                            type="button"
-                            disabled={passageLoading}
-                            aria-busy={passageLoading}
-                            onClick={() =>
-                                passagePlaying
-                                    ? stopPassage()
-                                    : void speakPassage(currentPage.content.words.join(' '), material.language, true)
-                            }
-                            className="pointer-events-auto flex cursor-pointer items-center gap-[0.4em] rounded-full border-2 border-amber-800 bg-white/80 px-[1em] py-[0.35em] font-bold text-amber-900 shadow-sm transition-colors duration-150 hover:bg-white disabled:cursor-wait disabled:opacity-70 dark:border-indigo-300 dark:bg-indigo-950/70 dark:text-indigo-100 dark:hover:bg-indigo-950"
-                        >
-                            {passageLoading ? (
-                                <span className="h-[1em] w-[1em] animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            ) : passagePlaying ? (
-                                <Square size="1em" fill="currentColor" />
-                            ) : (
-                                <Volume2 size="1.1em" />
-                            )}
-                            {passagePlaying ? t.stopListening : t.listenToPassage}
-                        </button>
-                        <span className="font-bold text-amber-900 dark:text-indigo-100">
-                            {isPassageMode
-                                ? t.passageCounter(currentIndex + 1, pages.length)
-                                : t.wordCounter(currentIndex + 1, pages.length)}
-                        </span>
-                    </div>
                 </div>
 
                 {/* Word notebook toggle -- bottom-left, matching the

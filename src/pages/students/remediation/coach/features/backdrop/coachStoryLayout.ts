@@ -29,11 +29,16 @@ export type CoachSentenceContent = {
     words: string[]
     targetIndices: number[]
     verdicts?: (CoachWordVerdict | null)[] | null
+    // Small line at the top of the page ("Passage 2 of 5"). Painted with the story,
+    // so it turns with the page, and not tappable like a word.
+    heading?: string
 }
 
 const STORY_LEFT = 940
 const STORY_WIDTH = 576
-const STORY_TOP = 185
+const STORY_TOP = 200
+// Baseline of the page heading, level with the Listen button the backdrop draws beside it.
+const HEADING_BASELINE = 146
 const STORY_BOTTOM = 545
 const STORY_BODY_LEADING = 1.48
 
@@ -89,6 +94,17 @@ function layoutSentence(interactionLayer: SVGSVGElement, words: string[]): { lin
 // nodes, one <tspan class="coach-word"> per word, colored by verdict.
 export function renderSentence(target: SVGGElement, interactionLayer: SVGSVGElement, content: CoachSentenceContent) {
     target.replaceChildren()
+    if (content.heading) {
+        const heading = document.createElementNS(SVG_NS, 'text')
+        heading.setAttribute('class', 'coach-story-text coach-page-heading')
+        heading.setAttribute('x', String(STORY_LEFT))
+        heading.setAttribute('y', String(HEADING_BASELINE))
+        heading.setAttribute('font-size', '22')
+        heading.setAttribute('font-weight', '700')
+        heading.setAttribute('opacity', '0.7')
+        heading.textContent = content.heading
+        target.appendChild(heading)
+    }
     const { lines, fontSize } = layoutSentence(interactionLayer, content.words)
     const textEl = document.createElementNS(SVG_NS, 'text')
     textEl.setAttribute('class', 'coach-story-text coach-story-body')
