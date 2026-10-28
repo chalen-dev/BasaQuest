@@ -10,13 +10,13 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { contextAround, explainPick, normalizeImageWord, type PickReason } from '../../../lib/pictureSense'
 import { useWordImageQuery } from '../../../hooks/useWordImage.ts'
-import { usePronounceWord } from '../../students/remediation/session/features/usePronounceWord.ts'
+import { usePronounceWord } from '../../proficiency/remediation/session/features/usePronounceWord.ts'
 import {
     CoachTableBackdrop,
     type CoachSentenceContent,
     type CoachTableBackdropHandle,
-} from '../../students/remediation/coach/features/backdrop/CoachTableBackdrop.tsx'
-import { CoachNotebookSlot } from '../../students/remediation/coach/features/CoachNotebookSlot.tsx'
+} from '../../proficiency/remediation/coach/features/backdrop/CoachTableBackdrop.tsx'
+import { CoachNotebookSlot } from '../../proficiency/remediation/coach/features/CoachNotebookSlot.tsx'
 import type { PictureGroup } from '../_hooks/useWordImages.ts'
 
 type Lang = 'en' | 'fil'

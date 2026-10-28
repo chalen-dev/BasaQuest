@@ -3,7 +3,7 @@
 // Real data for Dashboard.tsx's stat cards + activity feed, replacing
 // the DUMMY_ACTIVITY placeholder that screen shipped with. "Pending
 // Review" itself is NOT here — that one's shared with ProtectedHeader's
-// badge, so it lives in students/review/hooks.ts as
+// badge, so it lives in proficiency/review/hooks.ts as
 // usePendingReviewCountQuery instead of being duplicated.
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient'

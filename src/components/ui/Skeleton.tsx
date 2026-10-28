@@ -7,11 +7,11 @@
 // widths/heights that mirror the real content about to appear, instead
 // of a centered spinner/owl that gives no sense of shape or how much is
 // coming. See components/routes/AuthRoutes.tsx,
-// pages/students/review/ReviewList.tsx,
-// pages/students/results/ResultsList.tsx,
+// pages/proficiency/review/ReviewList.tsx,
+// pages/proficiency/results/ResultsList.tsx,
 // pages/proficiency/pre_assessment/select_student/ProficiencyAssessmentSelectStudent.tsx,
-// pages/students/review/TeacherReviewAttempt.tsx,
-// pages/students/results/AttemptResults.tsx, and
+// pages/proficiency/review/TeacherReviewAttempt.tsx,
+// pages/proficiency/results/AttemptResults.tsx, and
 // pages/proficiency/pre_assessment/assessment_session/AssessmentSession.tsx
 // for the compositions built on top of this.
 //

@@ -223,7 +223,7 @@ export function useSubmitAttempt() {
 // AssessmentSession.tsx's "Try Again" button on the inline scoring-failed
 // card, instead of forcing the teacher to throw away a perfectly good
 // recording and start a brand new attempt. Resets status back to
-// 'pending' (the real scoring service moves it to 'processing' itself; so useAttemptQuery's poll — see students/review/hooks.ts —
+// 'pending' (the real scoring service moves it to 'processing' itself; so useAttemptQuery's poll — see proficiency/review/hooks.ts —
 // picks back up) and clears error_message before re-running, and — since
 // applyPlaceholderScoring unconditionally inserts a fresh set of word
 // rows — first deletes whatever word rows the failed attempt might

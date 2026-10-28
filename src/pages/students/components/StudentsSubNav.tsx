@@ -13,7 +13,7 @@ import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { HomeButton } from '../../../components/buttons/HomeButton'
-import { usePendingReviewCountQuery } from '../review/hooks'
+import { usePendingReviewCountQuery } from '../../proficiency/review/hooks'
 const STRINGS: Record<Lang, { dashboard: string; progress: string; list: string; review: string; results: string; remediation: string }> = {
     fil: { dashboard: 'Dashboard', progress: 'Progreso', list: 'Listahan', review: 'Suriin', results: 'Resulta', remediation: 'Remediation' },
     en: { dashboard: 'Dashboard', progress: 'Progress', list: 'Student List', review: 'Review', results: 'Results', remediation: 'Remediation' },

@@ -11,7 +11,7 @@ import { Tooltip } from '../../components/ui/Tooltip.tsx'
 import { LangToggle, type Lang } from '../../components/buttons/LangToggle.tsx'
 import { ThemeToggleButton } from '../../components/buttons/ThemeToggleButton.tsx'
 import { showConfirmation, showToast } from '../../helpers/swalHelpers.ts'
-import { usePendingReviewCountQuery } from '../students/review/hooks.ts'
+import { usePendingReviewCountQuery } from '../proficiency/review/hooks.ts'
 import { useReadyPassageLangsQuery } from '../proficiency/pre_assessment/savedPassages.ts'
 import { useUnseenResultCount } from '../proficiency/my_results/hooks.ts'
 

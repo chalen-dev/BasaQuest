@@ -14,13 +14,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { ThemeToggleButton } from '../../../components/buttons/ThemeToggleButton.tsx'
 import { useWordImageQuery } from '../../../hooks/useWordImage.ts'
-import { usePronounceWord } from '../../students/remediation/session/features/usePronounceWord.ts'
+import { usePronounceWord } from '../../proficiency/remediation/session/features/usePronounceWord.ts'
 import {
     CoachTableBackdrop,
     type CoachSentenceContent,
     type CoachTableBackdropHandle,
-} from '../../students/remediation/coach/features/backdrop/CoachTableBackdrop.tsx'
-import { CoachNotebookSlot } from '../../students/remediation/coach/features/CoachNotebookSlot.tsx'
+} from '../../proficiency/remediation/coach/features/backdrop/CoachTableBackdrop.tsx'
+import { CoachNotebookSlot } from '../../proficiency/remediation/coach/features/CoachNotebookSlot.tsx'
 
 type Lang = 'en' | 'fil'
 

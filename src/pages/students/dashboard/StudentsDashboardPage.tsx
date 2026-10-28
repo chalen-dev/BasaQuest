@@ -9,7 +9,7 @@ import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { Skeleton } from '../../../components/ui/Skeleton'
-import { usePendingReviewCountQuery } from '../review/hooks'
+import { usePendingReviewCountQuery } from '../../proficiency/review/hooks'
 import { useDashboardStatsQuery, useRecentAttemptsQuery } from './hooks'
 type StatColor = 'teal' | 'orange' | 'sky' | 'slate'
 const STAT_COLOR_CLASSES: Record<StatColor, { bg: string; icon: string }> = {

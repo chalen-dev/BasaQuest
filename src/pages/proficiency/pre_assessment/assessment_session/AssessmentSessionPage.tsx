@@ -94,7 +94,7 @@
 // basaquest-scoring service, so submitting doesn't mean scoring is done
 // yet. For an assisted session, the teacher is physically still at this
 // screen, so once submitted this file polls the new attempt (useAttemptQuery,
-// from students/review/hooks.ts — the same data layer the standalone
+// from proficiency/review/hooks.ts — the same data layer the standalone
 // "Send"-mode review page uses) and, once it lands on status 'scored',
 // swaps the passage/recorder grid out for the shared AttemptWordReview
 // panel right here, instead of leaving the teacher on the old permanent
@@ -194,8 +194,8 @@ import {
     useSaveDraftMutation,
     useSubmitReviewMutation,
     type WordReviewOverride,
-} from '../../../students/review/hooks.ts'
-import { AttemptWordReview, type AttemptWordReviewHandle } from '../../../students/review/features/AttemptWordReview.tsx'
+} from '../../review/hooks.ts'
+import { AttemptWordReview, type AttemptWordReviewHandle } from '../../review/features/AttemptWordReview.tsx'
 // Passages are saved on the server (see this file's SAVED PASSAGES header
 // comment above), in ../savedPassages.ts.
 import {

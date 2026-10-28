@@ -1,0 +1,154 @@
+// File: src/pages/proficiency/remediation/coach/features/coachStoryLayout.ts
+//
+// Word-wrap layout + SVG text rendering for the sentence painted onto
+// CoachTableBackdrop's open page. Split out of CoachTableBackdrop.tsx
+// (see that file's header comment) because this is standalone DOM
+// logic — it only ever touches the <text>/<tspan> nodes it's handed,
+// never anything about the page-turn animation or the art.
+//
+// Adapted from the "book tabletop" prototype's renderStory() (box
+// constants + the decreasing-fontSize wrap search), extended for a
+// single sentence (no title, no multi-paragraph loop) with per-word
+// verdict coloring + target-word bolding.
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+export type CoachWordVerdict = 'correct' | 'miscue'
+
+// One passage's worth of content to paint onto the open page. `verdicts`
+// is null/undefined before a scoring attempt exists (the idle/recording/
+// scoring phases); once useScoreSentence resolves, pass its per-word
+// systemVerdict array here to color the whole passage.
+//
+// targetIndices (plural, generalized from a single targetIndex): every
+// position in `words` that's a practice-target word for this passage —
+// a target word can repeat within a passage, so every occurrence needs
+// its own entry, not just the first (same reasoning as
+// RemediationPassage.targetIndices in remediation/hooks.ts, which this
+// is built from).
+export type CoachSentenceContent = {
+    words: string[]
+    targetIndices: number[]
+    verdicts?: (CoachWordVerdict | null)[] | null
+    // Small line at the top of the page ("Passage 2 of 5"). Painted with the story,
+    // so it turns with the page, and not tappable like a word.
+    heading?: string
+}
+
+const STORY_LEFT = 940
+const STORY_WIDTH = 576
+const STORY_TOP = 222
+// Baseline of the page heading, level with the Listen button the backdrop draws beside it.
+const HEADING_BASELINE = 146
+const STORY_BOTTOM = 560
+const STORY_BODY_LEADING = 1.48
+
+function wrapWords(measure: SVGTextElement, words: string[], fontSize: number): string[] {
+    measure.setAttribute('font-size', String(fontSize))
+    measure.setAttribute('font-weight', '400')
+    const fits = (value: string) => {
+        measure.textContent = value
+        return measure.getComputedTextLength() <= STORY_WIDTH
+    }
+    const lines: string[] = []
+    let line = ''
+    for (const word of words) {
+        const candidate = line ? `${line} ${word}` : word
+        if (fits(candidate)) {
+            line = candidate
+            continue
+        }
+        if (line) lines.push(line)
+        line = ''
+        // Letter-by-letter fallback for a single word wider than the
+        // whole column -- verbatim from renderStory(), practically
+        // never hit for a short Gemini-generated sentence.
+        for (const letter of word) {
+            if (line && !fits(line + letter)) {
+                lines.push(line)
+                line = ''
+            }
+            line += letter
+        }
+    }
+    if (line) lines.push(line)
+    return lines
+}
+
+function layoutSentence(interactionLayer: SVGSVGElement, words: string[]): { lines: string[]; fontSize: number } {
+    const measure = document.createElementNS(SVG_NS, 'text') as SVGTextElement
+    measure.setAttribute('class', 'coach-story-text')
+    measure.setAttribute('visibility', 'hidden')
+    interactionLayer.appendChild(measure)
+    let fontSize = 29
+    let lines: string[] = []
+    for (; fontSize >= 19; fontSize--) {
+        lines = wrapWords(measure, words, fontSize)
+        if (STORY_TOP + lines.length * fontSize * STORY_BODY_LEADING <= STORY_BOTTOM) break
+    }
+    measure.remove()
+    return { lines, fontSize }
+}
+
+// Renders `content` into `target` (either #coach-stationary-story or the
+// hidden #coach-outgoing-story-source) as real SVG <text>/<tspan>
+// nodes, one <tspan class="coach-word"> per word, colored by verdict.
+export function renderSentence(target: SVGGElement, interactionLayer: SVGSVGElement, content: CoachSentenceContent) {
+    target.replaceChildren()
+    if (content.heading) {
+        const heading = document.createElementNS(SVG_NS, 'text')
+        heading.setAttribute('class', 'coach-story-text coach-page-heading')
+        heading.setAttribute('x', String(STORY_LEFT))
+        heading.setAttribute('y', String(HEADING_BASELINE))
+        heading.setAttribute('font-size', '22')
+        heading.setAttribute('font-weight', '700')
+        heading.setAttribute('opacity', '0.7')
+        heading.textContent = content.heading
+        target.appendChild(heading)
+    }
+    const { lines, fontSize } = layoutSentence(interactionLayer, content.words)
+    const textEl = document.createElementNS(SVG_NS, 'text')
+    textEl.setAttribute('class', 'coach-story-text coach-story-body')
+    textEl.setAttribute('font-size', String(fontSize))
+    // Built once per render rather than an Array.includes() check per
+    // word -- same shape content.verdicts already indexes into, just a
+    // Set instead of a sparse array since targetIndices has no
+    // meaningful "gaps" to preserve positionally.
+    const targetIndexSet = new Set(content.targetIndices)
+    let wordCursor = 0
+    lines.forEach((line, lineIndex) => {
+        const span = document.createElementNS(SVG_NS, 'tspan')
+        span.setAttribute('x', String(STORY_LEFT))
+        span.setAttribute('y', String(STORY_TOP + lineIndex * fontSize * STORY_BODY_LEADING))
+        span.setAttribute('xml:space', 'preserve')
+        line.split(/(\s+)/).forEach((token) => {
+            if (!token) return
+            if (/^\s+$/.test(token)) {
+                span.appendChild(document.createTextNode(token))
+                return
+            }
+            const index = wordCursor++
+            const wordEl = document.createElementNS(SVG_NS, 'tspan')
+            wordEl.setAttribute('class', 'coach-word')
+            wordEl.setAttribute('data-word', token)
+            // Bold marks every target-word occurrence, unconditionally --
+            // the "this was a practice word" signal, independent of
+            // verdict. Fill color follows a priority so target-highlight
+            // and verdict coloring never fight over the same attribute:
+            // verdict color wins once a verdict exists (immediate
+            // right/wrong feedback matters more than the target marker
+            // once scoring has actually run), else the target-highlight
+            // color if this is a target word, else no fill (default ink).
+            const isTarget = targetIndexSet.has(index)
+            wordEl.setAttribute('font-weight', isTarget ? '700' : '400')
+            const verdict = content.verdicts?.[index]
+            if (verdict === 'correct') wordEl.setAttribute('fill', 'var(--coach-correct)')
+            else if (verdict === 'miscue') wordEl.setAttribute('fill', 'var(--coach-miscue)')
+            else if (isTarget) wordEl.setAttribute('fill', 'var(--coach-target)')
+            else wordEl.removeAttribute('fill')
+            wordEl.textContent = token
+            span.appendChild(wordEl)
+        })
+        textEl.appendChild(span)
+    })
+    target.appendChild(textEl)
+}
