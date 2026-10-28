@@ -34,6 +34,9 @@ export const STRINGS: Record<Lang, {
     notFoundTitle: string
     notFoundDesc: string
     wordCounter: (current: number, total: number) => string
+    passageCounter: (current: number, total: number) => string
+    listenToPassage: string
+    stopListening: string
     readThisSentence: string
     pronounce: string
     micIdleHint: string
@@ -60,6 +63,9 @@ export const STRINGS: Record<Lang, {
         notFoundTitle: 'Hindi Nahanap',
         notFoundDesc: 'Hindi na available ang materyal na ito.',
         wordCounter: (current, total) => `Salita ${current} sa ${total}`,
+        passageCounter: (current, total) => `Talata ${current} sa ${total}`,
+        listenToPassage: 'Pakinggan ang talata',
+        stopListening: 'Itigil',
         readThisSentence: 'Basahin ang pangungusap na ito:',
         pronounce: 'Pakinggan',
         micIdleHint: 'Pindutin ang mikropono (o ang spacebar) at basahin nang malakas ang pangungusap.',
@@ -86,6 +92,9 @@ export const STRINGS: Record<Lang, {
         notFoundTitle: 'Not Found',
         notFoundDesc: "This material isn't available anymore.",
         wordCounter: (current, total) => `Word ${current} of ${total}`,
+        passageCounter: (current, total) => `Passage ${current} of ${total}`,
+        listenToPassage: 'Listen to the passage',
+        stopListening: 'Stop',
         readThisSentence: 'Read this sentence:',
         pronounce: 'Hear It',
         micIdleHint: 'Tap the mic (or press Space) and read the sentence out loud.',

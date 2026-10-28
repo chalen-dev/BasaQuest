@@ -231,7 +231,7 @@
 // what's actually on the page.
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Bird, NotebookText, Volume2 } from 'lucide-react'
+import { Bird, NotebookText, Square, Volume2 } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useWordImageQuery } from '../../../../hooks/useWordImage.ts'
 import { AnimatedOwl } from '../../../../components/ui/AnimatedOwl.tsx'
@@ -461,6 +461,9 @@ export default function RemediationCoachPage() {
     const nt = NOTEBOOK_STRINGS[lang]
     const { data: material, isLoading, error } = useRemediationMaterialQuery(materialId)
     const { speak, isLoading: pronounceLoading } = usePronounceWord()
+    // Its own instance, so a tapped word's audio and the whole-passage reading
+    // never share a loading or playing state.
+    const { speak: speakPassage, stop: stopPassage, isLoading: passageLoading, isPlaying: passagePlaying } = usePronounceWord()
     const backdropRef = useRef<CoachTableBackdropHandle>(null)
 
     // Seeded once from the query, same reasoning as RemediationSession.tsx:
@@ -593,6 +596,7 @@ export default function RemediationCoachPage() {
         if (isTurning) return
         const nextPage = pages[newIndex]
         if (!nextPage) return
+        stopPassage()
         setIsTurning(true)
         setCurrentIndex(newIndex)
         await backdropRef.current?.turnTo(nextPage.content, direction)
@@ -890,6 +894,43 @@ export default function RemediationCoachPage() {
                             placeholderText={nt.placeholder}
                         />
                     </CoachTableBackdrop>
+
+                    {/* Footer row on the book's right page, under the
+                    previous/mic/next controls (same 1670x941 viewBox the
+                    backdrop uses, as percentages): read-aloud on the left,
+                    "Passage n of N" on the right. The row itself ignores
+                    pointer events so it never blocks the page; only the
+                    button takes clicks. */}
+                    <div
+                        className="pointer-events-none absolute flex items-center justify-between"
+                        style={{ left: '54%', width: '39%', top: '85.2%', fontSize: 'clamp(11px, 1.35cqw, 19px)' }}
+                    >
+                        <button
+                            type="button"
+                            disabled={passageLoading}
+                            aria-busy={passageLoading}
+                            onClick={() =>
+                                passagePlaying
+                                    ? stopPassage()
+                                    : void speakPassage(currentPage.content.words.join(' '), material.language, true)
+                            }
+                            className="pointer-events-auto flex cursor-pointer items-center gap-[0.4em] rounded-full border-2 border-amber-800 bg-white/80 px-[1em] py-[0.35em] font-bold text-amber-900 shadow-sm transition-colors duration-150 hover:bg-white disabled:cursor-wait disabled:opacity-70 dark:border-indigo-300 dark:bg-indigo-950/70 dark:text-indigo-100 dark:hover:bg-indigo-950"
+                        >
+                            {passageLoading ? (
+                                <span className="h-[1em] w-[1em] animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            ) : passagePlaying ? (
+                                <Square size="1em" fill="currentColor" />
+                            ) : (
+                                <Volume2 size="1.1em" />
+                            )}
+                            {passagePlaying ? t.stopListening : t.listenToPassage}
+                        </button>
+                        <span className="font-bold text-amber-900 dark:text-indigo-100">
+                            {isPassageMode
+                                ? t.passageCounter(currentIndex + 1, pages.length)
+                                : t.wordCounter(currentIndex + 1, pages.length)}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Word notebook toggle -- bottom-left, matching the

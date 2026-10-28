@@ -57,6 +57,14 @@ function slugify(word: string): string {
         .trim()
 }
 
+// Longest passage read aloud in one request; Coach passages are a few sentences.
+const MAX_PASSAGE_CHARS = 2000
+
+async function sha256Hex(text: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 function escapeXml(s: string): string {
     return s
         .replace(/&/g, '&amp;')
@@ -121,23 +129,39 @@ Deno.serve(async (req: Request) => {
             return jsonResponse({ error: 'Server is not configured for pronunciation audio yet.' }, 500)
         }
         const body = await req.json().catch(() => null)
-        const rawWord = typeof body?.word === 'string' ? body.word : ''
         const lang = body?.language === 'fil' ? 'fil' : body?.language === 'en' ? 'en' : null
-        const slug = slugify(rawWord)
-        if (!slug || !lang) {
-            return jsonResponse({ error: 'Expected { word: string, language: "en" | "fil" } in the request body.' }, 400)
+        // A whole passage ({ text }) is spoken as written and cached under a hash
+        // of its words; a single word ({ word }) keeps its slug filename. The
+        // "passage-" prefix has a hyphen, which slugify() strips, so the two
+        // never collide.
+        const rawText = typeof body?.text === 'string' ? body.text.replace(/\s+/g, ' ').trim() : ''
+        let spoken: string
+        let filename: string
+        if (rawText) {
+            if (rawText.length > MAX_PASSAGE_CHARS) {
+                return jsonResponse({ error: `Text is too long (max ${MAX_PASSAGE_CHARS} characters).` }, 400)
+            }
+            spoken = rawText
+            filename = `passage-${await sha256Hex(rawText)}.mp3`
+        } else {
+            const rawWord = typeof body?.word === 'string' ? body.word : ''
+            const slug = slugify(rawWord)
+            spoken = slug
+            filename = `${slug}.mp3`
+        }
+        if (!spoken || !lang) {
+            return jsonResponse({ error: 'Expected { word: string } or { text: string }, plus language: "en" | "fil".' }, 400)
         }
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!
         const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         const adminClient = createClient(supabaseUrl, serviceRoleKey)
-        const filename = `${slug}.mp3`
         const storagePath = `${lang}/${filename}`
         const { data: existingFiles } = await adminClient.storage.from(BUCKET).list(lang, { search: filename })
         const alreadyCached = (existingFiles ?? []).some((f) => f.name === filename)
         if (!alreadyCached) {
             let audioBytes: Uint8Array
             try {
-                audioBytes = await synthesize(slug, lang, azureKey, azureRegion)
+                audioBytes = await synthesize(spoken, lang, azureKey, azureRegion)
             } catch (err) {
                 console.error('pronounce-word: Azure TTS failed', err)
                 return jsonResponse({ error: 'The pronunciation service is temporarily unavailable. Please try again.' }, 502)

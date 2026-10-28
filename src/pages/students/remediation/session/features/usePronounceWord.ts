@@ -35,7 +35,7 @@
 // handling. The placeholder beep uses its own short-lived
 // AudioContext/OscillatorNode instead, since there's no URL to hand an
 // <audio> element.
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../../../../lib/supabaseClient'
 import { USE_PLACEHOLDER_PRONUNCIATION } from '../../../../../../devFlags'
 
@@ -84,7 +84,17 @@ export function usePronounceWord() {
     const urlCacheRef = useRef<Map<string, string>>(new Map())
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
-    const speak = useCallback(async (word: string, language: PronounceLanguage) => {
+    // Silences whatever is playing (a passage read-aloud toggled off, or a page turn).
+    const stop = useCallback(() => {
+        audioRef.current?.pause()
+        setIsPlaying(false)
+    }, [])
+
+    // Stop on unmount so a passage does not keep reading after leaving the page.
+    useEffect(() => () => audioRef.current?.pause(), [])
+
+    // `whole` speaks the text as written (a passage) instead of one word.
+    const speak = useCallback(async (word: string, language: PronounceLanguage, whole = false) => {
         const trimmed = word.trim()
         if (!trimmed) return
         setError(null)
@@ -95,7 +105,7 @@ export function usePronounceWord() {
             return
         }
 
-        const cacheKey = `${language}:${trimmed.toLowerCase()}`
+        const cacheKey = `${language}:${whole ? 'text:' : ''}${trimmed.toLowerCase()}`
 
         const playUrl = (url: string) => {
             audioRef.current?.pause()
@@ -122,7 +132,7 @@ export function usePronounceWord() {
         setIsLoading(true)
         try {
             const { data, error: invokeError } = await supabase.functions.invoke<{ url: string }>('pronounce-word', {
-                body: { word: trimmed, language },
+                body: whole ? { text: trimmed, language } : { word: trimmed, language },
             })
             if (invokeError || !data?.url) {
                 throw invokeError ?? new Error('Malformed response')
@@ -137,5 +147,5 @@ export function usePronounceWord() {
         }
     }, [])
 
-    return { speak, isLoading, isPlaying, error }
+    return { speak, stop, isLoading, isPlaying, error }
 }
