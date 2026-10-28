@@ -77,11 +77,90 @@ function playPlaceholderBeep(onDone: () => void) {
     }
 }
 
+// URL LOOKUP + PRELOAD. Cached clips live at a path we can compute ourselves
+// (same rules as the edge function: a slug for a word, a SHA-256 of the
+// whitespace-normalized text for a passage), so the app first checks that public
+// file directly and only calls the edge function when it is missing -- no cold
+// start or storage lookup on a repeat play. The caches are module-level, shared
+// by every hook instance (word button and passage button), and `prefetchAudio`
+// fills them and warms the browser's own HTTP cache ahead of the tap.
+const BUCKET = 'pronunciation-audio'
+const urlCache = new Map<string, string>()
+const inflight = new Map<string, Promise<string>>()
+// Kept referenced so the browser does not drop a preloaded clip before it is played.
+const warmed = new Map<string, HTMLAudioElement>()
+
+function slugifyWord(word: string): string {
+    return word
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}']/gu, '')
+        .replace(/'/g, '')
+}
+
+async function sha256Hex(text: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+const normalizeText = (text: string) => text.replace(/\s+/g, ' ').trim()
+
+const cacheKeyFor = (text: string, language: PronounceLanguage, whole: boolean) =>
+    `${language}:${whole ? `text:${normalizeText(text)}` : slugifyWord(text)}`
+
+function peekAudioUrl(text: string, language: PronounceLanguage, whole: boolean): string | undefined {
+    return urlCache.get(cacheKeyFor(text, language, whole))
+}
+
+function resolveAudioUrl(text: string, language: PronounceLanguage, whole: boolean): Promise<string> {
+    const key = cacheKeyFor(text, language, whole)
+    const known = urlCache.get(key)
+    if (known) return Promise.resolve(known)
+    const pending = inflight.get(key)
+    if (pending) return pending
+
+    const request = (async () => {
+        const spoken = whole ? normalizeText(text) : text
+        try {
+            const name = whole ? `passage-${await sha256Hex(spoken)}` : slugifyWord(spoken)
+            const direct = supabase.storage.from(BUCKET).getPublicUrl(`${language}/${name}.mp3`).data.publicUrl
+            if ((await fetch(direct, { method: 'HEAD' })).ok) return direct
+        } catch {
+            // No crypto.subtle, offline or CORS: the edge function path below covers it.
+        }
+        const { data, error } = await supabase.functions.invoke<{ url: string }>('pronounce-word', {
+            body: whole ? { text: spoken, language } : { word: spoken, language },
+        })
+        if (error || !data?.url) throw error ?? new Error('Malformed response')
+        return data.url
+    })()
+        .then((url) => {
+            urlCache.set(key, url)
+            return url
+        })
+        .finally(() => inflight.delete(key))
+    inflight.set(key, request)
+    return request
+}
+
+// Fire-and-forget: resolve (generating the clip on the server if it is new) and
+// start downloading it, so a later tap plays at once. Never throws or sets state.
+export function prefetchAudio(text: string, language: PronounceLanguage, whole = false) {
+    if (USE_PLACEHOLDER_PRONUNCIATION || !text.trim() || (!whole && !slugifyWord(text))) return
+    resolveAudioUrl(text.trim(), language, whole)
+        .then((url) => {
+            if (warmed.has(url)) return
+            const audio = new Audio()
+            audio.preload = 'auto'
+            audio.src = url
+            warmed.set(url, audio)
+        })
+        .catch(() => {})
+}
+
 export function usePronounceWord() {
     const [isLoading, setIsLoading] = useState(false)
     const [isPlaying, setIsPlaying] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const urlCacheRef = useRef<Map<string, string>>(new Map())
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     // Silences whatever is playing (a passage read-aloud toggled off, or a page turn).
@@ -105,8 +184,6 @@ export function usePronounceWord() {
             return
         }
 
-        const cacheKey = `${language}:${whole ? 'text:' : ''}${trimmed.toLowerCase()}`
-
         const playUrl = (url: string) => {
             audioRef.current?.pause()
             const audio = new Audio(url)
@@ -123,22 +200,15 @@ export function usePronounceWord() {
             })
         }
 
-        const cachedUrl = urlCacheRef.current.get(cacheKey)
-        if (cachedUrl) {
-            playUrl(cachedUrl)
+        const readyUrl = peekAudioUrl(trimmed, language, whole)
+        if (readyUrl) {
+            playUrl(readyUrl)
             return
         }
 
         setIsLoading(true)
         try {
-            const { data, error: invokeError } = await supabase.functions.invoke<{ url: string }>('pronounce-word', {
-                body: whole ? { text: trimmed, language } : { word: trimmed, language },
-            })
-            if (invokeError || !data?.url) {
-                throw invokeError ?? new Error('Malformed response')
-            }
-            urlCacheRef.current.set(cacheKey, data.url)
-            playUrl(data.url)
+            playUrl(await resolveAudioUrl(trimmed, language, whole))
         } catch (err) {
             console.error('usePronounceWord: failed to get pronunciation audio', err)
             setError('Could not load the pronunciation audio. Please try again.')
@@ -147,5 +217,5 @@ export function usePronounceWord() {
         }
     }, [])
 
-    return { speak, stop, isLoading, isPlaying, error }
+    return { speak, stop, prefetch: prefetchAudio, isLoading, isPlaying, error }
 }

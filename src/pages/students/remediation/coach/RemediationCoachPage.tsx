@@ -245,7 +245,7 @@ import {
     type RemediationPassage,
     type RemediationWordEntry,
 } from '../hooks.ts'
-import { usePronounceWord } from '../session/features/usePronounceWord.ts'
+import { prefetchAudio, usePronounceWord } from '../session/features/usePronounceWord.ts'
 import {
     CoachTableBackdrop,
     type CoachSentenceContent,
@@ -525,6 +525,25 @@ export default function RemediationCoachPage() {
             : pagesFromWords(sessionWords, lang)
 
     const currentPage = pages[currentIndex] ?? null
+
+    // PRELOAD: get the audio ready before it is tapped -- this page's passage, its
+    // target words, then the next page's passage and target words. Plain strings
+    // are the effect's dependencies because `pages` is rebuilt on every render.
+    // A passage or word nobody has played yet is generated on the server by this
+    // call; clips that already exist are only downloaded ahead of time.
+    const passageText = currentPage?.content.words.join(' ') ?? ''
+    const targetWordsKey = currentPage ? getTargetWordsForPage(currentPage.content).join('|') : ''
+    const nextPage = pages[currentIndex + 1]
+    const nextPassageText = nextPage?.content.words.join(' ') ?? ''
+    const nextTargetWordsKey = nextPage ? getTargetWordsForPage(nextPage.content).join('|') : ''
+    const audioLanguage = material?.language
+    useEffect(() => {
+        if (!audioLanguage) return
+        if (isPassageMode) prefetchAudio(passageText, audioLanguage, true)
+        for (const word of targetWordsKey.split('|')) prefetchAudio(word, audioLanguage)
+        if (isPassageMode) prefetchAudio(nextPassageText, audioLanguage, true)
+        for (const word of nextTargetWordsKey.split('|')) prefetchAudio(word, audioLanguage)
+    }, [audioLanguage, isPassageMode, passageText, targetWordsKey, nextPassageText, nextTargetWordsKey])
 
     // A word Gemini tagged as a name never looks up its own picture ("Maya"
     // the girl must not get the maya bird). A merely guessed name does look
