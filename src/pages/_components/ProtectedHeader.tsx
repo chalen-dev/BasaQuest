@@ -1,6 +1,7 @@
 // File: ProtectedHeader.tsx
+import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+import { LogOut, Menu, X } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.tsx'
 import { useTheme } from '../../contexts/ThemeContext.tsx'
 import { useLang } from '../../contexts/LangContext.tsx'
@@ -61,6 +62,8 @@ const HEADER_STRINGS: Record<Lang, {
     logoutToast: string
     logoutLabel: string
     logoutTooltip: string
+    openMenu: string
+    closeMenu: string
     themeToLight: string
     themeToDark: string
 }> = {
@@ -71,6 +74,8 @@ const HEADER_STRINGS: Record<Lang, {
         logoutToast: 'Na-logout ka na. Ingat!',
         logoutLabel: 'Logout',
         logoutTooltip: 'Mag-sign out sa iyong account',
+        openMenu: 'Buksan ang menu',
+        closeMenu: 'Isara ang menu',
         themeToLight: 'Lumipat sa araw',
         themeToDark: 'Lumipat sa gabi',
     },
@@ -81,6 +86,8 @@ const HEADER_STRINGS: Record<Lang, {
         logoutToast: "You've been logged out. See you soon!",
         logoutLabel: 'Logout',
         logoutTooltip: 'Sign out of your account',
+        openMenu: 'Open menu',
+        closeMenu: 'Close menu',
         themeToLight: 'Switch to light mode',
         themeToDark: 'Switch to dark mode',
     },
@@ -105,6 +112,11 @@ export default function ProtectedHeader() {
     const { lang, setLang } = useLang()
     const { profile } = useProfile()
     const location = useLocation()
+    // The small-screen menu is open only for the page it was opened on, so it
+    // closes by itself when the route changes.
+    const [menuOpenedOn, setMenuOpenedOn] = useState<string | null>(null)
+    const menuOpen = menuOpenedOn === location.pathname
+    const closeMenu = () => setMenuOpenedOn(null)
     const username = (user?.user_metadata?.username as string | undefined) ?? user?.email ?? 'Guest'
     const t = HEADER_STRINGS[lang]
     const isTeacher = profile?.role === 'teacher'
@@ -133,6 +145,10 @@ export default function ProtectedHeader() {
                 ? studentNavItems
                 : NAV_ITEMS[lang]
 
+    // Badges the collapsed menu button carries, so a pending review or a waiting
+    // passage is not hidden just because the nav is folded away.
+    const badgeTotal = navItems.reduce((sum, item) => sum + (item.badge ?? 0), 0)
+
     const handleLogout = async () => {
         const confirmed = await showConfirmation(t.logoutTitle, t.logoutText, theme === 'dark', 'warning', t.logoutConfirm)
         if (confirmed) {
@@ -158,7 +174,7 @@ export default function ProtectedHeader() {
                     />
                     <div className="leading-tight">
                         <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">BasaQuest</div>
-                        <div className="text-[0.75rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <div className="hidden text-[0.75rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:block">
                             {TAGLINE[lang]}
                         </div>
                     </div>
@@ -190,10 +206,29 @@ export default function ProtectedHeader() {
                     above — this row sits right at the top of the
                     viewport, so an above-positioned tooltip gets clipped
                     off-screen. */}
-                <Tooltip label={theme === 'dark' ? t.themeToLight : t.themeToDark} position="bottom">
-                    <ThemeToggleButton />
-                </Tooltip>
-                <LangToggle lang={lang} onChange={setLang} />
+                {/* On the smallest screens the theme and language toggles live
+                    in the menu instead (see below), so the row never overflows. */}
+                <div className="hidden items-center gap-2.5 sm:flex">
+                    <Tooltip label={theme === 'dark' ? t.themeToLight : t.themeToDark} position="bottom">
+                        <ThemeToggleButton />
+                    </Tooltip>
+                    <LangToggle lang={lang} onChange={setLang} />
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setMenuOpenedOn(menuOpen ? null : location.pathname)}
+                    aria-label={menuOpen ? t.closeMenu : t.openMenu}
+                    aria-expanded={menuOpen}
+                    className="relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-gray-900/10 text-gray-700 transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10 lg:hidden"
+                >
+                    {menuOpen ? <X size={20} /> : <Menu size={20} />}
+                    {!menuOpen && badgeTotal > 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[0.75rem] font-bold text-white">
+                            {badgeTotal > 9 ? '9+' : badgeTotal}
+                        </span>
+                    )}
+                </button>
+                <div className="hidden lg:block">
                 <Tooltip label={username} position="bottom">
                     <div className="flex shrink-0 items-center gap-2">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-orange-500 font-bold text-white shadow-sm dark:border-gray-900">
@@ -215,6 +250,8 @@ export default function ProtectedHeader() {
                         </div>
                     </div>
                 </Tooltip>
+                </div>
+                <div className="hidden lg:block">
                 <Tooltip label={t.logoutTooltip} position="bottom">
                     <button
                         type="button"
@@ -225,8 +262,68 @@ export default function ProtectedHeader() {
                         {t.logoutLabel}
                     </button>
                 </Tooltip>
+                </div>
             </div>
-            <nav className="mx-auto flex max-w-[84rem] flex-wrap gap-2 px-4 pb-3 lg:hidden">
+            {menuOpen && (
+                <>
+                    <button
+                        type="button"
+                        aria-label={t.closeMenu}
+                        onClick={closeMenu}
+                        className="fixed inset-0 -z-10 cursor-default lg:hidden"
+                    />
+                    <div className="absolute inset-x-0 top-full border-b border-gray-900/10 bg-white/95 shadow-lg backdrop-blur dark:border-gray-100/10 dark:bg-gray-950/95 lg:hidden">
+                        <div className="mx-auto flex max-w-[84rem] items-center gap-3 px-4 pt-3 sm:hidden">
+                            <ThemeToggleButton />
+                            <LangToggle lang={lang} onChange={setLang} />
+                        </div>
+                        <nav className="mx-auto flex max-w-[84rem] flex-col gap-1.5 px-4 pb-2 pt-3">
+                            {navItems.map((item) => {
+                                const active = isNavItemActive(item, location.pathname)
+                                return (
+                                    <NavLink
+                                        key={item.to}
+                                        to={item.to}
+                                        className={`flex items-center justify-between rounded-xl px-4 py-3 text-base font-bold transition-colors duration-200 ${
+                                            active
+                                                ? 'bg-gray-900 text-white dark:bg-gray-50 dark:text-gray-900'
+                                                : 'text-gray-700 hover:bg-gray-900/5 dark:text-gray-200 dark:hover:bg-gray-100/10'
+                                        }`}
+                                    >
+                                        {item.label}
+                                        {!!item.badge && item.badge > 0 && (
+                                            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[0.8125rem] font-bold text-white">
+                                                {item.badge > 9 ? '9+' : item.badge}
+                                            </span>
+                                        )}
+                                    </NavLink>
+                                )
+                            })}
+                        </nav>
+                        <div className="mx-auto flex max-w-[84rem] items-center gap-3 border-t border-gray-900/10 px-4 py-3 dark:border-gray-100/10">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 font-bold text-white">
+                                {username[0]?.toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1 leading-tight">
+                                <div className="truncate text-sm font-bold text-gray-900 dark:text-gray-50">{username}</div>
+                                <div className="text-[0.8125rem] font-semibold text-gray-500 dark:text-gray-400">
+                                    {profile ? (ROLE_LABEL[lang][profile.role] ?? profile.role) : ''}
+                                    {profile?.is_test ? ' · Test' : ''}
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleLogout}
+                                className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-red-500/15 px-3.5 py-2 text-xs font-bold text-red-700 transition-colors duration-200 hover:bg-red-500/25 dark:text-red-300"
+                            >
+                                <LogOut size={14} />
+                                {t.logoutLabel}
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+            <nav className="hidden">
                 {navItems.map((item) => (
                     <div key={item.to} className="relative">
                         <NavLink
