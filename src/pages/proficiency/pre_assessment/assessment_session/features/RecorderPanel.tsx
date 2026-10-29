@@ -326,7 +326,8 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                         <div className="flex items-center justify-center gap-4">
                             {!isRecorded ? (
                                 <>
-                                    <Waveform active={isRecording} levels={rec.levels} compact bars={18} className="w-[clamp(5rem,13vw,13rem)] max-lg:hidden" />
+                                    {/* Mirrored: the left strip runs right to left, so the loudest bars sit next to the mic on both sides. */}
+                                    <Waveform active={isRecording} levels={rec.levels} compact bars={18} className="w-[clamp(5rem,13vw,13rem)] flex-row-reverse max-lg:hidden" />
                                     <div className="relative -mt-5">
                                         <button
                                             onClick={handleMicClick}
