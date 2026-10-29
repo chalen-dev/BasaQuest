@@ -246,6 +246,8 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
     const statusLabel = isCountingDown ? t.countdownLabel : isRecording ? t.recordingLabel : isRecorded ? t.recordedLabel : t.readyLabel
     const hintText = isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : isRecorded ? t.hintRecorded : t.hintIdle
     const busy = submitted || submitting
+    // The listen-back player below gets a definite width: the middle of the bar sizes to its
+    // content, and the player's seek track has no width of its own, so "w-full" left it a dot.
     const timeColor = nearLimit
         ? 'text-amber-600 dark:text-amber-400'
         : isRecording
@@ -350,8 +352,6 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                                     <Waveform active={isRecording} levels={rec.levels} compact bars={18} className="w-[clamp(5rem,13vw,13rem)] max-lg:hidden" />
                                 </>
                             ) : rec.audioUrl ? (
-                                {/* A definite width: the middle of the bar sizes to its content, and the
-                                    player's seek track has no width of its own, so "w-full" left it a dot. */}
                                 <AudioPlayer src={rec.audioUrl} className="w-[clamp(20rem,30vw,32rem)]" />
                             ) : (
                                 <div className="rounded-full bg-gray-900/5 px-4 py-1.5 text-sm font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
