@@ -350,7 +350,9 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                                     <Waveform active={isRecording} levels={rec.levels} compact bars={18} className="w-[clamp(5rem,13vw,13rem)] max-lg:hidden" />
                                 </>
                             ) : rec.audioUrl ? (
-                                <AudioPlayer src={rec.audioUrl} className="w-full min-w-[16rem] max-w-md" />
+                                {/* A definite width: the middle of the bar sizes to its content, and the
+                                    player's seek track has no width of its own, so "w-full" left it a dot. */}
+                                <AudioPlayer src={rec.audioUrl} className="w-[clamp(20rem,30vw,32rem)]" />
                             ) : (
                                 <div className="rounded-full bg-gray-900/5 px-4 py-1.5 text-sm font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
                                     {t.simulatedTake}
