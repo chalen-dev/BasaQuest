@@ -1,31 +1,18 @@
 // File: src/pages/proficiency/pre_assessment/assessment_session/features/PassagePanel.tsx
-// Left column of the passage + recording step — displays the generated
-// (or placeholder) passage, now paginated when it doesn't fit on one
-// screen at a comfortable reading size.
+// The passage card of the passage + recording step: full width, with the
+// recorder bar (RecorderPanel.tsx) underneath. The goal is that the pupil sees
+// the WHOLE passage at once while recording, with no page flipping.
 //
-// This card has a FIXED height (set by the grid in AssessmentSession.tsx —
-// lg:h-[calc(100vh-14rem)]) and the whole point is still no page
-// scrolling. Page breaks are found by measuring real rendered height in a
-// hidden clone, not by estimating from word count. IMPORTANT: the hidden
-// measurer must replicate the same markup as the visible text, not just
-// the same font/line-height — each visible word is wrapped in a span with
-// px-0.5 padding (see the word rendering below), and that padding adds up
-// across a whole line. An earlier version measured plain text with no
-// padding, which fit one extra word per line in the measurement that the
-// real (padded) text couldn't actually fit — so pages still clipped their
-// last line. Fixed by having the measurer build the identical
-// span-per-word structure (padding and all), just visually hidden via
-// opacity-0, so its wrapping matches the real paragraph exactly.
-//
-// Pagination controls only render when there's more than one page — a
-// short Grade 1 passage that fits in one page shows no Previous/Next/dots
-// at all. Recomputes on every new passage and via a ResizeObserver on the
-// container (so it stays correct if the card's size ever changes);
-// passage-change resets to page 1, a resize just clamps the current page
-// into whatever the new page count allows. Previous/Next are sized up
-// (px-6 py-3 text-base, was px-4 py-2 text-sm) for bigger, easier-to-hit
-// tap targets — this screen is meant for young pupils on possibly a
-// shared/tablet-ish device, so the original size read as fiddly.
+// AUTO-FIT: on large screens the grid in AssessmentSessionPage.tsx gives this
+// card a fixed height (the space left under the header), and `fit()` below picks
+// the largest text size, between MAX_REM and MIN_REM, at which the whole passage
+// fits in the card's text area. A short Grade 1 passage ends up big; a long
+// Grade 6 one ends up smaller. It re-runs when the passage changes and whenever
+// the text area changes size (window resize, the recorder bar changing height).
+// If the passage still does not fit at MIN_REM, the text area scrolls and the
+// pupil gets a cue: a fade at the bottom, a "Scroll to keep reading" button, and
+// a one-time hint. Below `lg` (phones) there is no fixed height: the text is a
+// fixed size and the text area is capped at half the screen, scrolling inside.
 //
 // Interactive word gimmick: every word in the passage is its own clickable
 // span. Click toggles a random pastel background on/off for that word
@@ -35,33 +22,21 @@
 // the dark card) and the word's text is always forced to near-black, so
 // no random hue can ever land on something unreadable. Hover shows a
 // yellow highlight via an inset box-shadow overlay rather than swapping
-// the background directly. Word colors are tracked by each word's index
-// in the WHOLE passage (not per-page), so highlights persist correctly
-// when flipping between pages. Colors reset any time a new passage comes
-// in (see the useEffect below).
+// the background directly. Colors reset any time a new passage comes in.
 //
 // "Clear Highlights" is a deliberately low-key secret-feature affordance —
-// completely absent until at least one word (on any page) has a color,
-// sitting in the badge row up top. Clears every highlighted word across
-// the whole passage, not just the current page.
-//
-// Three one-time onboarding <Hint>s (see components/ui/Hint.tsx): one on
-// "Clear Highlights" the first time it ever appears, one on the Next
-// button the first time a passage actually has more than one page, and
-// one on the Previous button — gated to `!isFirstPage`, so it only shows
-// once Previous has actually become clickable (i.e. after the pupil has
-// already flipped forward at least once), not while it's sitting disabled
-// on page 1. All three are `persist`-ed (the Hint default), so a pupil
-// only ever sees each once, across sessions. `autoHideMs={6000}` — these
-// close twice as fast as the auth-page hints (which use Hint's 12s
-// default) since there's more going on on this screen competing for
-// attention.
+// completely absent until at least one word has a color, sitting in the badge
+// row up top, with a one-time <Hint> (see components/ui/Hint.tsx) the first time
+// it ever appears. The scroll hint works the same way: persisted, shown once.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ArrowDown } from 'lucide-react'
 import type { Lang } from '../../../../../components/buttons/LangToggle.tsx'
 import { useTheme } from '../../../../../contexts/ThemeContext.tsx'
 import { Hint } from '../../../../../components/ui/Hint.tsx'
 import { DifficultyStars } from '../../../../../components/ui/DifficultyStars.tsx'
+import { Owl } from '../../../../../components/ui/Owl.tsx'
 import type { AssessmentStrings, Passage } from '../assessmentSessionStrings.ts'
+
 type PassagePanelProps = {
     t: AssessmentStrings
     gradeLevel: number
@@ -72,16 +47,13 @@ type PassagePanelProps = {
     // screen isn't covered in speech bubbles at once.
     hintsBlocked: boolean
 }
-type PageRange = { start: number; end: number }
-const MIN_WORDS = 40
-const MAX_WORDS = 240
-const MAX_REM = 1.75
-const MIN_REM = 1.35
-function passageFontRem(wordCount: number): number {
-    const clamped = Math.min(MAX_WORDS, Math.max(MIN_WORDS, wordCount))
-    const progress = (clamped - MIN_WORDS) / (MAX_WORDS - MIN_WORDS)
-    return MAX_REM - progress * (MAX_REM - MIN_REM)
-}
+
+const LG_QUERY = '(min-width: 1024px)'
+const MAX_REM = 2
+const MIN_REM = 1
+const STEP_REM = 0.05
+const PHONE_REM = 1.2
+
 // Deliberately not a "dark" hue at any random draw — lightness/saturation
 // are pinned per theme so every random color stays light enough for the
 // forced near-black text to read clearly on top of it.
@@ -89,93 +61,69 @@ function randomWordColor(isDark: boolean): string {
     const hue = Math.floor(Math.random() * 360)
     return isDark ? `hsl(${hue}, 65%, 60%)` : `hsl(${hue}, 82%, 83%)`
 }
+
 export function PassagePanel({ t, gradeLevel, assessmentLang, passage, hintsBlocked }: PassagePanelProps) {
     const { theme } = useTheme()
     const isDark = theme === 'dark'
     const tokens = useMemo(() => passage.passage.split(/(\s+)/), [passage.passage])
-    const wordCount = useMemo(() => passage.passage.trim().split(/\s+/).filter(Boolean).length, [passage.passage])
-    const fontRem = useMemo(() => passageFontRem(wordCount), [wordCount])
     const [wordColors, setWordColors] = useState<Record<number, string>>({})
     const hasHighlights = Object.keys(wordColors).length > 0
-    const containerRef = useRef<HTMLDivElement>(null)
-    const measureRef = useRef<HTMLParagraphElement>(null)
-    const [pageRanges, setPageRanges] = useState<PageRange[]>([{ start: 0, end: tokens.length }])
-    const [pageIndex, setPageIndex] = useState(0)
-    // Walks the tokens and only cuts a page when the NEXT token would
-    // actually overflow the container's real measured height. The
-    // measurer builds the SAME word-span-with-padding structure as the
-    // real rendered text (see the render below) so its wrapping matches
-    // exactly — measuring plain text here was the bug that let pages
-    // clip their last line.
-    const computeRanges = useCallback((): PageRange[] | null => {
-        const container = containerRef.current
-        const measure = measureRef.current
-        if (!container || !measure) return null
-        const maxHeight = container.clientHeight
-        if (maxHeight <= 0) return null
-        measure.style.fontSize = `${fontRem}rem`
-        measure.innerHTML = ''
-        const appendToken = (token: string) => {
-            if (token === '') return
-            if (/^\s+$/.test(token)) {
-                measure.appendChild(document.createTextNode(token))
-            } else {
-                const span = document.createElement('span')
-                span.className = 'px-0.5'
-                span.textContent = token
-                measure.appendChild(span)
+    const wrapRef = useRef<HTMLDivElement>(null)
+    const textRef = useRef<HTMLParagraphElement>(null)
+    const [scroll, setScroll] = useState({ scrollable: false, atEnd: true })
+
+    const updateScroll = useCallback(() => {
+        const wrap = wrapRef.current
+        if (!wrap) return
+        const scrollable = wrap.scrollHeight > wrap.clientHeight + 1
+        const atEnd = wrap.scrollHeight - wrap.clientHeight - wrap.scrollTop <= 8
+        setScroll((prev) => (prev.scrollable === scrollable && prev.atEnd === atEnd ? prev : { scrollable, atEnd }))
+    }, [])
+
+    // The largest text size at which the whole passage fits (see AUTO-FIT above).
+    // The font size is written straight to the element, not kept in state, so
+    // fitting never causes a re-render loop.
+    const fit = useCallback(() => {
+        const wrap = wrapRef.current
+        const text = textRef.current
+        if (!wrap || !text) return
+        if (!window.matchMedia(LG_QUERY).matches) {
+            text.style.fontSize = `${PHONE_REM}rem`
+        } else {
+            let rem = MAX_REM
+            text.style.fontSize = `${rem}rem`
+            while (wrap.scrollHeight > wrap.clientHeight + 1 && rem > MIN_REM + 1e-6) {
+                rem = Math.max(MIN_REM, Number((rem - STEP_REM).toFixed(2)))
+                text.style.fontSize = `${rem}rem`
             }
         }
-        const ranges: PageRange[] = []
-        let start = 0
-        let i = 0
-        while (i < tokens.length) {
-            appendToken(tokens[i])
-            if (measure.scrollHeight <= maxHeight || i === start) {
-                i++
-            } else {
-                ranges.push({ start, end: i })
-                start = i
-                measure.innerHTML = ''
-                // i is NOT incremented — token i gets re-appended to the
-                // now-empty measurer on the next loop pass, as the first
-                // token of the new page.
-            }
-        }
-        ranges.push({ start, end: tokens.length })
-        return ranges
-    }, [tokens, fontRem])
-    // New passage: recompute pages and jump back to page 1.
+        updateScroll()
+    }, [updateScroll])
+
+    // New passage: fit it and start from the top.
     useLayoutEffect(() => {
-        const ranges = computeRanges()
-        if (ranges) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setPageRanges(ranges)
-            setPageIndex(0)
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [passage.passage])
-    // Card resized: recompute pages, just clamp the current page instead
-    // of jumping back to page 1 (don't yank the reader around).
+        wrapRef.current?.scrollTo({ top: 0 })
+        fit()
+    }, [passage.passage, fit])
+
+    // The text area changed size (window, or the recorder bar below changed
+    // height), or the web fonts finished loading: fit again.
     useEffect(() => {
-        const container = containerRef.current
-        if (!container) return
-        const observer = new ResizeObserver(() => {
-            const ranges = computeRanges()
-            if (ranges) {
-                setPageRanges(ranges)
-                setPageIndex((p) => Math.min(p, ranges.length - 1))
-            }
-        })
-        observer.observe(container)
+        const wrap = wrapRef.current
+        if (!wrap) return
+        const observer = new ResizeObserver(fit)
+        observer.observe(wrap)
+        void document.fonts?.ready.then(fit)
         return () => observer.disconnect()
-    }, [computeRanges])
+    }, [fit])
+
     // Fresh passage = fresh colors, so a "regenerate" doesn't carry over
     // highlights from the previous text.
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setWordColors({})
     }, [passage.passage])
+
     const toggleWord = (index: number) => {
         setWordColors((prev) => {
             if (prev[index]) {
@@ -187,13 +135,10 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage, hintsBloc
         })
     }
     const clearHighlights = () => setWordColors({})
-    const currentRange = pageRanges[pageIndex] ?? { start: 0, end: tokens.length }
-    const pageTokens = tokens.slice(currentRange.start, currentRange.end)
-    const isFirstPage = pageIndex === 0
-    const isLastPage = pageIndex === pageRanges.length - 1
-    const showPagination = pageRanges.length > 1
+    const showScrollCue = scroll.scrollable && !scroll.atEnd
+
     return (
-        <section className="flex h-full flex-col overflow-hidden rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10">
+        <section className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-gray-900/5 bg-white p-6 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-8 short:p-5">
             <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
                     {t.gradeLabel(gradeLevel)}
@@ -214,88 +159,53 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage, hintsBloc
                         <Hint id="assessment-clear-highlights" text={t.clearHighlightsHint} show={!hintsBlocked} placement="bottom" align="end" autoHideMs={6000} />
                     </div>
                 )}
-                {showPagination && (
-                    <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                        {t.pageLabel(pageIndex + 1, pageRanges.length)}
-                    </span>
-                )}
             </div>
-            <h2 className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-gray-50 sm:text-4xl">{passage.title}</h2>
-            <div ref={containerRef} className="relative mt-6 flex-1 overflow-hidden">
-                {/* Hidden measurer — same word-span-with-padding structure
-                    as the visible text below, used purely to find real
-                    page breaks. Must match markup, not just font styling,
-                    or its wrapping won't match the real paragraph's. */}
-                <p
-                    ref={measureRef}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-0 top-0 whitespace-pre-line font-medium opacity-0"
-                    style={{ fontSize: `${fontRem}rem`, lineHeight: 1.65 }}
-                />
-                <p
-                    className="whitespace-pre-line font-medium text-gray-800 dark:text-gray-200"
-                    style={{ fontSize: `${fontRem}rem`, lineHeight: 1.65 }}
-                >
-                    {pageTokens.map((token, j) => {
-                        const globalIndex = currentRange.start + j
-                        if (token === '' || /^\s+$/.test(token)) {
-                            return token
-                        }
-                        const bg = wordColors[globalIndex]
-                        return (
-                            <span
-                                key={globalIndex}
-                                onClick={() => toggleWord(globalIndex)}
-                                className="cursor-pointer rounded-[3px] px-0.5 transition-colors duration-150 hover:shadow-[inset_0_0_0_999px_rgba(250,204,21,0.35)]"
-                                style={bg ? { backgroundColor: bg, color: '#111827' } : undefined}
-                            >
-                                {token}
-                            </span>
-                        )
-                    })}
-                </p>
-            </div>
-            {showPagination && (
-                <div className="mt-4 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <button
-                                onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-                                disabled={isFirstPage}
-                                className="cursor-pointer rounded-full border-2 border-gray-900/10 px-6 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
-                            >
-                                {t.prevPage}
-                            </button>
-                            <Hint id="assessment-prev-page" text={t.prevPageHint} show={!isFirstPage && !hintsBlocked} placement="bottom" align="start" autoHideMs={6000} />
-                        </div>
-                        <div className="flex flex-1 items-center justify-center gap-2">
-                            {pageRanges.map((_, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setPageIndex(i)}
-                                    aria-label={t.pageLabel(i + 1, pageRanges.length)}
-                                    className={`h-2.5 cursor-pointer rounded-full transition-all duration-200 ${
-                                        i === pageIndex ? 'w-7 bg-teal-500' : 'w-2.5 bg-gray-900/15 dark:bg-gray-100/15'
-                                    }`}
-                                />
-                            ))}
-                        </div>
-                        <div className="relative">
-                            <button
-                                onClick={() => setPageIndex((p) => Math.min(pageRanges.length - 1, p + 1))}
-                                disabled={isLastPage}
-                                className="cursor-pointer rounded-full bg-teal-500 px-6 py-3 text-base font-bold text-white transition-colors duration-150 hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-teal-600 dark:hover:bg-teal-500"
-                            >
-                                {t.nextPage}
-                            </button>
-                            <Hint id="assessment-page-nav" text={t.pageNavHint} show={!hintsBlocked} placement="bottom" align="end" autoHideMs={6000} />
-                        </div>
-                    </div>
-                    <p className="mt-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        {t.readAllHint}
+            <h2 className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-gray-50 sm:text-4xl short:text-3xl">{passage.title}</h2>
+            <div className="relative mt-4 flex min-h-0 flex-1 flex-col">
+                <div ref={wrapRef} onScroll={updateScroll} className="min-h-0 flex-1 overflow-y-auto pr-2 max-lg:max-h-[50vh]">
+                    <p ref={textRef} className="whitespace-pre-line font-medium text-gray-800 dark:text-gray-200" style={{ lineHeight: 1.7 }}>
+                        {tokens.map((token, index) => {
+                            if (token === '' || /^\s+$/.test(token)) {
+                                return token
+                            }
+                            const bg = wordColors[index]
+                            return (
+                                <span
+                                    key={index}
+                                    onClick={() => toggleWord(index)}
+                                    className="cursor-pointer rounded-[3px] px-0.5 transition-colors duration-150 hover:shadow-[inset_0_0_0_999px_rgba(250,204,21,0.35)]"
+                                    style={bg ? { backgroundColor: bg, color: '#111827' } : undefined}
+                                >
+                                    {token}
+                                </span>
+                            )
+                        })}
                     </p>
                 </div>
-            )}
+                {showScrollCue && (
+                    <>
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-white to-transparent dark:from-gray-900"
+                        />
+                        <div className="absolute bottom-2 right-6">
+                            <button
+                                type="button"
+                                onClick={() => wrapRef.current?.scrollBy({ top: wrapRef.current.clientHeight * 0.8, behavior: 'smooth' })}
+                                className="flex cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-4 py-2 text-sm font-bold text-white shadow-lg transition-colors duration-150 hover:bg-teal-600 dark:bg-teal-600 dark:hover:bg-teal-500"
+                            >
+                                <ArrowDown size={16} />
+                                {t.scrollMore}
+                            </button>
+                            <Hint id="assessment-scroll-passage" text={t.scrollPassageHint} show={!hintsBlocked} placement="top" align="end" autoHideMs={7000} />
+                        </div>
+                    </>
+                )}
+            </div>
+            <div className="mt-3 flex shrink-0 items-center gap-2.5 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                <Owl size={30} />
+                <span>{t.recorderEncourage}</span>
+            </div>
         </section>
     )
 }

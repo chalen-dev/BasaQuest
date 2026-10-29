@@ -124,12 +124,11 @@ export type AssessmentStrings = {
     pendingTitle: string
     pendingDesc: string
     timeLimitNote: (mins: number) => string
-    pageLabel: (i: number, total: number) => string
-    prevPage: string
-    nextPage: string
-    readAllHint: string
     noisyEnvironmentWarning: string
     micHint: string
+    // The passage card scrolls only when even the smallest text size does not fit it.
+    scrollMore: string
+    scrollPassageHint: string
     // Shown while the browser's microphone prompt is open, and when the mic
     // was blocked (see features/MicPermissionHelp.tsx).
     micAskTitle: string
@@ -138,8 +137,6 @@ export type AssessmentStrings = {
     micBlockedTitle: string
     micBlockedBody: string
     clearHighlightsHint: string
-    pageNavHint: string
-    prevPageHint: string
     redoHint: string
     submitHint: string
     // Teacher's read-through of a generated passage before the session
@@ -241,20 +238,16 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         pendingTitle: 'Hinihintay ang Guro',
         pendingDesc: 'Naipasa na ang iyong pagbasa. Susuriin ito ng iyong guro bago maging pinal ang resulta.',
         timeLimitNote: (mins) => `May limitasyong ${mins} minuto ang pag-record.`,
-        pageLabel: (i, total) => `Pahina ${i}/${total}`,
-        prevPage: '← Nakaraan',
-        nextPage: 'Susunod →',
-        readAllHint: 'Basahin ang bawat pahina — patuloy lang ang pag-record.',
         noisyEnvironmentWarning: 'Medyo maingay sa paligid — subukang maghanap ng mas tahimik na lugar.',
         micHint: 'Pindutin ang mikropono para magsimulang magbasa nang malakas! 🎙️',
+        scrollMore: 'Mag-scroll pa',
+        scrollPassageHint: 'Mahaba ang talata! Mag-scroll pababa para mabasa ang lahat — patuloy lang ang pag-record. 📖',
         micAskTitle: 'Payagan ang mikropono',
         micAskBody: 'Magtatanong ang browser kung puwedeng gamitin ang mikropono. Pindutin ang unang button, ang may dilaw na bilog (tulad ng nasa larawan).',
         micAllowButton: 'Allow while visiting the site',
         micBlockedTitle: 'Naka-block ang mikropono',
         micBlockedBody: 'Pindutin ang icon sa tabi ng address ng website sa itaas (ang kandado o ang maliit na slider), piliin ang Microphone, at itakda sa Allow. Pagkatapos, i-refresh ang page.',
         clearHighlightsHint: 'Puwede mong tapikin ang mga salita para markahan ito — pindutin dito para tanggalin lahat! 🖍️',
-        pageNavHint: 'Marami pang pahina! Gamitin ang mga buton na ito para lumipat — patuloy lang ang pag-record. 📖',
-        prevPageHint: 'Puwede ka ring bumalik sa naunang pahina para muling basahin! ⬅️',
         redoHint: 'Hindi kontento sa recording? Pindutin dito para ulitin! 🔁',
         submitHint: 'Tapos ka na? Pindutin dito para ipasa sa iyong guro! ✅',
         waitingTitle: 'Inihahanda pa ng iyong guro ang talata mo',
@@ -341,20 +334,16 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         pendingTitle: 'Waiting for Teacher',
         pendingDesc: 'Your reading has been submitted. Your teacher will review it before the result is final.',
         timeLimitNote: (mins) => `Recording is limited to ${mins} minutes.`,
-        pageLabel: (i, total) => `Page ${i}/${total}`,
-        prevPage: '← Previous',
-        nextPage: 'Next →',
-        readAllHint: 'Read each page — recording keeps going.',
         noisyEnvironmentWarning: "It's a bit noisy right now — try to find a quieter spot.",
         micHint: 'Press the microphone to start reading aloud! 🎙️',
+        scrollMore: 'Scroll to keep reading',
+        scrollPassageHint: 'This passage is long! Scroll down to read all of it — recording keeps going. 📖',
         micAskTitle: 'Allow the microphone',
         micAskBody: 'Your browser is asking to use the microphone. Press the first button, the one with the yellow ring (like in the picture).',
         micAllowButton: 'Allow while visiting the site',
         micBlockedTitle: 'The microphone is blocked',
         micBlockedBody: 'Click the icon next to the website address at the top (the lock or the little sliders), choose Microphone, and set it to Allow. Then refresh the page.',
         clearHighlightsHint: 'You can tap words to mark them — press here to clear them all! 🖍️',
-        pageNavHint: 'There are more pages! Use these buttons to flip through — recording keeps going. 📖',
-        prevPageHint: 'You can go back to reread earlier pages too! ⬅️',
         redoHint: 'Not happy with your take? Tap here to record again! 🔁',
         submitHint: 'All done? Tap here to send it to your teacher! ✅',
         waitingTitle: 'Your teacher is still getting your passage ready',

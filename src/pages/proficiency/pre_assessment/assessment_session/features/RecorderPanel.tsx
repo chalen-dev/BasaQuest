@@ -1,8 +1,11 @@
 // File: RecorderPanel.tsx
 // File: src/pages/proficiency/pre_assessment/assessment_session/features/RecorderPanel.tsx
-// Right column of the passage + recording step — the timer, waveform, mic
-// toggle, redo/submit controls, and the submitted/"waiting for teacher"
-// state. Split out of AssessmentSession.tsx to keep that file focused on
+// The bottom bar of the passage + recording step (the passage card sits above
+// it, full width): timer and status on the left, waveform and mic in the
+// middle (the player replaces them once a take exists), redo/submit on the
+// right, and the submitted/"waiting for teacher" state. Anything that must not
+// resize the bar (the mic-unavailable card, the hints) floats above it, so the
+// passage above never changes size when it appears. Split out of AssessmentSession.tsx to keep that file focused on
 // step routing (intro/loading/error/passage) rather than recorder UI.
 //
 // Once submitted, this is intentionally terminal — no "Record Again" from
@@ -66,7 +69,6 @@
 // can't force an unwanted take.
 import { useEffect, useRef, useState } from 'react'
 import { Hourglass, Loader2, Mic, RotateCcw, Send, TriangleAlert } from 'lucide-react'
-import { Owl } from '../../../../../components/ui/Owl.tsx'
 import { Hint } from '../../../../../components/ui/Hint.tsx'
 import { AudioPlayer } from '../../../../../components/ui/AudioPlayer.tsx'
 import type { AssessmentStrings } from '../assessmentSessionStrings.ts'
@@ -241,154 +243,148 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
         }, 1000)
         countdownTickRef.current = intervalId
     }
+    const statusLabel = isCountingDown ? t.countdownLabel : isRecording ? t.recordingLabel : isRecorded ? t.recordedLabel : t.readyLabel
+    const hintText = isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : isRecorded ? t.hintRecorded : t.hintIdle
+    const busy = submitted || submitting
+    const timeColor = nearLimit
+        ? 'text-amber-600 dark:text-amber-400'
+        : isRecording
+            ? 'text-rose-600 dark:text-rose-400'
+            : 'text-gray-900 dark:text-gray-50'
+
     return (
-        <section className="flex h-full min-h-0 flex-col items-center gap-6 short:gap-3 overflow-y-auto rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10 short:p-5 [&>*:first-child]:mt-auto [&>*:last-child]:mb-auto">
-            {submitted ? (
-                <div className="flex flex-col items-center gap-4 py-4 text-center">
-                    <span className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:bg-amber-400/15 dark:text-amber-300">
-                        <Hourglass size={34} className="animate-pulse" />
-                    </span>
-                    <span className="rounded-full bg-amber-500/15 px-4 py-1.5 text-sm font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
-                        {t.pendingTitle}
-                    </span>
-                    <p className="max-w-sm text-base font-medium text-gray-600 dark:text-gray-400">{t.pendingDesc}</p>
+        <div className="relative max-lg:sticky max-lg:bottom-2 max-lg:z-10">
+            {/* Outside the bar on purpose: the card is position:fixed (top of the screen),
+                and the bar's backdrop blur would make it position inside the bar instead. */}
+            {!busy && !isRecorded && !isRecording && <MicPermissionHelp t={t} failed={!!rec.error} onActiveChange={onMicHelpActiveChange} />}
+            {/* Mic unavailable: floats above the bar, so the bar keeps its height. */}
+            {rec.error && !isRecorded && !busy && (
+                <div className="absolute bottom-full left-1/2 z-20 mb-4 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl border-2 border-gray-900/10 bg-white p-4 text-center text-sm font-semibold text-gray-600 shadow-xl dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-300">
+                    {t.micUnavailable}
+                    <button
+                        onClick={() => rec.simulate(38)}
+                        className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-2.5 text-sm font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
+                    >
+                        {t.continueNoMic}
+                    </button>
                 </div>
-            ) : submitting ? (
-                // In-flight upload, between tapping Submit and it actually
-                // finishing — see assessmentSessionStrings.ts's
-                // sendingTitle/sendingDesc header comment for why this got
-                // its own full-panel state instead of just a dimmed
-                // button label.
-                <div className="flex flex-col items-center gap-4 py-4 text-center">
-                    <span className="flex h-20 w-20 items-center justify-center rounded-full bg-teal-500/15 text-teal-600 dark:bg-teal-400/15 dark:text-teal-300">
-                        <Loader2 size={34} className="animate-spin" />
-                    </span>
-                    <span className="rounded-full bg-teal-500/15 px-4 py-1.5 text-sm font-bold uppercase tracking-wide text-teal-700 dark:bg-teal-400/15 dark:text-teal-300">
-                        {t.sendingTitle}
-                    </span>
-                    <p className="max-w-sm text-base font-medium text-gray-600 dark:text-gray-400">{t.sendingDesc}</p>
-                </div>
-            ) : (
-                <>
-                    <div className="text-center">
-                        <div className="text-sm font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            {isCountingDown ? t.countdownLabel : isRecording ? t.recordingLabel : isRecorded ? t.recordedLabel : t.readyLabel}
+            )}
+            <section className="grid min-h-[7.5rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 rounded-3xl border border-gray-900/5 bg-white/95 px-5 py-4 shadow-[0_-6px_28px_rgba(0,0,0,0.12)] backdrop-blur transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900/95 sm:px-6 lg:grid-cols-[1fr_auto_1fr]">
+                {submitted ? (
+                    <div className="col-span-full flex items-center justify-center gap-4 text-left">
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:bg-amber-400/15 dark:text-amber-300">
+                            <Hourglass size={26} className="animate-pulse" />
+                        </span>
+                        <div>
+                            <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
+                                {t.pendingTitle}
+                            </span>
+                            <p className="mt-1.5 max-w-xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.pendingDesc}</p>
                         </div>
-                        <div
-                            className={`font-mono text-6xl short:text-5xl font-extrabold leading-none ${
-                                nearLimit
-                                    ? 'text-amber-600 dark:text-amber-400'
-                                    : isRecording
-                                        ? 'text-rose-600 dark:text-rose-400'
-                                        : 'text-gray-900 dark:text-gray-50'
-                            }`}
-                        >
-                            {formatSeconds(rec.seconds)}
-                            {isRecording && (
-                                <span className="ml-1 text-2xl font-bold text-gray-400 dark:text-gray-500">
-                                    / {formatSeconds(MAX_RECORDING_SECONDS)}
-                                </span>
+                    </div>
+                ) : submitting ? (
+                    // In-flight upload, between tapping Submit and it actually
+                    // finishing — see assessmentSessionStrings.ts's
+                    // sendingTitle/sendingDesc header comment for why this got its
+                    // own state instead of just a dimmed button label.
+                    <div className="col-span-full flex items-center justify-center gap-4 text-left">
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-teal-500/15 text-teal-600 dark:bg-teal-400/15 dark:text-teal-300">
+                            <Loader2 size={26} className="animate-spin" />
+                        </span>
+                        <div>
+                            <span className="rounded-full bg-teal-500/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-teal-700 dark:bg-teal-400/15 dark:text-teal-300">
+                                {t.sendingTitle}
+                            </span>
+                            <p className="mt-1.5 max-w-xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.sendingDesc}</p>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <div className="min-w-0">
+                            <div className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{statusLabel}</div>
+                            <div className={`font-mono text-[2.1rem] font-extrabold leading-none ${timeColor}`}>
+                                {formatSeconds(rec.seconds)}
+                                {isRecording && (
+                                    <span className="ml-1 text-base font-bold text-gray-400 dark:text-gray-500">
+                                        / {formatSeconds(MAX_RECORDING_SECONDS)}
+                                    </span>
+                                )}
+                            </div>
+                            {isRecording && rec.isNoisy ? (
+                                <p className="mt-1 flex items-start gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                                    <TriangleAlert size={14} className="mt-px shrink-0" />
+                                    {t.noisyEnvironmentWarning}
+                                </p>
+                            ) : (
+                                <p className="mt-1 max-w-[30ch] text-[0.8125rem] font-semibold leading-snug text-gray-600 dark:text-gray-400">
+                                    {!isRecording && !isRecorded && !isCountingDown ? t.timeLimitNote(Math.round(MAX_RECORDING_SECONDS / 60)) : hintText}
+                                </p>
                             )}
                         </div>
-                        {!isRecording && !isRecorded && !isCountingDown && (
-                            <p className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                                {t.timeLimitNote(Math.round(MAX_RECORDING_SECONDS / 60))}
-                            </p>
-                        )}
-                    </div>
-                    {isRecording && rec.isNoisy && (
-                        <div className="flex items-center gap-2 rounded-full bg-amber-500/15 px-4 py-1.5 text-xs font-bold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
-                            <TriangleAlert size={14} />
-                            {t.noisyEnvironmentWarning}
+                        <div className="flex items-center justify-center gap-4">
+                            {!isRecorded ? (
+                                <>
+                                    <Waveform active={isRecording} levels={rec.levels} compact bars={18} className="w-[clamp(5rem,13vw,13rem)] max-lg:hidden" />
+                                    <div className="relative -mt-5">
+                                        <button
+                                            onClick={handleMicClick}
+                                            aria-label={isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : t.hintIdle}
+                                            className={`flex h-[4.75rem] w-[4.75rem] cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-100 active:translate-y-1 ${
+                                                isRecording
+                                                    ? 'bg-rose-600 shadow-[0_8px_0_0_#9f1239] active:shadow-[0_3px_0_0_#9f1239]'
+                                                    : 'bg-teal-500 shadow-[0_8px_0_0_#0f766e] active:shadow-[0_3px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_8px_0_0_#115e59]'
+                                            }`}
+                                        >
+                                            {isCountingDown ? (
+                                                <span key={countdown} className="animate-pulse font-mono text-4xl font-extrabold leading-none">
+                                                    {countdown}
+                                                </span>
+                                            ) : isRecording ? (
+                                                <span className="h-7 w-7 rounded-lg bg-white" />
+                                            ) : (
+                                                <Mic size={34} />
+                                            )}
+                                        </button>
+                                        <Hint id="assessment-mic-button" text={t.micHint} show={!isRecording && !isCountingDown && !hintsBlocked} placement="top" align="center" autoHideMs={6000} />
+                                    </div>
+                                    <Waveform active={isRecording} levels={rec.levels} compact bars={18} className="w-[clamp(5rem,13vw,13rem)] max-lg:hidden" />
+                                </>
+                            ) : rec.audioUrl ? (
+                                <AudioPlayer src={rec.audioUrl} className="w-full min-w-[16rem] max-w-md" />
+                            ) : (
+                                <div className="rounded-full bg-gray-900/5 px-4 py-1.5 text-sm font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                    {t.simulatedTake}
+                                </div>
+                            )}
                         </div>
-                    )}
-                    <Waveform active={isRecording} levels={rec.levels} />
-                    {isRecorded && rec.audioUrl && (
-                        <AudioPlayer src={rec.audioUrl} className="w-full" />
-                    )}
-                    {isRecorded && !rec.audioUrl && (
-                        <div className="rounded-full bg-gray-900/5 px-4 py-1.5 text-sm font-bold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                            {t.simulatedTake}
-                        </div>
-                    )}
-                    {!isRecorded && (
-                        <div className="relative">
-                            <button
-                                onClick={handleMicClick}
-                                aria-label={isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : t.hintIdle}
-                                className={`flex h-36 w-36 short:h-24 short:w-24 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-100 active:translate-y-1 ${
-                                    isRecording
-                                        ? 'bg-rose-600 shadow-[0_10px_0_0_#9f1239] active:shadow-[0_3px_0_0_#9f1239]'
-                                        : 'bg-teal-500 shadow-[0_10px_0_0_#0f766e] active:shadow-[0_3px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_10px_0_0_#115e59]'
-                                }`}
-                            >
-                                {isCountingDown ? (
-                                    <span key={countdown} className="animate-pulse font-mono text-6xl font-extrabold leading-none">
-                                        {countdown}
-                                    </span>
-                                ) : isRecording ? (
-                                    <span className="h-10 w-10 rounded-xl bg-white" />
-                                ) : (
-                                    <Mic className="h-[52px] w-[52px] short:h-9 short:w-9" />
-                                )}
-                            </button>
-                            <Hint id="assessment-mic-button" text={t.micHint} show={!isRecording && !isCountingDown && !hintsBlocked} placement="top" align="center" autoHideMs={6000} />
-                        </div>
-                    )}
-                    <p className="min-h-[24px] text-center text-base font-semibold text-gray-600 dark:text-gray-400">
-                        {isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : isRecorded ? t.hintRecorded : t.hintIdle}
-                    </p>
-                    {!isRecorded && !isRecording && <MicPermissionHelp t={t} failed={!!rec.error} onActiveChange={onMicHelpActiveChange} />}
-                    {rec.error && !isRecorded && (
-                        <div className="w-full rounded-2xl bg-gray-900/5 p-4 text-center text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                            {t.micUnavailable}
-                            <button
-                                onClick={() => rec.simulate(38)}
-                                className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-2.5 text-sm font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
-                            >
-                                {t.continueNoMic}
-                            </button>
-                        </div>
-                    )}
-                    {isRecorded ? (
-                        <div className="flex w-full gap-3">
-                            <div className="relative flex-1">
-                                <button
-                                    onClick={rec.reset}
-                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
-                                >
-                                    <RotateCcw size={17} />
-                                    {t.redoLabel}
-                                </button>
-                                <Hint id="assessment-redo-button" text={t.redoHint} show={!hintsBlocked} placement="top" align="start" autoHideMs={6000} />
-                            </div>
-                            <div className="relative flex-[2]">
+                        <div className="col-span-full flex w-full justify-end gap-3 lg:col-span-1">
+                            {isRecorded && (
+                                <div className="relative flex-1 lg:flex-none">
+                                    <button
+                                        onClick={rec.reset}
+                                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-gray-900/10 px-5 py-3 text-base font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-200 dark:hover:bg-gray-100/10"
+                                    >
+                                        <RotateCcw size={17} />
+                                        {t.redoLabel}
+                                    </button>
+                                </div>
+                            )}
+                            <div className="relative flex-[2] lg:flex-none">
                                 <button
                                     onClick={onSubmit}
-                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-5 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                                    disabled={!isRecorded}
+                                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-teal-500 px-6 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:hover:translate-y-0 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
                                 >
                                     <Send size={17} />
                                     {t.submitLabel}
                                 </button>
-                                <Hint id="assessment-submit-button" text={t.submitHint} show={!hintsBlocked} placement="top" align="end" autoHideMs={6000} />
+                                {/* Only the Submit hint: next to it, a Redo hint would overlap it in the bar. */}
+                                <Hint id="assessment-submit-button" text={t.submitHint} show={isRecorded && !hintsBlocked} placement="top" align="end" autoHideMs={6000} />
                             </div>
                         </div>
-                    ) : (
-                        <button disabled className="w-full cursor-not-allowed rounded-full bg-teal-500 px-5 py-3 text-base font-bold text-white opacity-40 dark:bg-teal-600">
-                            <span className="inline-flex items-center justify-center gap-2">
-                                <Send size={17} />
-                                {t.submitLabel}
-                            </span>
-                        </button>
-                    )}
-                    <div className="flex w-full items-center gap-3 border-t-2 border-dashed border-gray-900/10 pt-4 short:pt-2 dark:border-gray-100/10">
-                        <Owl size={44} />
-                        <p className="text-sm font-semibold leading-snug text-gray-600 dark:text-gray-400">
-                            {t.recorderEncourage}
-                        </p>
-                    </div>
-                </>
-            )}
-        </section>
+                    </>
+                )}
+            </section>
+        </div>
     )
 }

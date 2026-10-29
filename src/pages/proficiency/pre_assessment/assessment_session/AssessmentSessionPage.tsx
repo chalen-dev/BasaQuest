@@ -62,17 +62,14 @@
 //     but the spinner icon is replaced with a skeleton preview of the
 //     two-panel AttemptWordReview layout that's about to load in.
 //
-// The passage step is deliberately built to require NO page scrolling,
-// regardless of passage length — generate-passage's per-grade spec ranges
-// from ~40 words (Grade 1) to ~240 words (Grade 6), and a scrollbar on a
-// reading check-in defeats the point (the pupil should see the whole
-// passage at once while recording). So the two-column grid gets a fixed
-// height derived from the viewport (lg:h-[calc(100vh-14rem)] — 14rem is a
-// rough allowance for the fixed header + assisted banner + page padding;
-// tweak that number if your header height differs) instead of a
-// min-height, and PassagePanel shrinks its own font size as the passage
-// gets longer so long passages still fit inside that fixed height instead
-// of scrolling. See PassagePanel.tsx's passageFontRem() for the scaling.
+// The passage step is deliberately built to require NO page scrolling and no
+// page flipping: the passage card (PassagePanel.tsx) sits on top at full width
+// and the recorder (RecorderPanel.tsx) is a bar underneath. On large screens the
+// pair gets a height measured from the real space left under the header
+// (useFillViewport), and PassagePanel picks the largest text size at which the
+// whole passage fits in its share (generate-passage's per-grade spec ranges from
+// ~40 words at Grade 1 to ~240 at Grade 6). Only if a passage still does not fit
+// at the smallest size does its text area scroll, with a cue and a one-time hint.
 //
 // Recording itself (useRecorder, ported from the prototype's
 // src/lib/useRecorder.js) is REAL browser mic capture via
@@ -813,8 +810,10 @@ export const AssessmentSessionPage: React.FC = () => {
                 />
             )}
             {showPassageStep && passage && !showInlineReview && (
-                <div ref={passageGridRef} className="grid gap-6 lg:h-[calc(100vh-14rem)] lg:grid-cols-[1.6fr_1fr]">
-                    <PassagePanel t={t} gradeLevel={gradeLevel} assessmentLang={assessmentLang} passage={passage} hintsBlocked={micHelpActive} />
+                <div ref={passageGridRef} className="flex flex-col gap-5 lg:h-[calc(100vh-14rem)]">
+                    <div className="min-h-0 flex-1">
+                        <PassagePanel t={t} gradeLevel={gradeLevel} assessmentLang={assessmentLang} passage={passage} hintsBlocked={micHelpActive} />
+                    </div>
                     <RecorderPanel
                         t={t}
                         submitted={submitted}
