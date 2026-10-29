@@ -40,6 +40,7 @@ import { SearchInput } from '../../../../components/input/SearchInput.tsx'
 import { Select } from '../../../../components/input/Select.tsx'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
+import { useFillViewport } from '../../../../hooks/useFillViewport.ts'
 import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { useTeacherPresence } from '../../../../hooks/useTeacherPresence.ts'
 import { showConfirmation, showToast } from '../../../../helpers/swalHelpers.ts'
@@ -219,6 +220,8 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
     const { theme } = useTheme()
     const t = STRINGS[lang]
     const isTeacher = profile?.role === 'teacher'
+    // The teacher's picker fills the window height exactly (see useFillViewport).
+    const pageRef = useFillViewport<HTMLDivElement>(isTeacher)
     const [selectedLang, setSelectedLang] = useState<Lang | null>(null)
     const [searchInput, setSearchInput] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -558,7 +561,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                 ) : (
                     <div className="mt-5 flex flex-1 flex-col gap-6 lg:min-h-0 lg:flex-row">
                         {/* Left column — search + filters, stays put, never scrolls */}
-                        <div className="flex shrink-0 flex-col gap-3 lg:w-64">
+                        <div className="flex shrink-0 flex-col gap-3 short:gap-2 lg:min-h-0 lg:w-64 lg:overflow-y-auto short:lg:grid short:lg:w-[26rem] short:lg:grid-cols-2 short:lg:content-start">
                             <SearchInput
                                 value={searchInput}
                                 onChange={setSearchInput}
@@ -574,7 +577,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                                     setGradeFilter(e.target.value)
                                     setPage(0)
                                 }}
-                                selectClassName="px-3.5 py-3"
+                                selectClassName="px-3.5 py-3 short:py-2"
                             />
                             <Select
                                 name="assignableReaderFilter"
@@ -585,7 +588,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                                     setReaderFilter(e.target.value as AssignableReaderFilter)
                                     setPage(0)
                                 }}
-                                selectClassName="px-3.5 py-3"
+                                selectClassName="px-3.5 py-3 short:py-2"
                             />
                             <Select
                                 name="assignableOnlineFilter"
@@ -596,7 +599,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                                     setOnlineFilter(e.target.value as AssignableOnlineFilter)
                                     setPage(0)
                                 }}
-                                selectClassName="px-3.5 py-3"
+                                selectClassName="px-3.5 py-3 short:py-2"
                             />
                         </div>
                         {/* Right column — the list itself, scrollable; pagination pinned below it */}
@@ -649,6 +652,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
             className={`mx-auto flex flex-col px-4 pb-6 pt-2 ${isTeacher ? 'max-w-6xl' : 'max-w-3xl'} ${
                 isTeacher ? 'lg:h-[calc(100vh-7.5rem)] lg:overflow-hidden' : ''
             }`}
+            ref={pageRef}
         >
             <div className="mb-4 flex shrink-0 flex-wrap items-center gap-3">
                 <Link

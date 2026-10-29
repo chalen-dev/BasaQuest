@@ -58,7 +58,7 @@ export default function GuestLayout() {
                     hintThemeText={hints.theme}
                     hintLangText={hints.lang}
                 />
-                <main className="flex flex-1 flex-col pt-20">
+                <main className="flex flex-1 flex-col pt-20 lg:pt-0">
                     <Outlet />
                 </main>
             </div>

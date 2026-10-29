@@ -131,7 +131,7 @@ export const HomePage: React.FC = () => {
     const isTeacher = profile?.role === 'teacher'
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
-            <section className="relative mb-8 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
+            <section className="relative mb-8 short:mb-5 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8 short:p-5">
                 <div
                     className="absolute inset-0 dark:hidden"
                     style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }}
@@ -175,7 +175,7 @@ export const HomePage: React.FC = () => {
                             onClick={() => navigate(meta.to)}
                             className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border-2 border-gray-900/5 bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-gray-900/10 hover:shadow-xl active:translate-y-0 active:shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-gray-100/20"
                         >
-                            <div className="relative h-32 overflow-hidden">
+                            <div className="relative h-32 short:h-24 overflow-hidden">
                                 <TrackScene name={meta.id} className="absolute inset-0 h-full w-full" />
                                 <span className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 shadow-sm transition-transform duration-200 group-hover:scale-110">
                                     <Icon size={22} className={colors.icon} />
@@ -184,7 +184,7 @@ export const HomePage: React.FC = () => {
                                     {copy.badge}
                                 </span>
                             </div>
-                            <div className="flex flex-1 flex-col gap-2 p-5">
+                            <div className="flex flex-1 flex-col gap-2 p-5 short:p-4">
                                 <span className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                     {copy.kicker}
                                 </span>
@@ -212,7 +212,7 @@ export const HomePage: React.FC = () => {
                             onClick={() => navigate('/dashboard')}
                             className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border-2 border-gray-900/5 bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-gray-900/10 hover:shadow-xl active:translate-y-0 active:shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-gray-100/20"
                         >
-                            <div className="relative h-32 overflow-hidden">
+                            <div className="relative h-32 short:h-24 overflow-hidden">
                                 <TrackScene name="students" className="absolute inset-0 h-full w-full" />
                                 <span className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 shadow-sm transition-transform duration-200 group-hover:scale-110">
                                     <BarChart3 size={22} className="text-slate-700" />
@@ -221,7 +221,7 @@ export const HomePage: React.FC = () => {
                                     {t.teacherSection.badge}
                                 </span>
                             </div>
-                            <div className="flex flex-1 flex-col gap-2 p-5">
+                            <div className="flex flex-1 flex-col gap-2 p-5 short:p-4">
                                 <span className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                     {t.teacherSection.kicker}
                                 </span>

@@ -1,7 +1,7 @@
-// File: src/pages/proficiency/pre_assessment/assessment_session/features/useFillViewport.ts
+// File: src/hooks/useFillViewport.ts
 // Gives an element exactly the height left between its own top edge and the
-// bottom of the window, on large screens (lg and up). The passage step must fit
-// on one screen with no page scroll, and the old fixed allowance
+// bottom of the window, on large screens (lg and up). Screens that must fit
+// on one screen with no page scroll (the recording step, the student picker), and the old fixed allowance
 // (lg:h-[calc(100vh-14rem)]) was a guess at how tall the header, banner and
 // padding above it are. That guess broke when the root font size changed, because
 // those parts are sized in rem. Measuring the real position cannot drift.
