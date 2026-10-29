@@ -174,6 +174,7 @@ import { useUnsavedChangesBlocker } from '../../../../hooks/useUnsavedChangesBlo
 import { useRecorder } from './features/useRecorder.ts'
 import { useSubmitAttempt, useRetryScoring } from './features/useSubmitAttempt.ts'
 import { PassagePanel } from './features/PassagePanel.tsx'
+import { useFillViewport } from './features/useFillViewport.ts'
 import { PassageReview } from './features/PassageReview.tsx'
 import { DifficultyPicker } from './features/DifficultyPicker.tsx'
 import { suggestedStars } from '../../../../lib/passageDifficulty.ts'
@@ -249,6 +250,8 @@ export const AssessmentSessionPage: React.FC = () => {
     // Only ever polled for an assisted session that's actually been
     // submitted — the non-assisted case never needs this data at all.
     const showInlineReview = isAssisted && submitted
+    // The recording step's two columns fill whatever height the window has left (see useFillViewport).
+    const passageGridRef = useFillViewport<HTMLDivElement>(showPassageStep && !showInlineReview)
     const attemptQuery = useAttemptQuery(showInlineReview ? attemptId : null)
     const wordsQuery = useAttemptWordsQuery(attemptId, showInlineReview && attemptQuery.data?.status === 'scored')
     const submitReview = useSubmitReviewMutation(ownProfile?.id)
@@ -810,7 +813,7 @@ export const AssessmentSessionPage: React.FC = () => {
                 />
             )}
             {showPassageStep && passage && !showInlineReview && (
-                <div className="grid gap-6 lg:h-[calc(100vh-14rem)] lg:grid-cols-[1.6fr_1fr]">
+                <div ref={passageGridRef} className="grid gap-6 lg:h-[calc(100vh-14rem)] lg:grid-cols-[1.6fr_1fr]">
                     <PassagePanel t={t} gradeLevel={gradeLevel} assessmentLang={assessmentLang} passage={passage} hintsBlocked={micHelpActive} />
                     <RecorderPanel
                         t={t}

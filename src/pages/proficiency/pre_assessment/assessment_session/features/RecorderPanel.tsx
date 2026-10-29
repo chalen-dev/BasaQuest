@@ -242,7 +242,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
         countdownTickRef.current = intervalId
     }
     return (
-        <section className="flex h-full flex-col items-center justify-center gap-6 rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10">
+        <section className="flex h-full min-h-0 flex-col items-center gap-6 short:gap-3 overflow-y-auto rounded-3xl border border-gray-900/5 bg-white p-8 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:p-10 short:p-5 [&>*:first-child]:mt-auto [&>*:last-child]:mb-auto">
             {submitted ? (
                 <div className="flex flex-col items-center gap-4 py-4 text-center">
                     <span className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:bg-amber-400/15 dark:text-amber-300">
@@ -275,7 +275,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                             {isCountingDown ? t.countdownLabel : isRecording ? t.recordingLabel : isRecorded ? t.recordedLabel : t.readyLabel}
                         </div>
                         <div
-                            className={`font-mono text-6xl font-extrabold leading-none ${
+                            className={`font-mono text-6xl short:text-5xl font-extrabold leading-none ${
                                 nearLimit
                                     ? 'text-amber-600 dark:text-amber-400'
                                     : isRecording
@@ -316,7 +316,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                             <button
                                 onClick={handleMicClick}
                                 aria-label={isCountingDown ? t.hintCountdown : isRecording ? t.hintRecording : t.hintIdle}
-                                className={`flex h-36 w-36 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-100 active:translate-y-1 ${
+                                className={`flex h-36 w-36 short:h-24 short:w-24 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-100 active:translate-y-1 ${
                                     isRecording
                                         ? 'bg-rose-600 shadow-[0_10px_0_0_#9f1239] active:shadow-[0_3px_0_0_#9f1239]'
                                         : 'bg-teal-500 shadow-[0_10px_0_0_#0f766e] active:shadow-[0_3px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_10px_0_0_#115e59]'
@@ -329,7 +329,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                                 ) : isRecording ? (
                                     <span className="h-10 w-10 rounded-xl bg-white" />
                                 ) : (
-                                    <Mic size={52} />
+                                    <Mic className="h-[52px] w-[52px] short:h-9 short:w-9" />
                                 )}
                             </button>
                             <Hint id="assessment-mic-button" text={t.micHint} show={!isRecording && !isCountingDown && !hintsBlocked} placement="top" align="center" autoHideMs={6000} />
@@ -381,7 +381,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                             </span>
                         </button>
                     )}
-                    <div className="flex w-full items-center gap-3 border-t-2 border-dashed border-gray-900/10 pt-4 dark:border-gray-100/10">
+                    <div className="flex w-full items-center gap-3 border-t-2 border-dashed border-gray-900/10 pt-4 short:pt-2 dark:border-gray-100/10">
                         <Owl size={44} />
                         <p className="text-sm font-semibold leading-snug text-gray-600 dark:text-gray-400">
                             {t.recorderEncourage}

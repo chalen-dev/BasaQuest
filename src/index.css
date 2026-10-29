@@ -2,6 +2,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+/* Short windows (a laptop, or a large display scaling): used to tighten the fixed-height recording step. */
+@custom-variant short (@media (max-height: 820px));
 /* Root background + color-scheme
    ------------------------------------------------------------------
    The wrapper <div>s (bg-orange-50 / dark:bg-gray-950) theme the
