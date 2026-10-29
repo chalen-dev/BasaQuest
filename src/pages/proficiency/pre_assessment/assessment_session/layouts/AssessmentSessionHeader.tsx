@@ -35,8 +35,8 @@ const TAGLINE: Record<Lang, string> = {
     en: 'Learning Platform',
 }
 const ASSISTED_LABEL: Record<Lang, string> = {
-    fil: 'Para kay',
-    en: 'For',
+    fil: 'Ginagawa para kay:',
+    en: 'Recording for:',
 }
 const EXIT_STRINGS: Record<Lang, { label: string; title: string; text: string; confirm: string }> = {
     fil: {
@@ -86,20 +86,20 @@ export default function AssessmentSessionHeader({ reviewSaveHandler }: Assessmen
     }
     return (
         <header className="fixed inset-x-0 top-0 z-40 border-b border-gray-900/10 bg-orange-50/30 backdrop-blur-sm transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-950/35">
-            <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:flex-nowrap">
                 <div className="flex items-center gap-2">
                     <Owl mood="neutral" size={40} />
                     <div className="leading-tight">
                         <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">BasaQuest</div>
-                        <div className="text-[0.75rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <div className="hidden text-[0.75rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:block">
                             {TAGLINE[lang]}
                         </div>
                     </div>
                 </div>
                 {isAssisted && studentName && (
-                    <span className="hidden items-center gap-1.5 rounded-full bg-teal-500/15 px-3 py-1 text-xs font-bold text-teal-700 dark:bg-teal-400/15 dark:text-teal-300 sm:flex">
-                        <UserRound size={13} />
-                        {ASSISTED_LABEL[lang]} {studentName}
+                    <span className="order-last flex w-full min-w-0 items-center gap-1.5 rounded-full bg-teal-500/15 px-3 py-1 text-xs font-bold text-teal-700 dark:bg-teal-400/15 dark:text-teal-300 sm:order-none sm:w-auto sm:text-sm">
+                        <UserRound size={14} className="shrink-0" />
+                        <span className="truncate">{ASSISTED_LABEL[lang]} {studentName}</span>
                     </span>
                 )}
                 <div className="flex-1" />

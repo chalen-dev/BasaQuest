@@ -90,7 +90,6 @@ export type AssessmentStrings = {
     errorTitle: string
     errorDesc: string
     retry: string
-    assistedBannerLabel: string
     readyLabel: string
     recordingLabel: string
     recordedLabel: string
@@ -218,7 +217,6 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         errorTitle: 'Naku, may problema.',
         errorDesc: 'Hindi namin nabuo ang talata ngayon. Subukan ulit.',
         retry: 'Subukan Ulit',
-        assistedBannerLabel: 'Ginagawa para kay',
         readyLabel: 'HANDA NA?',
         recordingLabel: 'NAGRE-RECORD…',
         recordedLabel: 'TAPOS NA — PAKINGGAN',
@@ -314,7 +312,6 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         errorTitle: 'Oops, something went wrong.',
         errorDesc: "We couldn't put together a passage right now. Please try again.",
         retry: 'Try Again',
-        assistedBannerLabel: 'Recording for',
         readyLabel: 'READY?',
         recordingLabel: 'RECORDING…',
         recordedLabel: 'DONE — LISTEN BACK',

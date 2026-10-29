@@ -155,7 +155,7 @@
 // repeating it in a second tiny banner above the card would be redundant.
 import React, { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
-import { BookOpenCheck, RefreshCw, UserRound } from 'lucide-react'
+import { BookOpenCheck, RefreshCw } from 'lucide-react'
 import { Owl } from '../../../../components/ui/Owl.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
@@ -645,12 +645,6 @@ export const AssessmentSessionPage: React.FC = () => {
                     : 'mx-auto max-w-3xl px-4 pb-12 pt-2'
             }
         >
-            {isAssisted && studentNameParam && !showInlineReview && (
-                <div className="mb-4 flex items-center gap-2 rounded-2xl border border-teal-500/25 bg-teal-500/10 px-4 py-2.5 text-sm font-bold text-teal-700 dark:border-teal-400/25 dark:bg-teal-400/10 dark:text-teal-300">
-                    <UserRound size={16} />
-                    {t.assistedBannerLabel}: {studentNameParam}
-                </div>
-            )}
             {showSkeleton && (
                 <section
                     role="status"

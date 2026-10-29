@@ -17,7 +17,7 @@ type DifficultyPickerProps = {
 
 export function DifficultyPicker({ t, value, suggested, gradeLevel, onChange, compact = false }: DifficultyPickerProps) {
     return (
-        <div className={`flex flex-col rounded-2xl bg-gray-900/5 dark:bg-gray-100/5 ${compact ? 'gap-1.5 p-3' : 'gap-2 p-4'}`}>
+        <div className={`flex flex-col rounded-2xl bg-gray-900/5 dark:bg-gray-100/5 ${compact ? 'gap-1.5 p-3 short:gap-1 short:p-2.5' : 'gap-2 p-4'}`}>
             <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{t.pickDifficultyLabel}</span>
             <div role="radiogroup" aria-label={t.pickDifficultyLabel} className="flex flex-wrap items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -34,9 +34,9 @@ export function DifficultyPicker({ t, value, suggested, gradeLevel, onChange, co
                             size={compact ? 26 : 32}
                             strokeWidth={2}
                             className={
-                                n <= value
+                                `${compact ? 'short:!h-5 short:!w-5 ' : ''}${n <= value
                                     ? 'fill-amber-400 text-amber-500 dark:fill-amber-300 dark:text-amber-300'
-                                    : 'fill-transparent text-gray-300 dark:text-gray-600'
+                                    : 'fill-transparent text-gray-300 dark:text-gray-600'}`
                             }
                         />
                     </button>

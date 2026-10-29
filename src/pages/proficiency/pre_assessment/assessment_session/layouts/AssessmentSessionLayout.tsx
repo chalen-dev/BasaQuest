@@ -36,7 +36,7 @@ export default function AssessmentSessionLayout() {
     return (
         <div className="flex min-h-screen flex-col bg-orange-50 transition-colors duration-300 dark:bg-gray-950">
             <AssessmentSessionHeader reviewSaveHandler={reviewSaveHandler} />
-            <main className="relative flex-1 overflow-hidden p-4 pt-24 lg:pt-20">
+            <main className="relative flex-1 overflow-hidden p-4 pt-32 sm:pt-24 lg:pt-20">
                 <div className="relative z-10">
                     <Outlet context={{ registerReviewSaveHandler } satisfies AssessmentSessionOutletContext} />
                 </div>
