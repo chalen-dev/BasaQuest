@@ -120,6 +120,7 @@
 // comments at each.
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { ArrowUp, GripHorizontal, Save, Send, Trash2 } from 'lucide-react'
+import { Hint } from '../../../../components/ui/Hint.tsx'
 import { useLang } from '../../../../contexts/LangContext'
 import { useTheme } from '../../../../contexts/ThemeContext'
 import { showConfirmation, showToast } from '../../../../helpers/swalHelpers'
@@ -545,6 +546,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
                     split. A full-width, always-visible tinted bar (not
                     a small floating pill) so it reads as draggable at a
                     glance. */}
+                    <div className="relative hidden shrink-0 lg:block">
                     <div
                         onPointerDown={handleDividerPointerDown}
                         onPointerMove={handleDividerPointerMove}
@@ -552,7 +554,7 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
                         onDoubleClick={() => setSummaryHeight(null)}
                         title={t.dividerHint}
                         style={{ height: DIVIDER_ROW_HEIGHT_PX }}
-                        className={`hidden shrink-0 touch-none cursor-row-resize items-center justify-center rounded-full border transition-colors duration-150 lg:flex ${
+                        className={`flex touch-none cursor-row-resize items-center justify-center rounded-full border transition-colors duration-150 ${
                             isDraggingDivider
                                 ? 'border-teal-500 bg-teal-500/20 dark:border-teal-400 dark:bg-teal-400/20'
                                 : 'border-gray-900/10 bg-gray-900/10 hover:border-teal-500/40 hover:bg-teal-500/15 dark:border-gray-100/10 dark:bg-gray-100/10 dark:hover:border-teal-400/40 dark:hover:bg-teal-400/15'
@@ -564,6 +566,8 @@ export const AttemptWordReview = forwardRef<AttemptWordReviewHandle, AttemptWord
                                 isDraggingDivider ? 'text-teal-600 dark:text-teal-300' : 'text-gray-500 dark:text-gray-400'
                             }`}
                         />
+                    </div>
+                    <Hint id="review-divider-resize" text={t.dividerHintBubble} show={hasWords && !isDraggingDivider} placement="bottom" align="center" autoHideMs={8000} />
                     </div>
                     <div className="lg:min-h-0 lg:flex-1">
                         <PassageCard

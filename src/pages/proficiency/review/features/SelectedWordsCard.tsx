@@ -304,14 +304,14 @@ export function SelectedWordsCard({
                 )}
                 {stack.length === 0 ? (
                     !trimmedSearch && (
-                        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gray-900/10 px-4 py-6 text-center dark:border-gray-100/10">
+                        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-gray-900/10 px-4 py-4 text-center dark:border-gray-100/10 lg:min-h-0 lg:flex-1">
                             <div>
                                 <p className="text-base font-extrabold text-gray-700 dark:text-gray-200">{t.selectedWordsEmptyTitle}</p>
                                 <p className="max-w-xs text-sm font-medium text-gray-500 dark:text-gray-400">{t.selectedWordsEmptyHint}</p>
                             </div>
                             <div
                                 aria-hidden="true"
-                                className="h-40 w-full max-w-xs overflow-hidden rounded-xl border border-gray-900/10 shadow-sm dark:border-gray-100/10"
+                                className="h-40 w-full max-w-xs overflow-hidden rounded-xl border border-gray-900/10 shadow-sm dark:border-gray-100/10 lg:h-auto lg:max-h-40 lg:min-h-[6rem] lg:flex-1"
                                 style={{
                                     backgroundImage: `url(${SELECTED_WORDS_HINT_IMAGE})`,
                                     backgroundSize: SELECTED_WORDS_HINT_IMAGE_ZOOM,

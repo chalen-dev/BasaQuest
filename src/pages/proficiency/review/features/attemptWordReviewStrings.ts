@@ -50,6 +50,8 @@ export const STRINGS: Record<Lang, {
     // DRAGGABLE DIVIDER (AttemptWordReview.tsx, between
     // ResultsSummaryCard and PassageCard) — tooltip on the drag handle.
     dividerHint: string
+    // One-time coach mark on the draggable divider (see AttemptWordReview.tsx).
+    dividerHintBubble: string
     // WORD SEARCH (SelectedWordsCard.tsx) — the search box that lets a
     // teacher find any word in the whole passage (not just the current
     // stack) and click it to add it to the stack.
@@ -103,6 +105,7 @@ export const STRINGS: Record<Lang, {
         selectedWordsEmptyHint: 'Ang mga salitang pinindot mo sa talata ay lalabas dito, ang pinakabago sa itaas.',
         clearAllLabel: 'I-clear Lahat',
         dividerHint: 'I-drag para baguhin ang laki',
+        dividerHintBubble: 'I-drag pataas o pababa ang bar na ito para lakihan ang talata o ang buod. I-double-click para ibalik. ↕️',
         searchPlaceholder: 'Maghanap ng salita...',
         searchResultsLabel: (n) => `${n} resultang salita`,
         searchNoResults: 'Walang nahanap na tumutugmang salita.',
@@ -153,6 +156,7 @@ export const STRINGS: Record<Lang, {
         selectedWordsEmptyHint: "Words you tap in the passage will stack here, most recent on top.",
         clearAllLabel: 'Clear All',
         dividerHint: 'Drag to resize',
+        dividerHintBubble: 'Drag this bar up or down to give the passage or the summary more room. Double-click to reset. ↕️',
         searchPlaceholder: 'Search for a word...',
         searchResultsLabel: (n) => `${n} match${n === 1 ? '' : 'es'}`,
         searchNoResults: 'No matching words found.',
