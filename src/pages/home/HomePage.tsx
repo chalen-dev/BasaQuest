@@ -7,6 +7,9 @@ import { useLang } from '../../contexts/LangContext'
 import { useProfile } from '../../hooks/useProfile.ts'
 import type { Lang } from '../../components/buttons/LangToggle'
 import { TrackScene } from './components/TrackScene'
+import { SCENE_IMAGE } from './trackSceneImages'
+import { usePreloadImages } from '../../hooks/usePreloadImages.ts'
+import { OwlLoader } from '../../components/ui/OwlLoader.tsx'
 const TRACK_META = [
     { id: 'proficiency', to: '/reading/proficiency', icon: Mic, color: 'orange' },
     { id: 'comprehension', to: '/reading/comprehension', icon: BookOpen, color: 'sky' },
@@ -129,6 +132,9 @@ export const HomePage: React.FC = () => {
     const { profile } = useProfile()
     const t = STRINGS[lang]
     const isTeacher = profile?.role === 'teacher'
+    // Wait for the track pictures so the cards appear whole, not one by one.
+    const imagesReady = usePreloadImages([SCENE_IMAGE.proficiency, SCENE_IMAGE.comprehension, SCENE_IMAGE.history, ...(isTeacher ? [SCENE_IMAGE.students] : [])])
+    if (!imagesReady) return <OwlLoader className="py-32" />
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
             <section className="relative mb-8 short:mb-5 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8 short:p-5">

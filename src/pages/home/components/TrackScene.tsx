@@ -1,7 +1,7 @@
 // File: src/pages/home/components/TrackScene.tsx
 import React from 'react'
 
-type SceneName = 'history' | 'proficiency' | 'comprehension' | 'students'
+import { SCENE_IMAGE, type TrackSceneName as SceneName } from '../trackSceneImages'
 
 interface TrackSceneProps {
     name: SceneName
@@ -13,12 +13,6 @@ interface TrackSceneProps {
 // animated SVGs; replaced with static PNGs once real illustrated art was
 // available. See git history for the old SVG version if the animated
 // equalizer/idea-bubble/moon-glow treatment needs to be revisited.
-const SCENE_IMAGE: Record<SceneName, string> = {
-    history: '/track-scenes/owl-history.png',
-    proficiency: '/track-scenes/owl-proficiency.png',
-    comprehension: '/track-scenes/owl-comprehension.png',
-    students: '/track-scenes/owl-student-dashboard.png',
-}
 
 export const TrackScene: React.FC<TrackSceneProps> = ({ name, className = '' }) => {
     return (

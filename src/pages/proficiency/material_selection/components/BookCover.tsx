@@ -1,15 +1,12 @@
 // File: src/pages/proficiency/components/BookCover.tsx
 import React from 'react'
+import { IMAGE_SCENES } from './sceneImages.ts'
 type SceneName = 'moon' | 'market' | 'kite' | 'letters-fil' | 'letters-en'
 type SvgSceneName = 'moon' | 'market' | 'kite'
 
 // The foundational-skills scenes are AI-generated illustrations (an owl at a
 // chalkboard, chalk-drawn "Aa Bb Cc") saved under public/track-scenes/ —
 // rendered as a plain image instead of the hand-coded SVG chalkboard below.
-const IMAGE_SCENES: Partial<Record<SceneName, string>> = {
-    'letters-fil': '/track-scenes/mga_titik_at_tunog.png',
-    'letters-en': '/track-scenes/letters_and_sounds.png',
-}
 
 function Scene({ name }: { name: SceneName }) {
     const image = IMAGE_SCENES[name]

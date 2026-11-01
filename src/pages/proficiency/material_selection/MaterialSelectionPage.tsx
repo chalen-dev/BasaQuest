@@ -10,6 +10,9 @@ import { useProfile } from '../../../hooks/useProfile.ts'
 import { useLang } from '../../../contexts/LangContext.tsx'
 import type { Lang } from '../../../components/buttons/LangToggle.tsx'
 import { BookCover } from './components/BookCover.tsx'
+import { IMAGE_SCENES } from './components/sceneImages.ts'
+import { usePreloadImages } from '../../../hooks/usePreloadImages.ts'
+import { OwlLoader } from '../../../components/ui/OwlLoader.tsx'
 import { useReadyPassageLangsQuery } from '../pre_assessment/savedPassages.ts'
 import { useMyReviewedAttemptsQuery, useUnseenResultCount } from '../my_results/hooks.ts'
 // Ported from the earlier prototype's `data/mock.js` BOOKS list (reading-track
@@ -127,6 +130,9 @@ export const MaterialSelectionPage: React.FC = () => {
     const gradeSection = profile?.grade_level
         ? [t.grade(profile.grade_level), profile.section].filter(Boolean).join(' · ')
         : null
+    // Wait for the cover pictures so the shelf appears whole, not one by one.
+    const imagesReady = usePreloadImages(Object.values(IMAGE_SCENES))
+    if (!imagesReady) return <OwlLoader className="py-32" />
     return (
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
             {profile?.role === 'teacher' ? (
