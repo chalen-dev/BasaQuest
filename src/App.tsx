@@ -43,6 +43,7 @@ import { useSessionPresence } from "./hooks/useSessionPresence.ts";
 import { useDocumentTitle } from "./hooks/useDocumentTitle.ts";
 import FinetuneStudentListPage from "./pages/admin/students/FinetuneStudentListPage.tsx";
 import WordImagesPage from "./pages/admin/word_images/WordImagesPage.tsx";
+import { DesktopOnly } from "./components/routes/DesktopOnly.tsx";
 import CoachPreviewPage from "./pages/admin/word_images/CoachPreviewPage.tsx";
 import PictureCreditsPage from "./pages/credits/PictureCreditsPage.tsx";
 // MIGRATED FROM <BrowserRouter><Routes>...</Routes></BrowserRouter> TO A
@@ -180,13 +181,13 @@ const router = createBrowserRouter(
                     above because Coach Mode's table+book scene needs the
                     entire viewport, not a header-minus-height area. */}
                     <Route element={<RemediationCoachLayout />}>
-                        <Route path="/students/remediation/:studentId/session/:materialId/coach" element={<RemediationCoachPage />} />
+                        <Route path="/students/remediation/:studentId/session/:materialId/coach" element={<DesktopOnly><RemediationCoachPage /></DesktopOnly>} />
                     </Route>
                     {/* Admin Word Pictures -> Preview in coach: full-bleed like the
                     coach itself, with its own floating Exit and theme toggle
                     instead of a shared header. */}
                     <Route element={<AdminRoute />}>
-                        <Route path="/admin/word-images/preview" element={<CoachPreviewPage />} />
+                        <Route path="/admin/word-images/preview" element={<DesktopOnly><CoachPreviewPage /></DesktopOnly>} />
                     </Route>
                     {/* Same idea for the fine-tune mic-capture screen — a
                     stripped header with only an Exit button (back to the
