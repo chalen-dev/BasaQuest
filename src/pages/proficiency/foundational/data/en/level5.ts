@@ -22,7 +22,7 @@ const ROWS: WordRow[] = [
     ['what', 'sight word', SIGHT, 'What is in the box?', ['that', 'when']],
     ['were', 'sight word', SIGHT, 'They were in the rain.', ['where', 'was']],
     ['there', 'sight word', SIGHT, 'There is a bee on the rose.', ['three', 'these']],
-    ['come', 'sight word', SIGHT, 'Come and see the sampaguita.', ['came', 'home']],
+    ['come', 'sight word', SIGHT, 'Come and see the sun.', ['came', 'home']],
     ['some', 'sight word', SIGHT, 'I have some rice.', ['same', 'sum']],
     ['to', 'sight word', SIGHT, 'The kid can go to the shop.', ['too', 'two']],
     ['of', 'sight word', SIGHT, 'I see a bag of rice.', ['off', 'on']],

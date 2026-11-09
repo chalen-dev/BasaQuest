@@ -29,6 +29,10 @@ export type FoundationalLetter = FoundationalWord & {
     lower: string
     letter_name: string
     letter_sound: string
+    // More objects for the same letter (the scene shows them when the pupil
+    // taps the picture). A word with no drawing in the scene shows its emoji,
+    // so adding one here needs no artwork.
+    extra_words?: { word: string; image: string }[]
 }
 
 export type FoundationalSentence = {

@@ -6,22 +6,24 @@
 // It is same-origin, so this page talks to it through window hooks the scene
 // defines, plus two messages back:
 //
-//   lettersLoad(list)     this page -> scene: the level's [{word, sound}], A to Z
+//   lettersLoad(list)     this page -> scene: the level's letters A to Z, each
+//                         {word, sound, image (emoji), extras: [{word, image}]}
 //   lettersSpeaking(bool) this page -> scene: the voice is loading (spinner)
 //   lettersTalking(bool)  this page -> scene: the voice is playing (owl talks)
 //   lettersSpeak(word)    scene -> this page: "Hear it" (server voice)
 //   letters:exit / letters:stop (messages): leave the page / stop the voice
 //
-// The pictures live in the scene and are drawn per letter, so the words in
-// data/en/level1.ts must stay one per letter in A-Z order with the keyword the
-// picture shows. Progress is not saved yet.
+// What each letter shows comes from data/en/level1.ts (a main word plus any
+// extra words). Drawings are looked up by word in public/letters-art.js; a word
+// without a drawing shows its emoji, so new words need no artwork. Progress is
+// not saved yet.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePronounceWord } from '../remediation/session/features/usePronounceWord.ts'
 import type { FoundationalLetter } from './data/types.ts'
 
 type SceneWindow = Window & {
-    lettersLoad?: (list: { word: string; sound: string }[]) => void
+    lettersLoad?: (list: { word: string; sound: string; image: string; extras: { word: string; image: string }[] }[]) => void
     lettersSpeak?: (word: string) => void
     lettersSpeaking?: (loading: boolean) => void
     lettersTalking?: (talking: boolean) => void
@@ -39,7 +41,12 @@ export default function LettersScene({ letters }: { letters: FoundationalLetter[
         () =>
             [...letters]
                 .sort((a, b) => a.lower.localeCompare(b.lower))
-                .map((letter) => ({ word: letter.word, sound: letter.letter_sound.replace(/\//g, '') })),
+                .map((letter) => ({
+                    word: letter.word,
+                    sound: letter.letter_sound.replace(/\//g, ''),
+                    image: letter.image,
+                    extras: letter.extra_words ?? [],
+                })),
         [letters],
     )
 
