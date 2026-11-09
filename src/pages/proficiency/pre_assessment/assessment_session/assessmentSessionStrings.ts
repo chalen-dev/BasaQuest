@@ -120,6 +120,8 @@ export type AssessmentStrings = {
     sendingTitle: string
     sendingDesc: string
     recorderEncourage: string
+    encourageClose: string
+    encourageOpen: string
     pendingTitle: string
     pendingDesc: string
     timeLimitNote: (mins: number) => string
@@ -233,6 +235,8 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         sendingTitle: 'Ipinapadala ang Pagbasa',
         sendingDesc: 'Sandali lang — ina-upload namin ang iyong recording.',
         recorderEncourage: 'Huwag mag-alala kung may mali — susuriin muna ito ng iyong guro bago maging pinal.',
+        encourageClose: 'Isara ang mensahe',
+        encourageOpen: 'Ipakita muli ang mensahe ng kuwago',
         pendingTitle: 'Hinihintay ang Guro',
         pendingDesc: 'Naipasa na ang iyong pagbasa. Susuriin ito ng iyong guro bago maging pinal ang resulta.',
         timeLimitNote: (mins) => `May limitasyong ${mins} minuto ang pag-record.`,
@@ -328,6 +332,8 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         sendingTitle: 'Sending Your Reading',
         sendingDesc: "Just a moment — we're uploading your recording.",
         recorderEncourage: "Don't worry about mistakes — your teacher reviews it first before it's final.",
+        encourageClose: 'Close message',
+        encourageOpen: "Show the owl's message again",
         pendingTitle: 'Waiting for Teacher',
         pendingDesc: 'Your reading has been submitted. Your teacher will review it before the result is final.',
         timeLimitNote: (mins) => `Recording is limited to ${mins} minutes.`,

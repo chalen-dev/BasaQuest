@@ -34,7 +34,6 @@ import type { Lang } from '../../../../../components/buttons/LangToggle.tsx'
 import { useTheme } from '../../../../../contexts/ThemeContext.tsx'
 import { Hint } from '../../../../../components/ui/Hint.tsx'
 import { DifficultyStars } from '../../../../../components/ui/DifficultyStars.tsx'
-import { Owl } from '../../../../../components/ui/Owl.tsx'
 import type { AssessmentStrings, Passage } from '../assessmentSessionStrings.ts'
 
 type PassagePanelProps = {
@@ -201,10 +200,6 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage, hintsBloc
                         </div>
                     </>
                 )}
-            </div>
-            <div className="mt-3 flex shrink-0 items-center gap-2.5 text-sm font-semibold text-gray-500 dark:text-gray-400">
-                <Owl size={30} />
-                <span>{t.recorderEncourage}</span>
             </div>
         </section>
     )

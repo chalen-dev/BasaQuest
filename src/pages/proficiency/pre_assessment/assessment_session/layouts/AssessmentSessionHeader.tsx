@@ -88,7 +88,7 @@ export default function AssessmentSessionHeader({ reviewSaveHandler }: Assessmen
         <header className="fixed inset-x-0 top-0 z-40 border-b border-gray-900/10 bg-orange-50/30 backdrop-blur-sm transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-950/35">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:flex-nowrap">
                 <div className="flex items-center gap-2">
-                    <Owl mood="neutral" size={40} />
+                    <Owl mood="neutral" variant="icon" size={40} />
                     <div className="leading-tight">
                         <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">BasaQuest</div>
                         <div className="hidden text-[0.75rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:block">

@@ -68,7 +68,8 @@
 // prepare() already acquired) instead of arming recording, so a mis-tap
 // can't force an unwanted take.
 import { useEffect, useRef, useState } from 'react'
-import { Hourglass, Loader2, Mic, RotateCcw, Send, TriangleAlert } from 'lucide-react'
+import { Hourglass, Loader2, Mic, RotateCcw, Send, TriangleAlert, X } from 'lucide-react'
+import { Owl } from '../../../../../components/ui/Owl.tsx'
 import { Hint } from '../../../../../components/ui/Hint.tsx'
 import { AudioPlayer } from '../../../../../components/ui/AudioPlayer.tsx'
 import type { AssessmentStrings } from '../assessmentSessionStrings.ts'
@@ -101,6 +102,24 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
     // canceled/superseded countdown can never act on the current one.
     const preparePromiseRef = useRef<Promise<boolean> | null>(null)
     const isCountingDown = countdown !== null
+    // The owl in the bar's left corner: its speech bubble can be closed, and the
+    // owl brings it back when tapped. The beak moves for the first few seconds of
+    // each time the message shows.
+    const [encourageOpen, setEncourageOpen] = useState(true)
+    const [owlTalking, setOwlTalking] = useState(true)
+    const talkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    useEffect(() => {
+        talkTimerRef.current = setTimeout(() => setOwlTalking(false), 3500)
+        return () => {
+            if (talkTimerRef.current) clearTimeout(talkTimerRef.current)
+        }
+    }, [])
+    const reopenEncourage = () => {
+        setEncourageOpen(true)
+        setOwlTalking(true)
+        if (talkTimerRef.current) clearTimeout(talkTimerRef.current)
+        talkTimerRef.current = setTimeout(() => setOwlTalking(false), 3500)
+    }
     // PRE-WARM: kick off prepare() (getUserMedia + MediaRecorder/
     // AudioContext setup) the MOMENT this panel mounts — i.e. as soon as
     // the pupil reaches the recording screen — instead of only starting
@@ -271,6 +290,24 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                     </button>
                 </div>
             )}
+            {encourageOpen && !busy && !isRecording && !isCountingDown && !isRecorded && (
+                <div
+                    role="status"
+                    className="absolute bottom-full left-5 z-10 mb-3 max-w-[min(26rem,75vw)] rounded-2xl border border-gray-900/10 bg-white py-2.5 pl-4 pr-10 text-sm font-semibold text-gray-700 shadow-lg dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 sm:left-6"
+                >
+                    {t.recorderEncourage}
+                    <button
+                        type="button"
+                        onClick={() => setEncourageOpen(false)}
+                        aria-label={t.encourageClose}
+                        className="absolute right-1.5 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-gray-500 transition-colors duration-150 hover:bg-gray-900/5 dark:text-gray-400 dark:hover:bg-gray-100/10"
+                    >
+                        <X size={15} />
+                    </button>
+                    {/* Tail, pointing down at the owl */}
+                    <span className="absolute -bottom-1.5 left-7 h-3 w-3 rotate-45 border-b border-r border-gray-900/10 bg-white dark:border-gray-100/10 dark:bg-gray-900" />
+                </div>
+            )}
             <section className="grid min-h-[7.5rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 rounded-3xl border border-gray-900/5 bg-white/95 px-5 py-4 shadow-[0_-6px_28px_rgba(0,0,0,0.12)] backdrop-blur transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900/95 sm:px-6 lg:grid-cols-[1fr_auto_1fr]">
                 {submitted ? (
                     <div className="col-span-full flex items-center justify-center gap-4 text-left">
@@ -302,6 +339,21 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                     </div>
                 ) : (
                     <>
+                        <div className="flex min-w-0 items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={encourageOpen ? undefined : reopenEncourage}
+                                aria-label={encourageOpen ? undefined : t.encourageOpen}
+                                className={`shrink-0 rounded-full ${encourageOpen ? 'cursor-default' : 'cursor-pointer transition-transform duration-150 hover:scale-105'}`}
+                            >
+                                <Owl
+                                    mood={isRecording || isCountingDown ? 'thinking' : isRecorded ? 'happy' : 'neutral'}
+                                    variant="icon"
+                                    size={60}
+                                    talking={owlTalking && encourageOpen && !isRecording && !isCountingDown && !isRecorded}
+                                    alt=""
+                                />
+                            </button>
                         <div className="min-w-0">
                             <div className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{statusLabel}</div>
                             <div className={`font-mono text-[2.1rem] font-extrabold leading-none ${timeColor}`}>
@@ -322,6 +374,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                                     {!isRecording && !isRecorded && !isCountingDown ? t.timeLimitNote(Math.round(MAX_RECORDING_SECONDS / 60)) : hintText}
                                 </p>
                             )}
+                        </div>
                         </div>
                         <div className="flex items-center justify-center gap-4">
                             {!isRecorded ? (
