@@ -9,6 +9,7 @@
 //   wordPracticeLoad(list)      this page -> scene: the pupil's real words
 //   onWordPracticeChange(flags) scene -> this page: every word's practiced flag
 //   wordPracticeSpeak(word)     scene -> this page: "Hear it" (server voice)
+//   wordPracticeSpeaking(bool)  this page -> scene: voice is loading (spinner)
 //
 // PERSISTENCE: every practiced toggle saves straight away
 // (useUpdateRemediationProgressMutation, which also stamps last_practiced_at),
@@ -42,6 +43,7 @@ type SceneWindow = Window & {
     wordPracticeLoad?: (list: SceneWord[]) => void
     onWordPracticeChange?: (flags: boolean[]) => void
     wordPracticeSpeak?: (word: string) => void
+    wordPracticeSpeaking?: (loading: boolean) => void
 }
 type SceneWord = { word: string; type: string; count: number; tip: string; practiced: boolean }
 
@@ -77,7 +79,7 @@ export default function RemediationSessionPage() {
 
     const { data: material, isLoading, error } = useRemediationMaterialQuery(materialId)
     const updateProgress = useUpdateRemediationProgressMutation()
-    const { speak } = usePronounceWord()
+    const { speak, isLoading: voiceLoading } = usePronounceWord()
 
     // The scene's own window, once its page has loaded.
     const [sceneWin, setSceneWin] = useState<SceneWindow | null>(null)
@@ -119,6 +121,11 @@ export default function RemediationSessionPage() {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSceneReady(true)
     }, [sceneWin, material])
+
+    // Spinner on Hear it while the voice is being fetched.
+    useEffect(() => {
+        sceneWin?.wordPracticeSpeaking?.(voiceLoading)
+    }, [sceneWin, voiceLoading])
 
     // Scene -> page hooks, set when the frame loads (an event handler, since they
     // live on the iframe's own window). They go away with the iframe.

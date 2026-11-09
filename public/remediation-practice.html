@@ -437,6 +437,7 @@ dialog{border:0;padding:0;background:var(--clear);color:var(--panel-ink);overflo
 .card-word{margin:0;max-width:100%;font-size:clamp(28px,var(--word-size),100px);line-height:1.15;letter-spacing:-.025em;font-family:ui-rounded,'Trebuchet MS',sans-serif;text-align:center;overflow-wrap:anywhere}
 .practice-card .card-audio,#hear-it{position:static;transform:none;opacity:1;visibility:visible;display:inline-flex;align-items:center;gap:9px;padding:10px 20px;font-size:18px;min-height:46px;border:2px solid var(--ring);background:var(--disc);color:var(--story-ink)}
 .card-audio svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2}
+.card-audio.is-loading svg{display:none}.card-audio.is-loading::before{content:'';flex:none;width:20px;height:20px;border:3px solid currentColor;border-right-color:transparent;border-radius:50%;animation:hear-spin .7s linear infinite}@keyframes hear-spin{to{transform:rotate(360deg)}}
 .card-occurrence{font-size:clamp(14px,2cqw,18px);margin:0;min-height:1.5em;text-align:center}
 .card-check{position:absolute;bottom:20px;right:24px;font-size:30px;font-weight:bold;color:var(--success)}
 .practice-card[aria-hidden=true]{pointer-events:none}
@@ -1128,6 +1129,7 @@ function syncPractice(index,busy){
  $('card-previous').disabled=$('mobile-previous').disabled;
  $('card-next').disabled=$('mobile-next').disabled||index===words.length-1;
  if($('listen-take'))refreshTake();
+ applyHear();
  if(busy){clearTimeout(pulseTimer);$('hear-it').classList.remove('is-pulsing')}
 }
 function togglePracticed(){if(practiceNavigation.busy())return;const i=practiceNavigation.current();words[i].practiced=!words[i].practiced;practiceNavigation.refresh();syncPractice(i,false);notifyProgress();if(words[i].practiced&&!reduced.matches)document.querySelector('.practice-card .card-check').animate([{transform:'scale(.2) rotate(-25deg)',opacity:0},{transform:'scale(1.5) rotate(5deg)',opacity:1,offset:.55},{transform:'scale(1) rotate(0)',opacity:1}],{duration:520,easing:'ease-out'})}
@@ -1160,7 +1162,7 @@ async function finishSession(){if(practiceNavigation.busy())return;await stopCap
   el.querySelector('.card-word').textContent=entry.word;el.style.setProperty('--word-size',Math.min(13,140/entry.word.length)+'cqw');
   el.querySelector('.card-occurrence').textContent=entry.count>1?`Appeared ${entry.count}x in the reading`:'';
   el.querySelector('.card-check').textContent=entry.practiced?'✓':'';
-  el.querySelector('button').onclick=()=>{if(busy||micState!=='idle')return;stopPlayback();if(window.wordPracticeSpeak){window.wordPracticeSpeak(entry.word)}else if('speechSynthesis' in window){speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(entry.word);utterance.lang='fil-PH';speechSynthesis.speak(utterance)}if(!reduced.matches)el.querySelector('button').animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:360})};
+  el.querySelector('button').onclick=()=>{if(busy||micState!=='idle'||hearLoading)return;stopPlayback();if(window.wordPracticeSpeak){window.wordPracticeSpeak(entry.word)}else if('speechSynthesis' in window){speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(entry.word);utterance.lang='fil-PH';speechSynthesis.speak(utterance)}if(!reduced.matches)el.querySelector('button').animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:360})};
   el.append(makeArrow('previous'),makeArrow('next'));
   return el;
  }
@@ -1485,6 +1487,10 @@ $('leave-session').onclick=()=>{window.parent!==window&&window.parent.postMessag
    wordPracticeLoad(list): swap in the pupil's real words [{word,type,count,tip,practiced}].
    onWordPracticeChange(flags): called with every word's practiced flag after each change.
    wordPracticeSpeak(word): optional, replaces the browser voice for "Hear it". */
+/* wordPracticeSpeaking(on): the host is fetching the voice, so show a spinner on Hear it. */
+var hearLoading=false;
+function applyHear(){const b=$('hear-it');if(!b)return;b.classList.toggle('is-loading',hearLoading);b.setAttribute('aria-busy',String(hearLoading))}
+window.wordPracticeSpeaking=on=>{hearLoading=!!on;applyHear()};
 function notifyProgress(){if(window.onWordPracticeChange)window.onWordPracticeChange(words.map(w=>w.practiced))}
 window.wordPracticeLoad=list=>{words.splice(0,words.length,...list.map(w=>({word:w.word,type:w.type,count:w.count||1,tip:w.tip||'',practiced:!!w.practiced})));notebookSelection=null;practiceNavigation.refresh();syncPractice(practiceNavigation.current(),false)};
 </script></body></html>
