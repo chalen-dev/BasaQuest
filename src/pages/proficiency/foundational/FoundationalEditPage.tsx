@@ -11,12 +11,14 @@ import React, { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowDown, ArrowLeft, ArrowUp, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useProfile } from '../../../hooks/useProfile.ts'
-import { useWordImageQuery } from '../../../hooks/useWordImage.ts'
+import { normalizeImageWord, useWordImageQuery } from '../../../hooks/useWordImage.ts'
 import { useTheme } from '../../../contexts/ThemeContext.tsx'
 import { showConfirmation } from '../../../helpers/swalHelpers.ts'
 import { findFoundationalLevel } from './data/levels.ts'
 import type { FoundationalLetter } from './data/types.ts'
 import {
+    PICTURE_ALIASES,
+    PREFER_DRAWING,
     useFoundationalEditorQuery,
     useMakeMyCopyMutation,
     useResetToDefaultMutation,
@@ -249,8 +251,11 @@ function CardRow({
     canUp: boolean
     canDown: boolean
 }) {
-    const library = useWordImageQuery(card.word.trim() || null, 'en').data
     const word = card.word.trim().toLowerCase()
+    // Same picture choice as the scene: aliased names, and our own drawing for a few words.
+    const usesDrawing = PREFER_DRAWING.has(word)
+    const found = useWordImageQuery(usesDrawing ? null : PICTURE_ALIASES[normalizeImageWord(word)] ?? (word || null), 'en').data
+    const library = usesDrawing ? undefined : found
     // x is the one letter taught from the END of its word (box, fox).
     const offLetter = word !== '' && letter !== 'x' && !word.startsWith(letter)
     return (
@@ -279,6 +284,7 @@ function CardRow({
                     <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">Does not start with {letter.toUpperCase()}.</span>
                 )}
                 {library && <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Using the Word Pictures image.</span>}
+                {usesDrawing && <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Shown as a BasaQuest drawing.</span>}
             </div>
             <div className="flex shrink-0 flex-col gap-1">
                 <button aria-label="Move up" onClick={onUp} disabled={!canUp} className="cursor-pointer rounded p-1 text-gray-600 hover:bg-gray-900/10 disabled:opacity-30 dark:text-gray-300">

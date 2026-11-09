@@ -103,7 +103,10 @@ export function useFoundationalEditorQuery(levelKey: string) {
 // picture wins, else any. Words with none are simply absent.
 // Words the library stores under another name. The key is the normalized word, the value the
 // library's own spelling (it also keeps some two-word entries with the space).
-const PICTURE_ALIASES: Record<string, string> = { yam: 'sweet potato' }
+export const PICTURE_ALIASES: Record<string, string> = { yam: 'sweet potato' }
+// Words the scene draws itself even when the library has a picture (the library's jeepney is a street
+// photo, its water buffalo a boat). Keep in step with PREFER_DRAWING in public/letters-practice.html.
+export const PREFER_DRAWING = new Set(['carabao', 'jeepney'])
 
 export function useLibraryPicturesQuery(words: string[]) {
     const wanted = words.map(normalizeImageWord).filter(Boolean)
