@@ -480,7 +480,7 @@ export function useUpdateRemediationProgressMutation() {
 }
 // Reading Coach: each page's last scored reading, as
 // { "<page words joined by a space>": [verdict | null per word] } (see the
-// 20261109000000 migration). Fetched on its own, not folded into
+// 20261109000100 migration). Fetched on its own, not folded into
 // useRemediationMaterialQuery's column list, and forgiving on purpose: until
 // that migration has been applied the column does not exist, and the Coach
 // must still open (it then falls back to this browser's copy).
