@@ -1,41 +1,55 @@
 // File: src/pages/proficiency/foundational/data/fil/level1.ts
-// Filipino Level 1: Mga Titik at Tunog. The Abakada, 20 letters in the usual
-// order (A B K D E G H I L M N NG O P R S T U W Y), each with a first-sound word
-// a Filipino child knows. NG is a letter of its own here and keeps its place
-// between N and O. The borrowed letters of the 28-letter alphabet (C F J Ñ Q V X Z)
-// are not part of this level; they can be added later as more rows.
+// Filipino Level 1: Mga Titik at Tunog. The 28-letter Filipino alphabet in order
+// (A B C D E F G H I J K L M N Ñ NG O P Q R S T U V W X Y Z), each with a first-sound
+// word a Filipino child knows. Ñ and NG are letters of their own. The borrowed letters
+// (C F J Ñ Q V X Z) use common loanwords. Ñ is the one letter taught from INSIDE its
+// word (piña), as X is in English, so its sentence says "nasa" instead of "para sa".
 import type { FoundationalLetter, FoundationalLevel } from '../types.ts'
 
 // [lower letter, letter name, sound, word, emoji]
 type LetterRow = [string, string, string, string, string]
 
 const ROWS: LetterRow[] = [
-    ['a', 'a', '/a/', 'aso', '🐶'],
-    ['b', 'ba', '/b/', 'bola', '⚽'],
-    ['k', 'ka', '/k/', 'kabayo', '🐴'],
-    ['d', 'da', '/d/', 'dahon', '🍃'],
-    ['e', 'e', '/e/', 'eroplano', '✈️'],
-    ['g', 'ga', '/g/', 'gatas', '🥛'],
-    ['h', 'ha', '/h/', 'hipon', '🦐'],
-    ['i', 'i', '/i/', 'isda', '🐟'],
-    ['l', 'la', '/l/', 'lobo', '🎈'],
-    ['m', 'ma', '/m/', 'mangga', '🥭'],
-    ['n', 'na', '/n/', 'niyog', '🥥'],
-    ['ng', 'nga', '/ng/', 'ngipin', '🦷'],
+    ['a', 'ey', '/a/', 'aso', '🐶'],
+    ['b', 'bi', '/b/', 'bola', '⚽'],
+    ['c', 'si', '/k/', 'computer', '💻'],
+    ['d', 'di', '/d/', 'dahon', '🍃'],
+    ['e', 'i', '/e/', 'eroplano', '✈️'],
+    ['f', 'ef', '/f/', 'fiesta', '🎉'],
+    ['g', 'dyi', '/g/', 'gatas', '🥛'],
+    ['h', 'eyts', '/h/', 'hipon', '🦐'],
+    ['i', 'ay', '/i/', 'isda', '🐟'],
+    ['j', 'dyey', '/j/', 'jeepney', '🚌'],
+    ['k', 'key', '/k/', 'kabayo', '🐴'],
+    ['l', 'el', '/l/', 'lobo', '🎈'],
+    ['m', 'em', '/m/', 'mangga', '🥭'],
+    ['n', 'en', '/n/', 'niyog', '🥥'],
+    ['ñ', 'enye', '/ny/', 'piña', '🍍'],
+    ['ng', 'enji', '/ng/', 'ngipin', '🦷'],
     ['o', 'o', '/o/', 'orasan', '🕰️'],
-    ['p', 'pa', '/p/', 'pusa', '🐱'],
-    ['r', 'ra', '/r/', 'radyo', '📻'],
-    ['s', 'sa', '/s/', 'saging', '🍌'],
-    ['t', 'ta', '/t/', 'tubig', '💧'],
-    ['u', 'u', '/u/', 'ulan', '🌧️'],
-    ['w', 'wa', '/w/', 'walis', '🧹'],
-    ['y', 'ya', '/y/', 'yelo', '🧊'],
+    ['p', 'pi', '/p/', 'pusa', '🐱'],
+    ['q', 'kyu', '/k/', 'queso', '🧀'],
+    ['r', 'ar', '/r/', 'radyo', '📻'],
+    ['s', 'es', '/s/', 'saging', '🍌'],
+    ['t', 'ti', '/t/', 'tubig', '💧'],
+    ['u', 'yu', '/u/', 'ulan', '🌧️'],
+    ['v', 'vi', '/v/', 'video', '📹'],
+    ['w', 'dobolyu', '/w/', 'walis', '🧹'],
+    ['x', 'eks', '/ks/', 'x-ray', '🩻'],
+    ['y', 'way', '/y/', 'yelo', '🧊'],
+    ['z', 'zi', '/z/', 'zebra', '🦓'],
 ]
 
 // More objects per letter, shown when the pupil taps the picture. Same rule as the
 // main word: it starts with the letter's sound. Add a line to add an object; no art
 // is needed (the scene shows the Word Pictures image, else the emoji).
 const EXTRA_WORDS: Record<string, [string, string][]> = {
+    c: [['cake', '🎂']],
+    f: [['flashlight', '🔦'], ['foto', '📷']],
+    j: [['jacket', '🧥']],
+    'ñ': [['niño', '👦'], ['señora', '👩']],
+    v: [['van', '🚐'], ['violin', '🎻']],
+    z: [['zero', '0️⃣']],
     a: [['ahas', '🐍'], ['araw', '☀️']],
     b: [['bahay', '🏠'], ['baboy', '🐷'], ['bibe', '🦆']],
     k: [['kamote', '🍠'], ['kandila', '🕯️'], ['kuting', '🐈']],
@@ -78,7 +92,9 @@ const letters: FoundationalLetter[] = ROWS.map(([lower, letter_name, letter_soun
     phonics_focus: `titik ${lower.toUpperCase()}`,
     image,
     audio: '',
-    example_sentence: `Ang ${lower.toUpperCase()} ay para sa ${word}.`,
+    example_sentence: word.startsWith(lower)
+        ? `Ang ${lower.toUpperCase()} ay para sa ${word}.`
+        : `Ang ${lower.toUpperCase()} ay nasa ${word}.`,
     distractors: distractorsFor(index),
     upper: lower.toUpperCase(),
     lower,
@@ -93,7 +109,7 @@ export const FIL_LEVEL_1: FoundationalLevel = {
     level: 1,
     title: 'Mga Titik at Tunog',
     subtitle: 'Filipino · Antas 1',
-    summary: 'Alamin ang 20 titik ng Abakada at ang kanilang mga tunog.',
+    summary: 'Alamin ang 28 titik ng alpabetong Filipino at ang kanilang mga tunog.',
     words: letters,
     letters,
 }

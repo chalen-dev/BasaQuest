@@ -261,7 +261,7 @@ function CardRow({
     const found = useWordImageQuery(usesDrawing ? null : (language === 'en' ? PICTURE_ALIASES[normalizeImageWord(word)] : undefined) ?? (word || null), language).data
     const library = usesDrawing ? undefined : found
     // x is the one letter taught from the END of its word (box, fox).
-    const offLetter = word !== '' && letter !== 'x' && !word.startsWith(letter)
+    const offLetter = word !== '' && !(letter === 'x' && language === 'en') && letter !== 'ñ' && !word.startsWith(letter)
     return (
         <div className="flex items-start gap-2 rounded-xl bg-gray-900/[0.03] p-2 dark:bg-gray-100/[0.05]">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-3xl dark:bg-gray-950">

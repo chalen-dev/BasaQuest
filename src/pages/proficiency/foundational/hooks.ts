@@ -16,7 +16,7 @@ import { normalizeImageWord } from '../../../hooks/useWordImage.ts'
 import type { FoundationalLetter } from './data/types.ts'
 
 // The letters in the order the scene shows them: English alphabetically, Filipino in the order the data
-// lists them (the Abakada, with NG after N).
+// lists them (the alphabet, with Ñ and NG after N).
 export function sortLetters(letters: FoundationalLetter[]): FoundationalLetter[] {
     return letters[0]?.language === 'fil' ? [...letters] : [...letters].sort((a, b) => a.lower.localeCompare(b.lower))
 }

@@ -264,7 +264,7 @@ const TEXT={
     says:(u,l,snd)=>u+l+' says /'+snd+'/. '},
   fil:{htmlLang:'fil',back:'Bumalik',day:'Araw',night:'Gabi',nightAria:'Panggabing tema',edit:'I-edit ang mga kard',hear:' Pakinggan',prev:'Nakaraang titik',next:'Susunod na titik',nav:'Pumili ng titik',progress:'Pag-usad sa alpabeto',hello:'Pindutin ang titik sa itaas!',another:'Ipakita ang susunod na larawan',speech:'fil-PH',
     tab:(u,w)=>u+' para sa '+w,counter:(n,t)=>'Titik '+n+' ng '+t,
-    phrase:(u,w)=>'Ang '+u+' ay para sa <b>'+w+'</b>',
+    phrase:(u,w,start)=>'Ang '+u+(start?' ay para sa ':' ay nasa ')+'<b>'+w+'</b>',
     says:(u,l,snd)=>'Ang tunog ng '+u+' ay /'+snd+'/. '}
 };
 let lang='en';
