@@ -25,7 +25,7 @@ function buildCards(level: FoundationalLevel): Card[] {
               big: `${letter.upper} ${letter.lower}`,
               image: letter.image,
               caption: letter.word,
-              detail: `Name: ${letter.letter_name} · Sound: ${letter.letter_sound}`,
+              detail: `Sound: ${letter.letter_sound} · Name: ${letter.letter_name}`,
               sentence: letter.example_sentence,
           }))
         : level.words.map((word) => ({

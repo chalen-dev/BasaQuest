@@ -1,41 +1,57 @@
 // File: src/pages/proficiency/foundational/data/en/level1.ts
-// English Level 1: Letters & Sounds. A-Z, each with a first-sound word a
-// Filipino child knows.
+// English Level 1: Letters & Sounds. A-Z in teaching order (high-use sounds
+// first, look-alike letters kept apart), each with a first-sound word a
+// Filipino child knows. Vowels use a SHORT-sound keyword (apple, egg, ink,
+// orange, umbrella); x uses a word that ENDS in x, since x is rarely heard at
+// the start of a word.
 import type { FoundationalLetter, FoundationalLevel } from '../types.ts'
 
-// [lower letter, letter name, sound, word, emoji, distractors]
-type LetterRow = [string, string, string, string, string, string[]]
+// [lower letter, letter name, sound, word, emoji]
+type LetterRow = [string, string, string, string, string]
 
 const ROWS: LetterRow[] = [
-    ['a', 'ay', '/a/', 'apple', '🍎', ['ball', 'cat']],
-    ['b', 'bee', '/b/', 'banana', '🍌', ['apple', 'duck']],
-    ['c', 'cee', '/k/', 'carabao', '🐃', ['banana', 'egg']],
-    ['d', 'dee', '/d/', 'duck', '🦆', ['fish', 'goat']],
-    ['e', 'ee', '/e/', 'egg', '🥚', ['duck', 'hen']],
-    ['f', 'ef', '/f/', 'fish', '🐟', ['egg', 'goat']],
-    ['g', 'jee', '/g/', 'goat', '🐐', ['fish', 'hen']],
-    ['h', 'aitch', '/h/', 'hen', '🐔', ['goat', 'ice']],
-    ['i', 'eye', '/i/', 'ice', '🧊', ['hen', 'jeepney']],
-    ['j', 'jay', '/j/', 'jeepney', '🚌', ['ice', 'kite']],
-    ['k', 'kay', '/k/', 'kite', '🪁', ['jeepney', 'lemon']],
-    ['l', 'el', '/l/', 'lemon', '🍋', ['kite', 'mango']],
-    ['m', 'em', '/m/', 'mango', '🥭', ['lemon', 'nest']],
-    ['n', 'en', '/n/', 'nest', '🪺', ['mango', 'owl']],
-    ['o', 'oh', '/o/', 'owl', '🦉', ['nest', 'papaya']],
-    ['p', 'pee', '/p/', 'papaya', '🧡', ['owl', 'queen']],
-    ['q', 'kyoo', '/kw/', 'queen', '👑', ['papaya', 'rice']],
-    ['r', 'ar', '/r/', 'rice', '🍚', ['queen', 'sampaguita']],
-    ['s', 'ess', '/s/', 'sampaguita', '🌼', ['rice', 'tricycle']],
-    ['t', 'tee', '/t/', 'tricycle', '🛺', ['sampaguita', 'umbrella']],
-    ['u', 'yoo', '/u/', 'umbrella', '☂️', ['tricycle', 'van']],
-    ['v', 'vee', '/v/', 'van', '🚐', ['umbrella', 'watermelon']],
-    ['w', 'double-yoo', '/w/', 'watermelon', '🍉', ['van', 'xylophone']],
-    ['x', 'eks', '/ks/', 'xylophone', '🎶', ['watermelon', 'yo-yo']],
-    ['y', 'wy', '/y/', 'yo-yo', '🪀', ['xylophone', 'zebra']],
-    ['z', 'zee', '/z/', 'zebra', '🦓', ['yo-yo', 'apple']],
+    ['s', 'ess', '/s/', 'sampaguita', '🌼'],
+    ['a', 'ay', '/a/', 'apple', '🍎'],
+    ['t', 'tee', '/t/', 'tiger', '🐯'],
+    ['i', 'eye', '/i/', 'ink', '🖋️'],
+    ['p', 'pee', '/p/', 'papaya', '🧡'],
+    ['n', 'en', '/n/', 'nest', '🪺'],
+    ['m', 'em', '/m/', 'mango', '🥭'],
+    ['d', 'dee', '/d/', 'duck', '🦆'],
+    ['g', 'jee', '/g/', 'goat', '🐐'],
+    ['o', 'oh', '/o/', 'orange', '🍊'],
+    ['c', 'cee', '/k/', 'carabao', '🐃'],
+    ['k', 'kay', '/k/', 'kite', '🪁'],
+    ['e', 'ee', '/e/', 'egg', '🥚'],
+    ['u', 'yoo', '/u/', 'umbrella', '☂️'],
+    ['r', 'ar', '/r/', 'rice', '🍚'],
+    ['h', 'aitch', '/h/', 'hen', '🐔'],
+    ['b', 'bee', '/b/', 'banana', '🍌'],
+    ['l', 'el', '/l/', 'lemon', '🍋'],
+    ['f', 'ef', '/f/', 'fish', '🐟'],
+    ['j', 'jay', '/j/', 'jeepney', '🚌'],
+    ['v', 'vee', '/v/', 'van', '🚐'],
+    ['w', 'double-yoo', '/w/', 'watermelon', '🍉'],
+    ['x', 'eks', '/ks/', 'box', '📦'],
+    ['y', 'wy', '/y/', 'yo-yo', '🪀'],
+    ['z', 'zee', '/z/', 'zebra', '🦓'],
+    ['q', 'kyoo', '/kw/', 'queen', '👑'],
 ]
 
-const letters: FoundationalLetter[] = ROWS.map(([lower, letter_name, letter_sound, word, image, distractors]) => ({
+// Wrong choices for "which picture starts with this sound": two words whose
+// letters make a different sound, taken from further along the list so they
+// are not look-alikes of the right answer.
+function distractorsFor(index: number): string[] {
+    const own = ROWS[index]
+    const picked: string[] = []
+    for (let step = 3; picked.length < 2 && step < ROWS.length; step += 1) {
+        const other = ROWS[(index + step) % ROWS.length]
+        if (other[2] !== own[2] && !picked.includes(other[3])) picked.push(other[3])
+    }
+    return picked
+}
+
+const letters: FoundationalLetter[] = ROWS.map(([lower, letter_name, letter_sound, word, image], index) => ({
     id: `en-l1-${lower}`,
     language: 'en',
     level: 1,
@@ -43,8 +59,8 @@ const letters: FoundationalLetter[] = ROWS.map(([lower, letter_name, letter_soun
     phonics_focus: `letter ${lower.toUpperCase()}`,
     image,
     audio: '',
-    example_sentence: `${lower.toUpperCase()} is for ${word}.`,
-    distractors,
+    example_sentence: lower === 'x' ? 'X is in box.' : `${lower.toUpperCase()} is for ${word}.`,
+    distractors: distractorsFor(index),
     upper: lower.toUpperCase(),
     lower,
     letter_name,
@@ -57,7 +73,7 @@ export const EN_LEVEL_1: FoundationalLevel = {
     level: 1,
     title: 'Letters & Sounds',
     subtitle: 'English · Level 1',
-    summary: 'Learn the 26 letters, their names and their sounds.',
+    summary: 'Learn the 26 letters, their sounds and their names.',
     words: letters,
     letters,
 }
