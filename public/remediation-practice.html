@@ -1353,7 +1353,7 @@ var sceneOwl=null,owlTemp=null,owlTempTimer,owlTalking=false;
 (function(){if(!window.BasaOwl)return;const old=$('owl');old.style.display='none';const slot=document.createElement('div');slot.id='owl-rig';slot.style.cssText='width:100%;height:100%';coachToggle.append(slot);sceneOwl=window.BasaOwl.mountOwl(slot,{variant:'full'})})();
 function owlMood(){return micState==='recording'?'listening':(owlTemp||'neutral')}
 /* The owl sits on the right and the microphone is to its left, so while listening it is mirrored to lean toward the mic. */
-function owlSync(){if(!sceneOwl)return;const rig=$('owl-rig');if(rig){rig.style.transition='transform .35s ease';rig.style.transform=micState==='recording'?'scaleX(-1)':''}sceneOwl.setEmotion(owlMood());sceneOwl.setTalking(owlTalking&&micState!=='recording')}
+function owlSync(){if(!sceneOwl)return;const rig=$('owl-rig');if(rig){rig.style.transition='none';rig.style.transform=micState==='recording'?'scaleX(-1)':''}sceneOwl.setEmotion(owlMood());sceneOwl.setTalking(owlTalking&&micState!=='recording')}
 function owlReact(name,ms){owlTemp=name;clearTimeout(owlTempTimer);owlSync();owlTempTimer=setTimeout(()=>{owlTemp=null;owlSync()},ms)}
 /* wordPracticeTalking(on): the voice is playing, so the owl's beak moves. */
 window.wordPracticeTalking=on=>{owlTalking=!!on;owlSync()};
