@@ -512,7 +512,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
             <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }} />
             <div className="relative flex flex-1 flex-col lg:min-h-0">
                 <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3">
-                    <Owl mood={selectedLang ? 'proud' : 'confused'} variant="icon" size={56} />
+                    <Owl mood={selectedLang ? 'proud' : 'confused'} variant="icon" size={84} />
                     <div className="min-w-0 flex-1 basis-64">
                         <h1 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.panelTitle}</h1>
                         <p className="mt-0.5 max-w-2xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.panelDesc}</p>
