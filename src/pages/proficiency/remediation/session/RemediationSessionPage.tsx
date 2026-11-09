@@ -162,7 +162,7 @@ export default function RemediationSessionPage() {
         return () => window.removeEventListener('message', onMessage)
     }, [goBack])
 
-    if (isLoading) return <OwlLoader className="py-32" />
+    if (isLoading) return <OwlLoader fullScreen />
 
     if (error || !material) return <Message title={t.notFoundTitle} desc={t.notFoundDesc} back={t.back} onBack={goBack} />
     if (material.words.length === 0) return <Message title={t.emptyTitle} desc={t.emptyDesc} back={t.back} onBack={goBack} />
@@ -177,7 +177,7 @@ export default function RemediationSessionPage() {
                 // Hidden until the pupil's words are in, so the sample words never flash.
                 className={`fixed inset-0 h-full w-full border-0 ${sceneReady ? '' : 'invisible'}`}
             />
-            {!sceneReady && <OwlLoader className="fixed inset-0 z-10 flex items-center justify-center bg-white dark:bg-gray-950" />}
+            {!sceneReady && <OwlLoader fullScreen />}
         </>
     )
 }
