@@ -31,6 +31,9 @@ export type OwlRigProps = {
     className?: string
     /** Accessible name; the owl is decorative (hidden from screen readers) when omitted. */
     label?: string
+    /** Icon only: what sits behind the owl inside the circle. "transparent" (default)
+     *  shows whatever the page has behind it; "filled" is the pale green disc. */
+    background?: 'transparent' | 'filled'
 }
 
 const REDUCED_QUERY = '(prefers-reduced-motion: reduce)'
@@ -50,6 +53,7 @@ export function OwlRig({
     speed = 1,
     className = '',
     label,
+    background = 'transparent',
 }: OwlRigProps) {
     // A valid, unique id prefix (useId's colons are not safe inside url(#...)).
     const prefix = 'owl' + useId().replace(/[^a-zA-Z0-9]/g, '') + '-'
@@ -60,10 +64,10 @@ export function OwlRig({
     const html = useMemo(() => {
         const full = `<svg viewBox="0 0 1280 1320" width="100%" height="100%" style="overflow:visible;${variant === 'icon' ? 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none' : 'display:block'}" aria-hidden="true">${owlFullMarkup(prefix)}</svg>`
         if (variant === 'full') return full
-        const portrait = `<svg viewBox="-110 -120 1220 1240" width="100%" height="100%" style="display:block;overflow:visible" aria-hidden="true">${owlPortraitMarkup(prefix)}</svg>`
+        const portrait = `<svg viewBox="-110 -120 1220 1240" width="100%" height="100%" style="display:block;overflow:visible" aria-hidden="true">${background === 'transparent' ? owlPortraitMarkup(prefix).replace('fill="#eaf5db"', 'fill="none"') : owlPortraitMarkup(prefix)}</svg>`
         // The portrait borrows the full owl's head and wings, so both are drawn.
         return full + portrait
-    }, [prefix, variant])
+    }, [prefix, variant, background])
 
     const rootRef = useRef<HTMLSpanElement>(null)
     const rigRef = useRef<Rig | null>(null)

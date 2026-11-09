@@ -27,6 +27,8 @@ interface OwlProps {
     variant?: 'full' | 'icon'
     /** Moves the beak as if the owl were speaking. */
     talking?: boolean
+    /** Icon variant only: "transparent" (default) or the pale green "filled" disc. */
+    background?: 'transparent' | 'filled'
 }
 
 // The live owl (owlRig/) has the same ten emotions; "thinking" is its "listening".
@@ -68,6 +70,7 @@ export const Owl: React.FC<OwlProps> = ({
                                             alt,
                                             variant = 'full',
                                             talking = false,
+                                            background,
                                         }) => {
     return (
         <OwlRig
@@ -75,6 +78,7 @@ export const Owl: React.FC<OwlProps> = ({
             variant={variant}
             size={size}
             talking={talking}
+            background={background}
             label={alt ?? MOOD_ALT[mood]}
             className={`${bob ? 'animate-bounce' : ''} ${animated ? 'animate-owl-pulse' : ''} ${className}`}
         />
