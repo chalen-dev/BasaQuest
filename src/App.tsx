@@ -17,7 +17,6 @@ import RemediationListPage from "./pages/proficiency/remediation/list/Remediatio
 import StudentRemediationDetailPage from "./pages/proficiency/remediation/list/StudentRemediationDetailPage.tsx";
 import StudentsLayout from "./pages/students/layouts/StudentsLayout.tsx";
 import FluentReadingLayout from "./pages/proficiency/components/FluentReadingLayout.tsx";
-import RemediationSessionLayout from "./pages/proficiency/remediation/session/layouts/RemediationSessionLayout.tsx";
 import RemediationSessionPage from "./pages/proficiency/remediation/session/RemediationSessionPage.tsx";
 import RemediationCoachLayout from "./pages/proficiency/remediation/coach/layouts/RemediationCoachLayout.tsx";
 import RemediationCoachPage from "./pages/proficiency/remediation/coach/RemediationCoachPage.tsx";
@@ -170,13 +169,10 @@ const router = createBrowserRouter(
                     <Route element={<AssessmentSessionLayout />}>
                         <Route path="/reading/proficiency/assessment/session" element={<AssessmentSessionPage />} />
                     </Route>
-                    {/* Teacher-led remediation drill (flashcard "Practice") —
-                    same stripped-header idea as AssessmentSessionLayout
-                    above, scoped to one piece of remediation material for
-                    one pupil. */}
-                    <Route element={<RemediationSessionLayout />}>
-                        <Route path="/students/remediation/:studentId/session/:materialId" element={<RemediationSessionPage />} />
-                    </Route>
+                    {/* Word-for-word practice — a full-bleed table/book scene
+                    (standalone prototype in an iframe, not wired to data
+                    yet), so it has no layout or header of its own. */}
+                    <Route path="/students/remediation/:studentId/session/:materialId" element={<DesktopOnly><RemediationSessionPage /></DesktopOnly>} />
                     {/* Reading Coach Mode — its own full-bleed layout, no
                     shared header at all (see RemediationCoachLayout.tsx's
                     header comment). Split out from RemediationSessionLayout
