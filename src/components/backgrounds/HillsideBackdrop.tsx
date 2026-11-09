@@ -1,351 +1,121 @@
-// File: src/components/backgrounds/HillsideBackdrop.tsx
-import React from 'react'
-const STARS = [
-    { x: 120, y: 120, r: 1.2, delay: '0s' },
-    { x: 420, y: 260, r: 1, delay: '0.6s' },
-    { x: 760, y: 160, r: 1.2, delay: '1.1s' },
-    { x: 230, y: 400, r: 0.9, delay: '1.6s' },
-    { x: 1250, y: 220, r: 1, delay: '0.3s' },
-    { x: 1000, y: 420, r: 0.8, delay: '2s' },
-    { x: 600, y: 460, r: 0.95, delay: '0.9s' },
-    { x: 1450, y: 460, r: 0.8, delay: '1.4s' },
-    { x: 80, y: 300, r: 0.9, delay: '0.4s' },
-    { x: 1550, y: 340, r: 0.8, delay: '1.8s' },
-    { x: 880, y: 90, r: 0.8, delay: '0.7s' },
-    { x: 340, y: 90, r: 0.8, delay: '1.2s' },
+import { useId, type CSSProperties } from 'react'
+import { useTheme } from '../../contexts/ThemeContext'
+import { celestialPositions, landscapePalette } from './hillsideTransition'
+import './HillsideBackdrop.css'
+
+// Shared geometry keeps the landscape continuous when switching themes.
+const RIDGES = [
+    'M0 641 Q55 621 78 615 C110 604 140 630 178 615 L248 584 Q267 575 282 579 L326 566 Q341 559 355 569 C405 600 460 640 497 645 Q514 648 540 641 Q552 637 572 647 C633 676 665 684 710 685 Q772 705 839 718 C923 694 1003 652 1065 650 Q1078 652 1095 638 L1126 620 Q1142 611 1158 618 C1205 634 1253 647 1291 648 Q1305 649 1325 636 L1413 583 Q1430 574 1448 580 L1541 609 Q1567 619 1592 609 Q1605 603 1625 612 L1672 627 V941 H0Z',
+    'M0 720 C129 711 239 663 330 670 C408 670 478 715 549 728 C598 734 626 723 667 733 L790 765 Q812 771 841 764 C950 734 1000 703 1082 714 L1172 725 C1262 699 1368 661 1437 663 C1510 666 1580 705 1672 697 V941 H0Z',
+    'M0 784 C235 760 404 851 624 837 C786 824 904 785 1024 798 C1195 810 1398 863 1672 793 V941 H0Z',
+    'M0 719 C226 731 392 781 565 812 C725 843 861 848 1035 880 L1235 941 H0Z',
+    'M1672 716 C1472 739 1285 780 1125 818 C1009 843 916 868 782 892 L654 941 H1672Z',
+    'M0 882 C186 864 354 848 490 864 C634 880 740 902 839 914 C983 890 1128 858 1268 873 C1426 884 1537 915 1672 883 V941 H0Z',
 ]
-// Clouds spawn off-screen to the left (startX is well beyond the
-// viewBox's left edge) and travel the full width of the scene before
-// looping back to the start. Different durations per cloud (and negative
-// delays, which make a CSS animation start already partway through its
-// cycle) so they drift at different speeds and are staggered rather than
-// moving in lockstep. `scale` spans 0.45-1.35 — small clouds get faster
-// durations (read as "closer/lighter"), big ones get slower durations, so
-// the size variety also reads as a bit of depth. A few `y` values are
-// deliberately reused (150, 230, 270) so two clouds ride the same
-// horizontal line — their very different durations/delays mean they're
-// never near each other at the same time, so it reads as "more clouds on
-// that layer" rather than a repeating pair.
-//
-// NOTE: clouds are rendered in their own top-layer SVG (see `Clouds`
-// below), separate from the sky/mountains/hills SVG (`SkyAndHills`), so
-// they can be painted AFTER `SunMoon` in the DOM and visually pass in
-// front of the sun/moon instead of behind it.
+const DISTANT_TREES = [
+    [124,735,0.43],[162,735,0.57],[210,741,0.6],[233,747,0.36],[250,753,0.52],[269,759,0.31],[295,765,0.42],
+    [453,789,0.23],[471,792,0.34],[502,801,0.43],[522,806,0.58],[548,810,0.27],[574,817,0.51],[610,825,0.38],
+    [1203,804,0.46],[1238,789,0.43],[1272,785,0.52],[1297,778,0.34],[1330,771,0.51],[1367,768,0.24],
+    [1495,747,0.22],[1527,740,0.49],[1568,732,0.51],[1605,722,0.58],[1648,719,0.72],
+]
+const FRONT_TREES = [[-15,869,1.1],[51,866,1.65],[125,873,1.37],[186,884,1.05],[263,886,0.86],[1379,923,1.07],[1451,919,1.24],[1566,900,1.04],[1627,893,1.64],[1690,899,1.1]]
+const STARS = Array.from({ length: 38 }, (_, i) => ({
+    x: (i * 317 + 64) % 1650,
+    y: (i * 139 + 34) % 510,
+    radius: i % 7 === 0 ? 5 : i % 3 === 0 ? 1.5 : 0.9,
+}))
+// Initial positions mirror the reference. Each cloud wraps only while fully offscreen.
 const CLOUDS = [
-    { startX: -300, y: 110, scale: 0.45, opacity: { light: 0.55, dark: 0.34 }, duration: '36s', delay: '-6s' },
-    { startX: -300, y: 150, scale: 0.9, opacity: { light: 0.72, dark: 0.5 }, duration: '50s', delay: '-2s' },
-    { startX: -300, y: 150, scale: 0.6, opacity: { light: 0.6, dark: 0.4 }, duration: '44s', delay: '-30s' },
-    { startX: -300, y: 190, scale: 1.25, opacity: { light: 0.5, dark: 0.32 }, duration: '80s', delay: '-55s' },
-    { startX: -300, y: 230, scale: 0.7, opacity: { light: 0.6, dark: 0.4 }, duration: '58s', delay: '-14s' },
-    { startX: -300, y: 230, scale: 1.1, opacity: { light: 0.5, dark: 0.34 }, duration: '70s', delay: '-42s' },
-    { startX: -300, y: 270, scale: 0.55, opacity: { light: 0.55, dark: 0.35 }, duration: '38s', delay: '-22s' },
-    { startX: -300, y: 270, scale: 0.85, opacity: { light: 0.65, dark: 0.45 }, duration: '64s', delay: '-8s' },
-    { startX: -300, y: 310, scale: 1.35, opacity: { light: 0.45, dark: 0.3 }, duration: '88s', delay: '-66s' },
-    { startX: -300, y: 350, scale: 0.5, opacity: { light: 0.55, dark: 0.35 }, duration: '34s', delay: '-18s' },
-    { startX: -300, y: 390, scale: 0.95, opacity: { light: 0.7, dark: 0.5 }, duration: '60s', delay: '-36s' },
+    { x: -70, y: 50, scale: 1.2, duration: 160 },
+    { x: 280, y: 227, scale: 0.53, duration: 210 },
+    { x: 1120, y: 124, scale: 0.67, duration: 185 },
+    { x: 1390, y: 226, scale: 1.25, duration: 240 },
 ]
-// A pine-tree silhouette (two stacked triangles + a trunk).
-const PineTree: React.FC<{ x: number; y: number; scale?: number }> = ({ x, y, scale = 1 }) => (
-    <g transform={`translate(${x} ${y}) scale(${scale})`}>
-        <path d="M0 -46 L14 -14 L-14 -14 Z" />
-        <path d="M0 -32 L16 0 L-16 0 Z" />
-        <rect x="-3" y="0" width="6" height="10" />
+const CLOUD_PATH = 'M0 102 C0 92 23 86 40 87 C48 67 69 60 91 69 C107 27 137 5 172 5 C209 5 238 26 243 49 C269 43 289 55 295 74 C318 63 342 72 349 91 C379 88 398 99 396 107 C394 121 318 117 293 115 C263 126 225 123 200 117 C140 129 57 127 15 121 C3 119 -4 113 0 102Z'
+
+function PineTree({ x, y, scale }: { x: number; y: number; scale: number }) {
+    return <g transform={`translate(${x} ${y}) scale(${scale})`}>
+        <path d="M-4 4 L-3 -24 C-16 -20 -29 -22 -32 -28 Q-20 -38 -15 -48 C-29 -43 -31 -50 -26 -54 Q-14 -66 -10 -76 C-22 -72 -22 -79 -17 -83 Q-7 -94 -3 -111 Q0 -118 3 -111 Q7 -94 17 -83 C22 -79 22 -72 10 -76 Q14 -66 26 -54 C31 -50 29 -43 15 -48 Q20 -38 32 -28 C29 -22 16 -20 3 -24 L4 4Z" />
     </g>
-)
-// Ground scenery along the nearest hill: dense forest clusters on the left
-// and right, a couple of stray trees in between, and big open clear-plain
-// gaps with nothing at all — instead of two lone symmetric tree pairs.
-const TREES = [
-    // forest cluster, left
-    { x: 90, y: 800, scale: 1 },
-    { x: 120, y: 812, scale: 0.8 },
-    { x: 150, y: 795, scale: 1.15 },
-    { x: 180, y: 808, scale: 0.7 },
-    { x: 60, y: 815, scale: 0.6 },
-    // clear plain: nothing from ~x260 to x520
-    // small stray pair
-    { x: 560, y: 818, scale: 0.7 },
-    { x: 590, y: 810, scale: 0.8 },
-    // clear plain: nothing from ~x650 to x1100
-    // forest cluster, right
-    { x: 1150, y: 805, scale: 0.95 },
-    { x: 1180, y: 815, scale: 0.65 },
-    { x: 1210, y: 798, scale: 1.1 },
-    { x: 1330, y: 815, scale: 0.95 },
-    { x: 1360, y: 825, scale: 0.7 },
-    { x: 1390, y: 808, scale: 0.85 },
-    { x: 1420, y: 818, scale: 0.6 },
-    // clear plain: nothing from x1450 to the edge
-]
-// Flat, four-lobed cloud blob. `startX` places it off-screen to the left;
-// `animate-cloud-drift` carries it all the way across and back off-screen
-// to the right, then the animation loops (jumping invisibly back to the
-// off-screen starting position).
-const Cloud: React.FC<{
-    startX: number
-    y: number
-    scale: number
-    opacity: number
-    duration: string
-    delay: string
-    fill: string
-}> = ({ startX, y, scale, opacity, duration, delay, fill }) => (
-    <g transform={`translate(${startX} ${y})`}>
-        <g
-            className="animate-cloud-drift"
-            style={{ transformBox: 'fill-box', transformOrigin: 'center', animationDuration: duration, animationDelay: delay }}
-        >
-            <g transform={`scale(${scale})`} fill={fill} opacity={opacity}>
-                <ellipse cx="0" cy="10" rx="46" ry="20" />
-                <ellipse cx="-32" cy="14" rx="26" ry="15" />
-                <ellipse cx="34" cy="16" rx="30" ry="16" />
-                <ellipse cx="4" cy="-4" rx="30" ry="18" />
+}
+
+export function HillsideBackdrop({ className = '' }: { className?: string }) {
+    const id = useId().replace(/:/g, '')
+    const { skyProgress, reducedMotion } = useTheme()
+    const positions = celestialPositions(skyProgress)
+    if (reducedMotion) {
+        positions.sun = { x: 88.3, y: 14 }
+        positions.moon = { x: 88.3, y: 14 }
+    }
+    const stars = celestialPositions(skyProgress).stars
+    const fill = (name: string) => `url(#${id}-${name})`
+    return <div className={`hillside-backdrop pointer-events-none fixed inset-0 h-screen w-screen ${className}`} style={landscapePalette(skyProgress) as CSSProperties} aria-hidden="true">
+        <svg className="hillside-layer" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice">
+            <defs>
+                <linearGradient id={`${id}-sky`} x2="0" y2="1">
+                    <stop stopColor="var(--hill-sky-top)" />
+                    <stop offset="0.55" stopColor="var(--hill-sky-mid)" />
+                    <stop offset="1" stopColor="var(--hill-sky-bottom)" />
+                </linearGradient>
+                <radialGradient id={`${id}-horizon`} cx="50%" cy="100%" r="75%">
+                    <stop stopColor="var(--hill-horizon)" stopOpacity="0.5" />
+                    <stop offset="1" stopColor="var(--hill-horizon)" stopOpacity="0" />
+                </radialGradient>
+                <linearGradient id={`${id}-cloud`} x2="0.3" y2="1">
+                    <stop stopColor="var(--hill-cloud-top)" />
+                    <stop offset="1" stopColor="var(--hill-cloud-bottom)" />
+                </linearGradient>
+                {RIDGES.map((_, i) => <linearGradient key={i} id={`${id}-ridge-${i}`} x2="0.65" y2="1">
+                    <stop stopColor={`var(--hill-ridge-${i})`} />
+                    <stop offset="1" stopColor={`var(--hill-ridge-${i}-shade)`} />
+                </linearGradient>)}
+            </defs>
+            <path d="M0 0H1672V941H0Z" fill={fill('sky')} />
+            <path d="M0 0H1672V941H0Z" fill={fill('horizon')} />
+            <g className="hillside-stars" style={{ opacity: stars }} fill="#ffe7a0">
+                {STARS.map((star, i) => <g key={i} transform={`translate(${star.x} ${star.y})`}>
+                    <g className="hillside-star" style={{ animationDelay: `${-i * 0.73}s`, animationDuration: `${3 + i % 5}s` }}>
+                        {star.radius > 2 ? <path d="M0 -7 Q1 -1 7 0 Q1 1 0 7 Q-1 1 -7 0 Q-1 -1 0 -7Z" /> : <circle r={star.radius} />}
+                    </g>
+                </g>)}
             </g>
-        </g>
-    </g>
-)
-/**
- * Full-bleed sky + mountains + rolling hills, used as ambient background
- * behind guest-facing screens (login/register). Layered for depth: a hazy
- * distant mountain range, a nearer/darker mountain range, then three
- * rolling foreground hill bands with forest clusters and clear plains
- * along the nearest one. This part is allowed to scale up and crop at the
- * edges ("cover" behavior) since it's ambient.
- *
- * Clouds used to live in this same SVG, but were pulled out into their
- * own top-layer component (`Clouds`, below) so they can be painted AFTER
- * `SunMoon` in the DOM — otherwise the sun/moon (rendered as a separate
- * fixed-position layer so it stays pinned to a screen corner, see
- * `SunMoon`'s own comment) always sat visually on top of clouds passing
- * behind it, instead of clouds ever passing in front.
- *
- * `fixed` + `h-screen w-screen` (not `absolute` + `h-full w-full`) is
- * deliberate: an absolutely-positioned element is sized to its nearest
- * positioned ancestor, which here is the page's `main`/wrapper — and that
- * element grows taller than the viewport on any page with more content
- * than fits on one screen. Since this SVG uses `preserveAspectRatio="xMidYMid
- * slice"` to "cover" its box, a taller box means a bigger uniform scale-up,
- * so the same scene reads as more zoomed-in/cropped on long pages than on
- * short ones — the "stretched, inconsistent between pages" effect. `fixed`
- * sizes and positions strictly against the viewport, ignoring how tall the
- * scrollable page content is, so the backdrop is always the same full-screen
- * scene regardless of which page (or how long it is) is showing.
- */
-const SkyAndHills: React.FC<{ className?: string }> = ({ className = '' }) => (
-    <svg
-        viewBox="0 0 1600 900"
-        preserveAspectRatio="xMidYMid slice"
-        className={`pointer-events-none fixed inset-0 h-screen w-screen ${className}`}
-        aria-hidden="true"
-    >
-        <defs>
-            {/* Light-mode sky, darkened a touch from the original
-                (#fff6e5/#ffe9c2/#ffd48f) — same warm hue, just pulled down
-                a shade so it's less glaring/washed-out at midday. */}
-            <linearGradient id="hillsideSkyLight" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#fdecd0" />
-                <stop offset="55%" stopColor="#ffddA0" />
-                <stop offset="100%" stopColor="#f5bd76" />
-            </linearGradient>
-            <linearGradient id="hillsideSkyDark" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#0b1330" />
-                <stop offset="55%" stopColor="#141c45" />
-                <stop offset="100%" stopColor="#1b2456" />
-            </linearGradient>
-        </defs>
-        {/* sky */}
-        <rect width="1600" height="900" fill="url(#hillsideSkyLight)" className="dark:hidden" />
-        <rect width="1600" height="900" fill="url(#hillsideSkyDark)" className="hidden dark:block" />
-        {/* stars — dark mode only, spread across the whole sky, not just the top */}
-        <g fill="#ffe9a8" className="hidden dark:block">
-            {STARS.map((star, i) => (
-                <g key={i} transform={`translate(${star.x} ${star.y})`}>
-                    <path
-                        d={`M0 0 l${star.r * 3.6} ${star.r * 8.4} ${star.r * 8.4} ${star.r * 3.6} -${star.r * 8.4} ${star.r * 3.6} -${star.r * 3.6} ${star.r * 8.4} -${star.r * 3.6} -${star.r * 8.4} -${star.r * 8.4} -${star.r * 3.6} ${star.r * 8.4} -${star.r * 3.6} Z`}
-                        className="animate-twinkle"
-                        style={{ transformBox: 'fill-box', transformOrigin: 'center', animationDelay: star.delay }}
-                    />
+        </svg>
+        <svg className="hillside-orb" viewBox="0 0 180 180" style={{ left: `${positions.sun.x}%`, top: `${positions.sun.y}%`, opacity: reducedMotion ? 1 - skyProgress : 1 }}>
+            <defs><filter id={`${id}-sun-glow`} x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="15" /></filter></defs>
+            <circle className="hillside-halo" cx="90" cy="90" r="72" fill="#fff3a0" opacity="0.6" filter={fill('sun-glow')} />
+            <circle cx="90" cy="90" r="62" fill="#fff5ac" />
+        </svg>
+        <svg className="hillside-orb" viewBox="0 0 180 180" style={{ left: `${positions.moon.x}%`, top: `${positions.moon.y}%`, opacity: reducedMotion ? skyProgress : 1 }}>
+            <defs>
+                <filter id={`${id}-glow`} x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="15" /></filter>
+                <linearGradient id={`${id}-moon`} x2="0.6" y2="1"><stop stopColor="#ffec9c" /><stop offset="1" stopColor="#ffdf79" /></linearGradient>
+            </defs>
+            <path className="hillside-halo" d="M95 23 A62 62 0 1 1 32 107 A57 57 0 0 0 95 23Z" fill="#ffe08b" opacity="0.65" filter={fill('glow')} />
+            <path d="M95 23 A62 62 0 1 1 32 107 A57 57 0 0 0 95 23Z" fill={fill('moon')} />
+        </svg>
+        <svg className="hillside-layer" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice">
+            {/* Expand the ground upward, anchored at the bottom of the scene. */}
+            <g transform="translate(0 -282.3) scale(1 1.3)">
+                {/* Low cloud banks stay behind the mountains. */}
+                <g fill={fill('cloud')} opacity="0.85">
+                    <g className="hillside-bank"><path d={CLOUD_PATH} transform="translate(-160 472) scale(1.2)" /><path d={CLOUD_PATH} transform="translate(425 596) scale(.8)" /></g>
+                    <g className="hillside-bank hillside-bank-right"><path d={CLOUD_PATH} transform="translate(1390 502) scale(1.2)" /><path d={CLOUD_PATH} transform="translate(1280 607) scale(.65)" /></g>
                 </g>
-            ))}
-        </g>
-        {/* distant mountain range — soft rounded peaks (quadratic curves, not
-            sharp zigzags) to stay consistent with the app's flat paper-cut
-            illustration style, hazier/lighter to read as "further away".
-            Light-mode fill deepened from #ffd8a0 (opacity 0.85) to #eea768
-            (opacity 0.92) so it reads distinctly against the now-darker sky
-            instead of nearly blending into it. */}
-        <path
-            d="M0 560 Q80 470 160 440 Q230 480 300 540 Q365 420 430 400 Q525 470 620 560 Q690 460 760 450 Q830 490 900 560 Q980 430 1060 415 Q1150 480 1240 560 Q1310 470 1380 470 Q1490 510 1600 560 V900 H0 Z"
-            fill="#eea768"
-            opacity="0.92"
-            className="dark:hidden"
-        />
-        <path
-            d="M0 560 Q80 470 160 440 Q230 480 300 540 Q365 420 430 400 Q525 470 620 560 Q690 460 760 450 Q830 490 900 560 Q980 430 1060 415 Q1150 480 1240 560 Q1310 470 1380 470 Q1490 510 1600 560 V900 H0 Z"
-            fill="#1a2350"
-            opacity="0.75"
-            className="hidden dark:block"
-        />
-        {/* nearer mountain range — darker, a bit taller. Light-mode fill
-            deepened from #f3c383 to #d98d43 for the same reason as above. */}
-        <path
-            d="M0 620 Q100 500 200 490 Q280 540 360 600 Q440 460 520 450 Q610 520 700 610 Q790 480 880 480 Q970 550 1060 610 Q1160 460 1260 460 Q1350 530 1440 610 Q1520 550 1600 540 V900 H0 Z"
-            fill="#d98d43"
-            className="dark:hidden"
-        />
-        <path
-            d="M0 620 Q100 500 200 490 Q280 540 360 600 Q440 460 520 450 Q610 520 700 610 Q790 480 880 480 Q970 550 1060 610 Q1160 460 1260 460 Q1350 530 1440 610 Q1520 550 1600 540 V900 H0 Z"
-            fill="#131a3f"
-            className="hidden dark:block"
-        />
-        {/* rolling foreground hills — gentle waves, low amplitude */}
-        <path d="M0 700 Q400 670 800 695 T1600 685 V900 H0 Z" fill="#f3cf8e" className="dark:hidden" />
-        <path d="M0 700 Q400 670 800 695 T1600 685 V900 H0 Z" fill="#141b3d" className="hidden dark:block" />
-        <path d="M0 760 Q420 735 840 755 T1600 745 V900 H0 Z" fill="#e8b56a" className="dark:hidden" />
-        <path d="M0 760 Q420 735 840 755 T1600 745 V900 H0 Z" fill="#0e1430" className="hidden dark:block" />
-        <path d="M0 830 Q460 810 880 825 T1600 818 V900 H0 Z" fill="#d69a4c" className="dark:hidden" />
-        <path d="M0 830 Q460 810 880 825 T1600 818 V900 H0 Z" fill="#080b20" className="hidden dark:block" />
-        {/* forest clusters + clear plains dotting the nearest hill */}
-        <g fill="#8a5a2c" className="dark:hidden">
-            {TREES.map((tree, i) => (
-                <PineTree key={i} x={tree.x} y={tree.y} scale={tree.scale} />
-            ))}
-        </g>
-        <g fill="#050813" className="hidden dark:block">
-            {TREES.map((tree, i) => (
-                <PineTree key={i} x={tree.x} y={tree.y} scale={tree.scale} />
-            ))}
-        </g>
-    </svg>
-)
-/**
- * Sun (light mode) / crescent moon (dark mode), pinned to the top-right
- * corner with plain CSS positioning instead of being drawn inside the
- * cover-scaled sky SVG, so it's always in the same on-screen spot no
- * matter the window's aspect ratio.
- *
- * The glow behind each shape is a BLURRED COPY of the shape itself (via an
- * SVG feGaussianBlur filter), not a separate low-opacity full circle. That
- * matters for the moon in particular: a flat translucent circle sitting
- * behind the crescent rendered as a hard-edged dark-gray disc (low-opacity
- * warm yellow blended over the dark navy background desaturates almost to
- * neutral gray), which looked like a mysterious flat-bottomed shape
- * overlapping the moon, and was centered on the invisible full disc rather
- * than the visually-offset crescent sliver. Blurring a copy of the crescent
- * itself means the light has no hard edge and hugs the actual visible
- * shape, so it reads as a soft glow that's naturally centered on the moon.
- *
- * Rendered between `SkyAndHills` and `Clouds` in `HillsideBackdrop` (DOM
- * order = paint order for same-stacking-context `fixed` elements), so
- * clouds correctly drift in front of it instead of it always sitting on
- * top of every cloud.
- */
-const SunMoon: React.FC = () => (
-    <svg
-        viewBox="0 0 100 100"
-        className="pointer-events-none fixed right-6 top-6 h-16 w-16 sm:right-10 sm:top-10 sm:h-20 sm:w-20 lg:h-24 lg:w-24"
-        aria-hidden="true"
-    >
-        <defs>
-            <mask id="hillsideMoonMask">
-                <rect width="100" height="100" fill="black" />
-                <circle cx="50" cy="50" r="36" fill="white" />
-                <circle cx="66" cy="38" r="31" fill="black" />
-            </mask>
-            <filter id="hillsideGlow" x="-80%" y="-80%" width="260%" height="260%">
-                <feGaussianBlur stdDeviation="5.5" />
-            </filter>
-        </defs>
-        {/* sun, bigger disc + radiating rays */}
-        <g className="dark:hidden">
-            <g
-                opacity="0.55"
-                filter="url(#hillsideGlow)"
-                className="animate-halo-pulse"
-                style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
-            >
-                <circle cx="50" cy="50" r="34" fill="#ffb84d" />
+                {RIDGES.map((path, i) => <g key={i}>
+                    {i === 3 && <g fill="var(--hill-tree-distant)">{DISTANT_TREES.map(([x,y,scale], j) => <PineTree key={j} x={x} y={y} scale={scale} />)}</g>}
+                    <path d={path} fill={fill(`ridge-${i}`)} />
+                </g>)}
+                <g fill="var(--hill-tree-front)">{FRONT_TREES.map(([x,y,scale], i) => <PineTree key={i} x={x} y={y} scale={scale} />)}</g>
+                <path fill="var(--hill-brush-back)" d="M0 843 Q18 831 43 852 Q77 835 101 863 Q123 853 143 876 L160 941 H0Z M1500 941 L1510 891 Q1534 875 1556 885 Q1587 852 1611 865 Q1636 847 1672 864 V941Z" />
+                <path fill="var(--hill-brush-front)" d="M0 875 Q12 863 24 875 Q44 853 67 875 Q80 883 78 895 Q101 883 110 913 Q126 904 142 914 Q153 881 181 889 Q197 891 205 904 Q237 888 252 921 Q267 911 285 924 Q317 882 345 908 Q352 912 357 925 Q386 911 403 933 Q427 924 438 941 H0Z M1174 941 Q1187 910 1218 920 Q1234 883 1265 901 Q1284 906 1289 918 Q1311 905 1335 926 Q1363 918 1380 941Z M1505 941 Q1515 912 1543 923 Q1550 892 1580 900 Q1604 869 1634 895 Q1646 900 1650 911 Q1660 903 1672 913 V941Z" />
             </g>
-            <g stroke="#ffb84d" strokeWidth="4.5" strokeLinecap="round">
-                <line x1="50" y1="2" x2="50" y2="13" />
-                <line x1="50" y1="87" x2="50" y2="98" />
-                <line x1="2" y1="50" x2="13" y2="50" />
-                <line x1="87" y1="50" x2="98" y2="50" />
-                <line x1="15" y1="15" x2="23" y2="23" />
-                <line x1="77" y1="77" x2="85" y2="85" />
-                <line x1="85" y1="15" x2="77" y2="23" />
-                <line x1="23" y1="77" x2="15" y2="85" />
-            </g>
-            <circle cx="50" cy="50" r="34" fill="#ffb84d" />
-        </g>
-        {/* vibrant yellow crescent moon, bigger disc */}
-        <g className="hidden dark:block">
-            <g
-                opacity="0.65"
-                filter="url(#hillsideGlow)"
-                className="animate-halo-pulse"
-                style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
-            >
-                <g mask="url(#hillsideMoonMask)">
-                    <circle cx="50" cy="50" r="36" fill="#ffe066" />
-                </g>
-            </g>
-            <g mask="url(#hillsideMoonMask)">
-                <circle cx="50" cy="50" r="36" fill="#ffe066" />
-            </g>
-        </g>
-    </svg>
-)
-/**
- * Clouds-only top layer, using the exact same viewBox/slice-scaling setup
- * as `SkyAndHills` so the clouds line up with where they used to sit
- * inside that SVG. Split out purely for stacking order: painted after
- * `SunMoon` in `HillsideBackdrop`, so clouds visually pass in FRONT of the
- * sun/moon instead of always being stuck behind it. No sky/mountains/hills
- * live here — this layer is transparent everywhere except the cloud
- * shapes themselves, so it can sit on top of `SunMoon` without hiding it
- * the rest of the time.
- */
-const Clouds: React.FC = () => (
-    <svg
-        viewBox="0 0 1600 900"
-        preserveAspectRatio="xMidYMid slice"
-        className="pointer-events-none fixed inset-0 h-screen w-screen"
-        aria-hidden="true"
-    >
-        {CLOUDS.map((cloud, i) => (
-            <Cloud
-                key={`cloud-light-${i}`}
-                startX={cloud.startX}
-                y={cloud.y}
-                scale={cloud.scale}
-                opacity={cloud.opacity.light}
-                duration={cloud.duration}
-                delay={cloud.delay}
-                fill="#ffffff"
-            />
-        ))}
-        <g className="hidden dark:block">
-            {CLOUDS.map((cloud, i) => (
-                <Cloud
-                    key={`cloud-dark-${i}`}
-                    startX={cloud.startX}
-                    y={cloud.y}
-                    scale={cloud.scale}
-                    opacity={cloud.opacity.dark}
-                    duration={cloud.duration}
-                    delay={cloud.delay}
-                    fill="#2a355c"
-                />
-            ))}
-        </g>
-    </svg>
-)
-export const HillsideBackdrop: React.FC<{ className?: string }> = ({ className = '' }) => (
-    <>
-        <SkyAndHills className={className} />
-        <SunMoon />
-        <Clouds />
-    </>
-)
+        </svg>
+        <svg className="hillside-layer hillside-cloud-layer" viewBox="0 0 1672 941" preserveAspectRatio="xMidYMid slice">
+            <defs><linearGradient id={`${id}-moving-cloud`} x2="0.3" y2="1"><stop stopColor="var(--hill-cloud-top)" /><stop offset="1" stopColor="var(--hill-cloud-bottom)" /></linearGradient></defs>
+            {CLOUDS.map((cloud, i) => <g key={i} className="hillside-cloud" style={{ animationDuration: `${cloud.duration}s`, animationDelay: `${-(cloud.x + 540) / 2780 * cloud.duration}s` }}>
+                <path d={CLOUD_PATH} transform={`translate(-540 ${cloud.y}) scale(${cloud.scale})`} fill={fill('moving-cloud')} />
+            </g>)}
+        </svg>
+    </div>
+}
 export default HillsideBackdrop
