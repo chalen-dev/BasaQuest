@@ -30,7 +30,7 @@
 // instead of a centered OwlLoader spinner.
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check, FileCheck, FileClock, Languages, Send, Trash2, Wifi, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, FileCheck, FileClock, Languages, Trash2, Wifi, X } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { deleteSavedPassage, useSavedPassageStatusesQuery } from '../savedPassages.ts'
 import { Owl } from '../../../../components/ui/Owl.tsx'
@@ -64,9 +64,9 @@ const STRINGS: Record<Lang, {
     englishDesc: string
     selectedBadge: string
     startLabel: string
-    studentPickerKicker: string
-    studentPickerTitle: string
-    studentPickerDesc: string
+    panelTitle: string
+    panelDesc: string
+    languageLabel: string
     pickLanguageFirst: string
     searchLabel: string
     searchPlaceholder: string
@@ -119,10 +119,10 @@ const STRINGS: Record<Lang, {
         englishDesc: 'Will generate the passage in English.',
         selectedBadge: 'Napili',
         startLabel: 'Simulan',
-        studentPickerKicker: 'Pangalawang Hakbang',
-        studentPickerTitle: 'Pumili ng Estudyante',
-        studentPickerDesc: 'Pumili ng estudyante. Gagawa o bubuksan mo ang talata niya, susuriin ito, at saka mo pipiliin kung gagawin ito ngayon sa device na ito o ipapadala sa device ng estudyante.',
-        pickLanguageFirst: 'Pumili muna ng wika sa itaas.',
+        panelTitle: 'Magsimula ng Check-in',
+        panelDesc: 'Piliin ang wika, saka ang estudyante. Susuriin mo muna ang talata niya, at pagkatapos ay patatakbuhin ito sa device na ito o ipapadala sa device niya.',
+        languageLabel: 'Wika',
+        pickLanguageFirst: 'Pumili muna ng wika para makita ang mga estudyante.',
         searchLabel: 'Maghanap',
         searchPlaceholder: 'Pangalan o username...',
         gradeFilterLabel: 'Baitang',
@@ -171,10 +171,10 @@ const STRINGS: Record<Lang, {
         englishDesc: 'Will generate the passage in English.',
         selectedBadge: 'Selected',
         startLabel: 'Start',
-        studentPickerKicker: 'Second Step',
-        studentPickerTitle: 'Select a Student',
-        studentPickerDesc: "Pick a student. You will generate or open their passage, validate it, and then choose whether to run the check-in now on this device or send it to the student's own device.",
-        pickLanguageFirst: 'Pick a language above first.',
+        panelTitle: 'Start a check-in',
+        panelDesc: "Pick a language, then a student. You'll review their passage first, then run it on this device or send it to theirs.",
+        languageLabel: 'Language',
+        pickLanguageFirst: 'Pick a language to see your students.',
         searchLabel: 'Search',
         searchPlaceholder: 'Name or username...',
         gradeFilterLabel: 'Grade',
@@ -325,58 +325,24 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
         { value: '', label: t.onlineFilterAll },
         { value: 'online', label: t.onlineFilterOnline },
     ]
-    // Compact side-by-side option with its own short description — used
-    // only in the teacher's languageSectionTeacher below.
-    const languageOption = (label: 'fil' | 'en', title: string, desc: string) => {
-        const selected = isTeacher && selectedLang === label
+    // One option of the language switch in the teacher panel's header.
+    const languageSegment = (value: 'fil' | 'en', label: string) => {
+        const selected = selectedLang === value
         return (
             <button
-                onClick={() => chooseLanguage(label)}
-                className={`relative flex min-w-[150px] flex-1 flex-col items-start gap-0.5 rounded-xl border-2 px-4 py-2.5 text-left transition-all duration-150 ${
+                type="button"
+                onClick={() => chooseLanguage(value)}
+                aria-pressed={selected}
+                className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-150 ${
                     selected
-                        ? 'border-teal-500 bg-teal-500/10 shadow-sm dark:border-teal-400 dark:bg-teal-400/10'
-                        : 'border-gray-900/10 bg-white hover:border-teal-500/40 dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-teal-400/40'
+                        ? 'bg-teal-500 text-white shadow-sm dark:bg-teal-600'
+                        : 'text-gray-600 hover:bg-gray-900/5 dark:text-gray-300 dark:hover:bg-gray-100/10'
                 }`}
             >
-                {selected && (
-                    <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-white dark:bg-teal-400 dark:text-gray-950">
-                        <Check size={11} strokeWidth={3} />
-                    </span>
-                )}
-                <span className={`text-sm font-bold ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-gray-900 dark:text-gray-50'}`}>
-                    {title}
-                </span>
-                <span className="text-[0.8125rem] font-medium text-gray-500 dark:text-gray-400">{desc}</span>
+                {label}
             </button>
         )
     }
-    const languageSectionTeacher = (
-        <section className="relative overflow-hidden rounded-3xl border border-gray-900/5 p-4 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-5">
-            <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }} />
-            <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }} />
-            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex shrink-0 items-center gap-3">
-                    <Owl mood="confused" size={70} />
-                    <div>
-                        <span className="flex items-center gap-1.5 text-[0.8125rem] font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
-                            <Languages size={12} />
-                            {t.languageKicker}
-                        </span>
-                        <h1 className="text-base font-extrabold text-gray-900 dark:text-gray-50 sm:text-lg">
-                            {t.languageTitle}
-                        </h1>
-                        <p className="mt-0.5 max-w-xs text-xs font-medium text-gray-500 dark:text-gray-400">
-                            {t.languageDesc}
-                        </p>
-                    </div>
-                </div>
-                <div className="flex gap-3 sm:flex-1 sm:justify-end">
-                    {languageOption('en', t.englishLabel, t.englishDesc)}
-                    {languageOption('fil', t.filipinoLabel, t.filipinoDesc)}
-                </div>
-            </div>
-        </section>
-    )
     // Bigger card used only in languageSectionStudent below — same
     // "book-style" shape as MaterialSelection's FOUNDATIONALS cards (big
     // icon chip, title, description, full-width pill CTA at the bottom)
@@ -538,30 +504,40 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
             </div>
         )
     }
-    const studentPickerSection = (
-        <section className="relative flex flex-col overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8 lg:h-full">
+    // The teacher's whole screen as one panel: who/what at the top (title and
+    // language switch), the search and filters on one row, then the pupil list.
+    const teacherPanel = (
+        <section className="relative flex flex-col overflow-hidden rounded-3xl border border-gray-900/5 p-5 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-6 lg:h-full">
             <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }} />
             <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }} />
             <div className="relative flex flex-1 flex-col lg:min-h-0">
-                <div className="shrink-0">
-                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
-                        <Send size={14} />
-                        {t.studentPickerKicker}
+                <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3">
+                    <Owl mood={selectedLang ? 'proud' : 'confused'} variant="icon" size={56} />
+                    <div className="min-w-0 flex-1 basis-64">
+                        <h1 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.panelTitle}</h1>
+                        <p className="mt-0.5 max-w-2xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.panelDesc}</p>
                     </div>
-                    <h2 className="mt-1 text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.studentPickerTitle}</h2>
-                    <p className="mt-2 max-w-xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.studentPickerDesc}</p>
-                </div>
+                    <div role="group" aria-label={t.languageLabel} className="flex shrink-0 items-center gap-2.5">
+                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                            <Languages size={14} />
+                            {t.languageLabel}
+                        </span>
+                        <div className="flex gap-1 rounded-full border border-gray-900/10 bg-white/70 p-1 dark:border-gray-100/10 dark:bg-gray-900/60">
+                            {languageSegment('en', t.englishLabel)}
+                            {languageSegment('fil', t.filipinoLabel)}
+                        </div>
+                    </div>
+                </header>
+                <div className="my-4 h-px shrink-0 bg-gray-900/10 dark:bg-gray-100/10" />
                 {!selectedLang ? (
-                    <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dashed border-gray-900/15 px-4 py-3 dark:border-gray-100/15">
-                        <Owl mood="confused" size={36} />
-                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
-                            {t.pickLanguageFirst}
-                        </p>
+                    <div className="flex items-center gap-3 rounded-2xl border border-dashed border-gray-900/15 px-4 py-3 dark:border-gray-100/15">
+                        <Owl mood="confused" variant="icon" size={36} />
+                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t.pickLanguageFirst}</p>
                     </div>
                 ) : (
-                    <div className="mt-5 flex flex-1 flex-col gap-6 lg:min-h-0 lg:flex-row">
-                        {/* Left column — search + filters, stays put, never scrolls */}
-                        <div className="flex shrink-0 flex-col gap-3 short:gap-2 lg:min-h-0 lg:w-64 lg:overflow-y-auto short:lg:grid short:lg:w-[26rem] short:lg:grid-cols-2 short:lg:content-start">
+                    <div className="flex flex-1 flex-col gap-4 lg:min-h-0">
+                        {/* Search and filters on one row, so the list below gets the height */}
+                        <div className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
                             <SearchInput
                                 value={searchInput}
                                 onChange={setSearchInput}
@@ -664,10 +640,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                 </Link>
             </div>
             {isTeacher ? (
-                <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
-                    <div className="shrink-0">{languageSectionTeacher}</div>
-                    <div className="lg:min-h-0 lg:flex-1">{studentPickerSection}</div>
-                </div>
+                <div className="lg:min-h-0 lg:flex-1">{teacherPanel}</div>
             ) : (
                 languageSectionStudent
             )}
