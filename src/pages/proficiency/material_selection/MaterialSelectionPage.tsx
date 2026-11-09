@@ -11,6 +11,7 @@ import { useLang } from '../../../contexts/LangContext.tsx'
 import type { Lang } from '../../../components/buttons/LangToggle.tsx'
 import { BookCover } from './components/BookCover.tsx'
 import { IMAGE_SCENES } from './components/sceneImages.ts'
+import { ENGLISH_LEVELS } from '../foundational/data/levels.ts'
 import { usePreloadImages } from '../../../hooks/usePreloadImages.ts'
 import { OwlLoader } from '../../../components/ui/OwlLoader.tsx'
 import { useReadyPassageLangsQuery } from '../pre_assessment/savedPassages.ts'
@@ -44,9 +45,19 @@ type Foundational = {
     scene: 'letters-fil' | 'letters-en'
     coverColor: string
 }
+// English levels come from the data files (title/subtitle/id); they share the
+// Letters & Sounds cover picture until each level gets its own art.
+const ENGLISH_COVER_COLORS = ['#e8974a', '#e07a5f', '#5fa8d3', '#6aa84f', '#b07cc6']
 const FOUNDATIONALS: Foundational[] = [
     { id: 'letters-fil', title: 'Mga Titik at Tunog', subtitle: 'Filipino · Antas 1', lang: 'Filipino', scene: 'letters-fil', coverColor: '#f0a93c' },
-    { id: 'letters-en', title: 'Letters & Sounds', subtitle: 'English · Level 1', lang: 'English', scene: 'letters-en', coverColor: '#e8974a' },
+    ...ENGLISH_LEVELS.map((level): Foundational => ({
+        id: level.id,
+        title: level.title,
+        subtitle: level.subtitle,
+        lang: 'English',
+        scene: 'letters-en',
+        coverColor: ENGLISH_COVER_COLORS[level.level - 1] ?? '#e8974a',
+    })),
 ]
 const STRINGS: Record<Lang, {
     greetingTitle: (name: string) => string
