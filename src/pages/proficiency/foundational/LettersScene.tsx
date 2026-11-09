@@ -4,26 +4,32 @@
 // standalone page public/letters-practice.html (letter tabs, flashcard, owl),
 // shown full-bleed in an iframe, the same way the word practice session is.
 // It is same-origin, so this page talks to it through window hooks the scene
-// defines, plus two messages back:
+// defines, plus messages back:
 //
 //   lettersLoad(list)     this page -> scene: the level's letters A to Z, each
-//                         {word, sound, image (emoji), extras: [{word, image}]}
+//                         {word, sound, image (emoji), imageUrl, extras: [...]}
+//   lettersCanEdit(bool)  this page -> scene: show the "Edit cards" button
 //   lettersSpeaking(bool) this page -> scene: the voice is loading (spinner)
 //   lettersTalking(bool)  this page -> scene: the voice is playing (owl talks)
 //   lettersSpeak(word)    scene -> this page: "Hear it" (server voice)
-//   letters:exit / letters:stop (messages): leave the page / stop the voice
+//   letters:exit / letters:stop / letters:edit (messages): leave / stop the
+//                         voice / open the card editor
 //
-// What each letter shows comes from data/en/level1.ts (a main word plus any
-// extra words). Drawings are looked up by word in public/letters-art.js; a word
-// without a drawing shows its emoji, so new words need no artwork. Progress is
-// not saved yet.
+// What each letter shows comes from the cards set this person gets (the shared
+// default, or their teacher's own; see hooks.ts), falling back to the built-in
+// data in data/en/level1.ts while it loads or if it cannot be read. A picture is
+// the drawing in public/letters-art.js for the word, else the Word Pictures
+// library image, else the emoji. Progress is not saved yet.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePronounceWord } from '../remediation/session/features/usePronounceWord.ts'
+import { useProfile } from '../../../hooks/useProfile.ts'
 import type { FoundationalLetter } from './data/types.ts'
+import { buildSceneLetters, useFoundationalSetQuery, useLibraryPicturesQuery, type SceneLetter } from './hooks.ts'
 
 type SceneWindow = Window & {
-    lettersLoad?: (list: { word: string; sound: string; image: string; extras: { word: string; image: string }[] }[]) => void
+    lettersLoad?: (list: SceneLetter[]) => void
+    lettersCanEdit?: (canEdit: boolean) => void
     lettersSpeak?: (word: string) => void
     lettersSpeaking?: (loading: boolean) => void
     lettersTalking?: (talking: boolean) => void
@@ -31,24 +37,23 @@ type SceneWindow = Window & {
 
 const SCENE_URL = '/letters-practice.html'
 
-export default function LettersScene({ letters }: { letters: FoundationalLetter[] }) {
+export default function LettersScene({ levelId, letters }: { levelId: string; letters: FoundationalLetter[] }) {
     const navigate = useNavigate()
+    const { profile } = useProfile()
     const { speak, stop, isLoading, isPlaying } = usePronounceWord()
     const [sceneWin, setSceneWin] = useState<SceneWindow | null>(null)
+    const setQuery = useFoundationalSetQuery(levelId)
 
-    // One entry per letter, A to Z, with the sound without its slashes ("/m/" -> "m").
-    const list = useMemo(
-        () =>
-            [...letters]
-                .sort((a, b) => a.lower.localeCompare(b.lower))
-                .map((letter) => ({
-                    word: letter.word,
-                    sound: letter.letter_sound.replace(/\//g, ''),
-                    image: letter.image,
-                    extras: letter.extra_words ?? [],
-                })),
-        [letters],
+    // Every word the pupil could see, so the library pictures arrive in one go.
+    const cards = setQuery.data?.cards
+    const allWords = useMemo(
+        () => (cards && cards.length ? cards.map((c) => c.word) : letters.flatMap((l) => [l.word, ...(l.extra_words ?? []).map((e) => e.word)])),
+        [cards, letters],
     )
+    const pictures = useLibraryPicturesQuery(allWords).data
+    const list = useMemo(() => buildSceneLetters(letters, cards, pictures), [letters, cards, pictures])
+
+    const canEdit = profile?.role === 'teacher' || profile?.role === 'admin'
 
     const speakRef = useRef(speak)
     useEffect(() => {
@@ -64,6 +69,10 @@ export default function LettersScene({ letters }: { letters: FoundationalLetter[
     }, [sceneWin, list])
 
     useEffect(() => {
+        sceneWin?.lettersCanEdit?.(canEdit)
+    }, [sceneWin, canEdit])
+
+    useEffect(() => {
         sceneWin?.lettersSpeaking?.(isLoading)
     }, [sceneWin, isLoading])
 
@@ -76,10 +85,11 @@ export default function LettersScene({ letters }: { letters: FoundationalLetter[
             if (event.origin !== window.location.origin) return
             if (event.data?.type === 'letters:exit') navigate('/reading/proficiency')
             if (event.data?.type === 'letters:stop') stopRef.current()
+            if (event.data?.type === 'letters:edit') navigate(`/reading/proficiency/foundational/${levelId}/edit`)
         }
         window.addEventListener('message', onMessage)
         return () => window.removeEventListener('message', onMessage)
-    }, [navigate])
+    }, [navigate, levelId])
 
     // Scene -> page hook, set when the frame loads (it lives on the frame's own window).
     const bindScene = (win: SceneWindow | null) => {

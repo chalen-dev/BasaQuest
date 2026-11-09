@@ -29,6 +29,7 @@ import GuestLayout from "./pages/auth/layouts/GuestLayout.tsx";
 import AssessmentSessionLayout from "./pages/proficiency/pre_assessment/assessment_session/layouts/AssessmentSessionLayout.tsx";
 import AdminSessionLayout from "./pages/admin/recording/session/layouts/AdminSessionLayout.tsx";
 import MaterialSelectionPage from "./pages/proficiency/material_selection/MaterialSelectionPage.tsx";
+import FoundationalEditPage from "./pages/proficiency/foundational/FoundationalEditPage.tsx";
 import FoundationalPracticePage from "./pages/proficiency/foundational/FoundationalPracticePage.tsx";
 import MyResultsPage from "./pages/proficiency/my_results/MyResultsPage.tsx";
 import ProficiencyAssessmentSelectStudentPage from "./pages/proficiency/pre_assessment/select_student/ProficiencyAssessmentSelectStudentPage.tsx";
@@ -135,6 +136,7 @@ const router = createBrowserRouter(
                         <Route path="/home" element={<HomePage />} />
                         <Route path="/credits" element={<PictureCreditsPage />} />
                         <Route path="/reading/proficiency" element={<MaterialSelectionPage />} />
+                        <Route path="/reading/proficiency/foundational/:levelId/edit" element={<FoundationalEditPage />} />
                         <Route path="/reading/proficiency/results" element={<MyResultsPage />} />
                         <Route path="/reading/proficiency/assessment" element={<ProficiencyAssessmentSelectStudentPage />} />
                         {/* Fluent Reading's own Review / Results / Remediation for the

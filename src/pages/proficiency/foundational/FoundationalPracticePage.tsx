@@ -73,7 +73,7 @@ const FoundationalPracticePage: React.FC = () => {
     }
 
     // Level 1 is the blackboard classroom scene; the other levels use the plain card viewer below.
-    if (level.letters) return <LettersScene letters={level.letters} />
+    if (level.letters) return <LettersScene levelId={level.id} letters={level.letters} />
 
     const cards = buildCards(level)
     const card = cards[Math.min(index, cards.length - 1)]
