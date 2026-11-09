@@ -1,4 +1,5 @@
 import React from 'react'
+import { OwlRig, type OwlEmotion } from './owlRig/OwlRig'
 
 export type OwlMood =
     | 'neutral'
@@ -15,26 +16,31 @@ export type OwlMood =
 interface OwlProps {
     mood?: OwlMood
     size?: number
-    /** Adds a gentle bounce (Tailwind's animate-bounce) to the owl image. */
+    /** Adds a gentle bounce (Tailwind's animate-bounce) to the owl. */
     bob?: boolean
     /** Adds a slow breathing/pulse loop — handy for loading/thinking states. */
     animated?: boolean
     className?: string
     /** Optional alt override; defaults to a mood-aware description. */
     alt?: string
+    /** "full" is the whole bird; "icon" is the round portrait for avatars and badges. */
+    variant?: 'full' | 'icon'
+    /** Moves the beak as if the owl were speaking. */
+    talking?: boolean
 }
 
-const MOOD_IMAGE: Record<OwlMood, string> = {
-    neutral: '/owl/1-owl-neutral.png',
-    happy: '/owl/2-owl-greeting.png',
-    proud: '/owl/3-owl-proud.png',
-    celebrating: '/owl/4-owl-celebrating.png',
-    encouraging: '/owl/5-owl-encouraging.png',
-    loading: '/owl/6-owl-loading.png',
-    thinking: '/owl/7-owl-listening.png',
-    confused: '/owl/8-owl-confused.png',
-    sleepy: '/owl/9-owl-sleepy.png',
-    surprised: '/owl/10-owl-surprised.png',
+// The live owl (owlRig/) has the same ten emotions; "thinking" is its "listening".
+const MOOD_EMOTION: Record<OwlMood, OwlEmotion> = {
+    neutral: 'neutral',
+    happy: 'happy',
+    proud: 'proud',
+    celebrating: 'celebrating',
+    encouraging: 'encouraging',
+    loading: 'loading',
+    thinking: 'listening',
+    confused: 'confused',
+    sleepy: 'sleepy',
+    surprised: 'surprised',
 }
 
 const MOOD_ALT: Record<OwlMood, string> = {
@@ -60,18 +66,17 @@ export const Owl: React.FC<OwlProps> = ({
                                             animated = false,
                                             className = '',
                                             alt,
+                                            variant = 'full',
+                                            talking = false,
                                         }) => {
-    const src = MOOD_IMAGE[mood]
-    const resolvedAlt = alt ?? MOOD_ALT[mood]
-
     return (
-        <img
-            src={src}
-            alt={resolvedAlt}
-            width={size}
-            height={size}
-            className={`select-none ${bob ? 'animate-bounce' : ''} ${animated ? 'animate-owl-pulse' : ''} ${className}`}
-            draggable={false}
+        <OwlRig
+            emotion={MOOD_EMOTION[mood]}
+            variant={variant}
+            size={size}
+            talking={talking}
+            label={alt ?? MOOD_ALT[mood]}
+            className={`${bob ? 'animate-bounce' : ''} ${animated ? 'animate-owl-pulse' : ''} ${className}`}
         />
     )
 }
