@@ -105,7 +105,12 @@ const NOISE_OFF_THRESHOLD = 0.1
 // speaking. Quiet rooms sit around 0.002-0.01, normal speech well above
 // 0.02; set low so a soft-spoken child is not treated as silent.
 const VOICE_RMS_THRESHOLD = 0.015
-export function useRecorder() {
+// publishLevels (default true): keep `level` and `levels` in React state, so the
+// component re-renders on every animation frame while recording. A screen that
+// draws its own equalizer, and should not re-render at 60 frames a second, passes
+// false and subscribes with subscribeLevels() instead; `level`/`levels` then stay
+// at rest.
+export function useRecorder({ publishLevels = true }: { publishLevels?: boolean } = {}) {
     const [status, setStatus] = useState<RecorderStatus>('idle')
     const [seconds, setSeconds] = useState(0)
     const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -114,6 +119,17 @@ export function useRecorder() {
     const [levels, setLevels] = useState<number[]>(() => new Array(WAVEFORM_BARS).fill(0))
     const [isNoisy, setIsNoisy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const publishLevelsRef = useRef(publishLevels)
+    useEffect(() => {
+        publishLevelsRef.current = publishLevels
+    }, [publishLevels])
+    const levelListenersRef = useRef(new Set<(levels: number[]) => void>())
+    const subscribeLevels = useCallback((listener: (levels: number[]) => void) => {
+        levelListenersRef.current.add(listener)
+        return () => {
+            levelListenersRef.current.delete(listener)
+        }
+    }, [])
     const mediaRef = useRef<MediaRecorder | null>(null)
     const chunksRef = useRef<Blob[]>([])
     const streamRef = useRef<MediaStream | null>(null)
@@ -275,8 +291,11 @@ export function useRecorder() {
                     // eased release (glide toward target when falling).
                     displayed[i] = target >= displayed[i] ? target : displayed[i] + (target - displayed[i]) * WAVEFORM_RELEASE_FACTOR
                 }
-                setLevels([...displayed])
-                setLevel(Math.min(1, displayed.reduce((a, b) => a + b, 0) / displayed.length))
+                for (const listener of levelListenersRef.current) listener(displayed)
+                if (publishLevelsRef.current) {
+                    setLevels([...displayed])
+                    setLevel(Math.min(1, displayed.reduce((a, b) => a + b, 0) / displayed.length))
+                }
                 // Ambient noise floor tracking — see header comment.
                 const rawAvg = rawSum / WAVEFORM_BARS
                 const now = performance.now()
@@ -398,5 +417,5 @@ export function useRecorder() {
         setAudioUrl(null)
         setBlob(null)
     }, [])
-    return { status, seconds, voicedSeconds, audioUrl, blob, level, levels, isNoisy, error, start, prepare, begin, cancelPrepare, stop, reset, simulate }
+    return { status, seconds, voicedSeconds, audioUrl, blob, level, levels, isNoisy, error, start, prepare, begin, cancelPrepare, stop, reset, simulate, subscribeLevels }
 }

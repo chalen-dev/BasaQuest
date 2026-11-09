@@ -12,7 +12,9 @@
 // verdict coloring + target-word bolding.
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
-export type CoachWordVerdict = 'correct' | 'miscue'
+// How a read word was scored: green, orange (said it wrong; 'miscue' is the same
+// colour, kept for callers that only know right or wrong) and red (skipped).
+export type CoachWordVerdict = 'correct' | 'mispronounced' | 'omitted' | 'miscue'
 
 // One passage's worth of content to paint onto the open page. `verdicts`
 // is null/undefined before a scoring attempt exists (the idle/recording/
@@ -142,7 +144,8 @@ export function renderSentence(target: SVGGElement, interactionLayer: SVGSVGElem
             wordEl.setAttribute('font-weight', isTarget ? '700' : '400')
             const verdict = content.verdicts?.[index]
             if (verdict === 'correct') wordEl.setAttribute('fill', 'var(--coach-correct)')
-            else if (verdict === 'miscue') wordEl.setAttribute('fill', 'var(--coach-miscue)')
+            else if (verdict === 'mispronounced' || verdict === 'miscue') wordEl.setAttribute('fill', 'var(--coach-miscue)')
+            else if (verdict === 'omitted') wordEl.setAttribute('fill', 'var(--coach-omitted)')
             else if (isTarget) wordEl.setAttribute('fill', 'var(--coach-target)')
             else wordEl.removeAttribute('fill')
             wordEl.textContent = token

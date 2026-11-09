@@ -253,6 +253,12 @@ import {
 } from './features/backdrop/CoachTableBackdrop.tsx'
 import { STRINGS, getStaticCoachTip } from './features/remediationCoachStrings.ts'
 import { CoachNotebookSlot } from './features/CoachNotebookSlot.tsx'
+import { maxRecordingSeconds, RECORDING_STRINGS } from './features/coachRecordingStrings.ts'
+import { ScorePassageError, useScorePassage } from './features/useScorePassage.ts'
+import { findRecordingProblem } from '../../pre_assessment/assessment_session/features/recordingCheck.ts'
+import { useRecorder } from '../../pre_assessment/assessment_session/features/useRecorder.ts'
+import { useTheme } from '../../../../contexts/ThemeContext.tsx'
+import { showToast } from '../../../../helpers/swalHelpers.ts'
 
 // Which companion is currently showing in OWL_AREA_STYLE -- see this
 // file's header comment ("WORD NOTEBOOK"). Kept local to this file
@@ -474,6 +480,21 @@ export default function RemediationCoachPage() {
     const { speak: speakPassage, stop: stopPassage, isLoading: passageLoading, isPlaying: passagePlaying } = usePronounceWord()
     const backdropRef = useRef<CoachTableBackdropHandle>(null)
 
+    // RECORDING + SCORING (see "RECORDING" near the handlers below). The recorder is
+    // asked not to publish its per-frame levels: the equalizer paints itself from
+    // subscribeLevels, so a frame of audio never re-renders this whole page.
+    const rt = RECORDING_STRINGS[lang]
+    const { theme } = useTheme()
+    const rec = useRecorder({ publishLevels: false })
+    const scorePassage = useScorePassage()
+    // Set by Cancel: the take that is about to arrive is thrown away, not scored.
+    const discardRef = useRef(false)
+    // The take already dealt with, so one recording is never scored twice.
+    const handledBlobRef = useRef<Blob | null>(null)
+    // The owl's remark on the last result; replaces the tip until the page changes.
+    const [coachMessage, setCoachMessage] = useState<string | null>(null)
+    const [celebrate, setCelebrate] = useState(false)
+
     // Seeded once from the query, same reasoning as RemediationSession.tsx:
     // nothing else in this file changes this material's words/passages,
     // so a background refetch shouldn't stomp on in-progress local
@@ -573,14 +594,14 @@ export default function RemediationCoachPage() {
     // file's header comment ("COACH TIPS"). Computed here (rather than
     // inline in the render branch below) so the reading-time auto-hide
     // effect further down can depend on it directly.
-    const speechBubbleText = currentPage?.coachTip ?? null
+    const speechBubbleText = coachMessage ?? currentPage?.coachTip ?? null
     // Highlighted version of speechBubbleText -- see "TIP HIGHLIGHTING"
     // above. Recomputed whenever the page changes (via currentPage in the
     // deps below); kept separate from speechBubbleText itself (a plain
     // string) since the auto-hide effect below and the `key={speechBubbleText}`
     // remount trick in the render branch both want the plain string, not
     // a ReactNode.
-    const speechBubbleNode: ReactNode = currentPage && speechBubbleText
+    const speechBubbleNode: ReactNode = currentPage && speechBubbleText && !coachMessage
         ? renderHighlightedTip(speechBubbleText, getTargetWordsForPage(currentPage.content))
         : speechBubbleText
     // Reading-time auto-hide -- ported from the prototype's
@@ -608,6 +629,109 @@ export default function RemediationCoachPage() {
 
     const goBack = () => navigate(`/students/remediation/${studentId}`)
 
+    // RECORDING: the pupil presses the microphone, reads the passage on the page, and
+    // presses it again (now a stop button) to finish; Previous turns into Cancel while
+    // recording. A finished take is checked on this device first (nothing heard, too
+    // short, too long: scoring is paid by the second, so those never go up), then sent
+    // to the scoring service, and the answer is painted onto the passage word by word:
+    // green correct, orange mispronounced, red skipped. Nothing is stored.
+    const isRecording = rec.status === 'recording'
+    const isScoring = scorePassage.isPending
+    // From the moment recording stops until the take has been dealt with.
+    const micBusy = isScoring || rec.status === 'recorded'
+    const micState = isRecording ? 'recording' : micBusy ? 'scoring' : 'idle'
+    const darkToast = theme === 'dark'
+    // What the effect below needs, kept current without making it re-run.
+    const latestRef = useRef({ content: currentPage?.content ?? null, language: material?.language })
+    useEffect(() => {
+        latestRef.current = { content: currentPage?.content ?? null, language: material?.language }
+    })
+
+    const handleMic = () => {
+        if (isScoring || isTurning || rec.status === 'recorded') return
+        if (isRecording) {
+            rec.stop() // the effect below scores the take once it arrives
+            return
+        }
+        if (!currentPage || !material) return
+        if (material.language !== 'en') {
+            showToast(rt.filipinoNotReady, 'info', darkToast, { closable: true, timer: 6000 })
+            return
+        }
+        stopPassage()
+        setCoachMessage(null)
+        setCelebrate(false)
+        backdropRef.current?.setCurrentContent(currentPage.content) // clear last attempt's colours
+        discardRef.current = false
+        rec.reset()
+        void rec.start(maxRecordingSeconds(currentPage.content.words.length))
+    }
+    const handleCancelRecording = () => {
+        if (!isRecording) return
+        discardRef.current = true
+        rec.stop()
+    }
+
+    // A take has arrived (stopped by the pupil, or by the time limit).
+    useEffect(() => {
+        if (rec.status !== 'recorded' || !rec.blob || handledBlobRef.current === rec.blob) return
+        const blob = rec.blob
+        handledBlobRef.current = blob
+        if (discardRef.current) {
+            discardRef.current = false
+            rec.reset()
+            return
+        }
+        const { content, language } = latestRef.current
+        if (!content || !language) {
+            rec.reset()
+            return
+        }
+        const words = content.words
+        const toast = (message: string, icon: 'warning' | 'error') =>
+            showToast(message, icon, darkToast, { closable: true, timer: 7000 })
+        // Turn back an empty, far-too-short or overlong take before it is uploaded.
+        const problem =
+            rec.seconds >= maxRecordingSeconds(words.length)
+                ? 'too_long'
+                : findRecordingProblem(rec.seconds, rec.voicedSeconds, words.length)
+        if (problem) {
+            toast(problem === 'silent' ? rt.silent : problem === 'too_short' ? rt.tooShort : rt.tooLong, 'warning')
+            rec.reset()
+            return
+        }
+        void (async () => {
+            try {
+                const result = await scorePassage.mutateAsync({ words, language, blob })
+                const verdicts = words.map((_, index) => {
+                    const row = result.words.find((r) => r.wordIndex === index)
+                    if (!row) return null
+                    return row.errorType === 'None' ? 'correct' : row.errorType === 'Omission' ? 'omitted' : 'mispronounced'
+                })
+                backdropRef.current?.setCurrentContent({ ...content, verdicts })
+                const correct = verdicts.filter((v) => v === 'correct').length
+                const allRight = correct === words.length
+                setCoachMessage(allRight ? rt.resultAll : rt.result(correct, words.length))
+                setCelebrate(allRight)
+            } catch (err) {
+                const code = err instanceof ScorePassageError ? err.code : null
+                toast(code === 'silent' ? rt.silent : code === 'too_long' ? rt.tooLong : rt.scoringFailed, code ? 'warning' : 'error')
+            } finally {
+                rec.reset()
+            }
+        })()
+        // Runs when a take arrives; everything else it reads is current via refs or the render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rec.status, rec.blob])
+
+    // The microphone could not be opened (permission refused, or none connected).
+    useEffect(() => {
+        if (rec.status !== 'unsupported') return
+        showToast(rt.micDenied, 'warning', darkToast, { closable: true, timer: 7000 })
+        rec.reset()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rec.status])
+
     const isLastPage = pages.length > 0 && currentIndex === pages.length - 1
     const isFirstPage = currentIndex === 0
     const allPracticed = seeded && sessionWords.every(readPracticed)
@@ -624,6 +748,8 @@ export default function RemediationCoachPage() {
         const nextPage = pages[newIndex]
         if (!nextPage) return
         stopPassage()
+        setCoachMessage(null)
+        setCelebrate(false)
         setIsTurning(true)
         setCurrentIndex(newIndex)
         await backdropRef.current?.turnTo(nextPage.content, direction)
@@ -812,12 +938,17 @@ export default function RemediationCoachPage() {
                     <CoachTableBackdrop
                         ref={backdropRef}
                         initialContent={currentPage.content}
-                        previousDisabled={isFirstPage || isTurning}
-                        nextDisabled={isLastPage || isTurning}
-                        previousLabel={t.back}
+                        previousDisabled={isRecording ? false : isFirstPage || isTurning || micBusy}
+                        nextDisabled={isLastPage || isTurning || isRecording || micBusy}
+                        previousLabel={isRecording ? rt.cancel : t.back}
                         nextLabel={t.continueButton}
-                        onPrevious={handlePrevious}
+                        onPrevious={isRecording ? handleCancelRecording : handlePrevious}
+                        previousAsCancel={isRecording}
                         onNext={handleNext}
+                        micState={micState}
+                        micLabel={isRecording ? rt.stop : micBusy ? rt.scoring : rt.record}
+                        onMic={handleMic}
+                        subscribeLevels={rec.subscribeLevels}
                         onWordSelect={handleWordSelect}
                         listenLabel={passagePlaying ? t.stopListening : t.listenToPassage}
                         listenState={passageLoading ? 'loading' : passagePlaying ? 'playing' : 'idle'}
@@ -844,6 +975,8 @@ export default function RemediationCoachPage() {
                                         size={280}
                                         speakText={speechBubbleText}
                                         paused={notebookOpen}
+                                        listening={isRecording}
+                                        celebrate={celebrate}
                                         className="h-auto w-full drop-shadow-lg"
                                     />
                                 </div>

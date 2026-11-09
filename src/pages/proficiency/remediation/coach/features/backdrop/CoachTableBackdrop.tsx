@@ -96,6 +96,7 @@ import {
     type CoachSentenceContent,
     type CoachWordVerdict,
 } from './coachStoryLayout'
+import { CoachEqualizer } from './CoachEqualizer'
 
 export type { CoachSentenceContent, CoachWordVerdict }
 
@@ -150,6 +151,16 @@ export type CoachTableBackdropProps = {
      * back off when false) -- see this file's header comment ("NOTEBOOK
      * ART"). Defaults to false (owl mode / notebook off-canvas). */
     notebookOpen?: boolean
+    /** The microphone: "idle" (tap to record), "recording" (tap to stop and score)
+     * or "scoring" (busy, not tappable). */
+    micState?: 'idle' | 'recording' | 'scoring'
+    micLabel?: string
+    onMic?: () => void
+    /** While recording, the Previous button turns into a cancel button (an X). */
+    previousAsCancel?: boolean
+    /** Live loudness feed (see useRecorder's subscribeLevels). While recording, the
+     * equalizer above the buttons draws from it. */
+    subscribeLevels?: (listener: (levels: number[]) => void) => () => void
     className?: string
     /** Owl / speech bubble -- positioned by the caller as an
      * absolutely-positioned overlay on top of this backdrop's 1670x941
@@ -173,6 +184,11 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
             onWordSelect,
             selectedWord = null,
             notebookOpen = false,
+            micState = 'idle',
+            micLabel = 'Microphone',
+            onMic,
+            previousAsCancel = false,
+            subscribeLevels,
             className = '',
             children,
         },
@@ -313,21 +329,19 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
         // "restored" opacity after a page turn is this dim resting value,
         // not 1 -- fading it all the way to 1 would wrongly read as
         // "now enabled."
-        const MIC_RESTING_OPACITY = 0.36
-
         const fadeControls = useCallback((toOpacity: number) => {
             return new Promise<void>((resolve) => {
                 const prevBtn = previousBtnRef.current
                 const nextBtn = nextBtnRef.current
                 const micBtn = micBtnRef.current
                 const listenBtn = listenBtnRef.current
-                const micOpacity = toOpacity === 0 ? 0 : MIC_RESTING_OPACITY
                 if (prevBtn) prevBtn.style.transition = 'opacity 120ms ease'
                 if (nextBtn) nextBtn.style.transition = 'opacity 120ms ease'
                 if (micBtn) micBtn.style.transition = 'opacity 120ms ease'
                 if (prevBtn) prevBtn.style.opacity = String(toOpacity)
                 if (nextBtn) nextBtn.style.opacity = String(toOpacity)
-                if (micBtn) micBtn.style.opacity = String(micOpacity)
+                // Back to its own CSS opacity (full, or dimmed while scoring) once the turn ends.
+                if (micBtn) micBtn.style.opacity = toOpacity === 0 ? '0' : ''
                 if (listenBtn) {
                     listenBtn.style.transition = 'opacity 120ms ease'
                     listenBtn.style.opacity = String(toOpacity)
@@ -491,6 +505,7 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
 
         const onPreviousClick = onPrevious
         const onNextClick = onNext
+        const micDisabled = micState === 'scoring' || !onMic
 
         return (
             <div className={`coach-artwork ${className}`} data-coach-theme={isNight ? 'night' : 'day'}>
@@ -538,6 +553,7 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                         <g ref={movingStoryRef} id="coach-moving-story" clipPath="url(#coach-moving-story-clip)"></g>
                         <use ref={sheetLightRef} href="#coach-turn-geometry" id="coach-sheet-light" fill="url(#coach-turn-fold-light)"/>
                     </g>
+                    {micState === 'recording' && subscribeLevels && <CoachEqualizer subscribeLevels={subscribeLevels} />}
                     <g
                         ref={previousBtnRef}
                         id="coach-previous"
@@ -550,7 +566,11 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                         onClick={previousDisabled ? undefined : onPreviousClick}
                         onKeyDown={previousDisabled ? undefined : handleControlKeyDown(onPreviousClick)}
                     >
-                        <circle r="64" cy="5" fill="var(--coach-ring)" opacity=".23" filter="url(#coach-control-shadow)"/><circle r="69" fill="none" stroke="var(--coach-ring)" strokeWidth="5" opacity=".48"/><circle r="62" fill="var(--coach-disc)" opacity=".4"/><circle r="55" fill="url(#coach-control-disc)"/><circle className="coach-button-highlight" r="55" fill="none" stroke="var(--coach-shine)" strokeWidth="3" opacity=".7"/><path d="M-8 -27 Q-14 -31 -14 -22 V22 Q-14 31 -7 26 L20 5 Q27 0 20 -6Z" transform="scale(-1 1)" fill="var(--coach-arrow)"/><circle className="coach-focus-ring" r="76"/></g>
+                        <circle r="64" cy="5" fill="var(--coach-ring)" opacity=".23" filter="url(#coach-control-shadow)"/><circle r="69" fill="none" stroke="var(--coach-ring)" strokeWidth="5" opacity=".48"/><circle r="62" fill="var(--coach-disc)" opacity=".4"/><circle r="55" fill="url(#coach-control-disc)"/><circle className="coach-button-highlight" r="55" fill="none" stroke="var(--coach-shine)" strokeWidth="3" opacity=".7"/>{previousAsCancel ? (
+                            <path d="M-20 -20 L20 20 M20 -20 L-20 20" fill="none" stroke="var(--coach-arrow)" strokeWidth="10" strokeLinecap="round"/>
+                        ) : (
+                            <path d="M-8 -27 Q-14 -31 -14 -22 V22 Q-14 31 -7 26 L20 5 Q27 0 20 -6Z" transform="scale(-1 1)" fill="var(--coach-arrow)"/>
+                        )}<circle className="coach-focus-ring" r="76"/></g>
                     {/* Inert for now, matching the prototype's look only
                     -- no onClick/tabIndex yet. Next step wires this up to
                     real recording, at which point aria-disabled/aria-
@@ -560,13 +580,25 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                         id="coach-microphone"
                         className="coach-book-control"
                         role="button"
-                        aria-label="Microphone"
-                        aria-disabled="true"
-                        aria-pressed="false"
-                        tabIndex={-1}
+                        aria-label={micLabel}
+                        aria-disabled={micDisabled}
+                        aria-pressed={micState === 'recording'}
+                        aria-busy={micState === 'scoring'}
+                        tabIndex={micDisabled ? -1 : 0}
                         transform="translate(1228 678)"
+                        onClick={micDisabled ? undefined : onMic}
+                        onKeyDown={micDisabled || !onMic ? undefined : handleControlKeyDown(onMic)}
                     >
-                        <circle r="92" cy="5" fill="var(--coach-ring)" opacity=".23" filter="url(#coach-control-shadow)"/><circle r="97" fill="none" stroke="var(--coach-ring)" strokeWidth="5" opacity=".48"/><circle r="90" fill="var(--coach-disc)" opacity=".4"/><circle r="83" fill="url(#coach-control-mic)"/><circle className="coach-button-highlight" r="83" fill="none" stroke="var(--coach-shine)" strokeWidth="3" opacity=".7"/><circle className="coach-recording-pulse" r="94"/><rect x="-20" y="-51" width="40" height="69" rx="20" fill="var(--coach-ink)"/><path d="M-35 -2 C-35 46 35 46 35 -2 M0 35V48" fill="none" stroke="var(--coach-ink)" strokeWidth="11" strokeLinecap="round"/><circle className="coach-focus-ring" r="104"/></g>
+                        <circle r="92" cy="5" fill="var(--coach-ring)" opacity=".23" filter="url(#coach-control-shadow)"/><circle r="97" fill="none" stroke="var(--coach-ring)" strokeWidth="5" opacity=".48"/><circle r="90" fill="var(--coach-disc)" opacity=".4"/><circle r="83" fill="url(#coach-control-mic)"/><circle className="coach-button-highlight" r="83" fill="none" stroke="var(--coach-shine)" strokeWidth="3" opacity=".7"/><circle className="coach-recording-pulse" r="94"/>{micState === 'recording' ? (
+                            <rect x="-27" y="-27" width="54" height="54" rx="11" fill="var(--coach-ink)"/>
+                        ) : micState === 'scoring' ? (
+                            <circle className="coach-listen-spin" r="34" fill="none" stroke="var(--coach-ink)" strokeWidth="10" strokeLinecap="round" strokeDasharray="110 110"/>
+                        ) : (
+                            <>
+                                <rect x="-20" y="-51" width="40" height="69" rx="20" fill="var(--coach-ink)"/>
+                                <path d="M-35 -2 C-35 46 35 46 35 -2 M0 35V48" fill="none" stroke="var(--coach-ink)" strokeWidth="11" strokeLinecap="round"/>
+                            </>
+                        )}<circle className="coach-focus-ring" r="104"/></g>
                     <g
                         ref={nextBtnRef}
                         id="coach-next"
@@ -624,7 +656,7 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                         --coach-arrow: #ad9070; --coach-ring: #d9bc98; --coach-disc: #efdfc3;
                         --coach-shine: #fff9e9; --coach-ink: #fff5e9; --coach-shade: #874013;
                         --coach-sheet: #faf1dd; --coach-sheet-light: #fff9e8; --coach-sheet-dark: #dfbb94;
-                        --coach-story-ink: #68401f; --coach-correct: #0d9488; --coach-miscue: #d97706;
+                        --coach-story-ink: #68401f; --coach-correct: #15803d; --coach-miscue: #e0560b; --coach-omitted: #cc1f1f;
                         --coach-target: #be185d;
                         --coach-mic: #ff593a; --coach-mic-low: #ff633c; --coach-selected: #00766d;
                         --coach-nb-cover: #934713; --coach-nb-border: #803b0e; --coach-nb-edge: #e6c49e;
@@ -638,7 +670,7 @@ export const CoachTableBackdrop = forwardRef<CoachTableBackdropHandle, CoachTabl
                         --coach-arrow: #7068b5; --coach-ring: #a6a0e9; --coach-disc: #cbc9f7;
                         --coach-shine: #f3ecff; --coach-ink: #f2eaff; --coach-shade: #302260;
                         --coach-sheet: #e0dfff; --coach-sheet-light: #f4efff; --coach-sheet-dark: #b2acff;
-                        --coach-story-ink: #2a2154; --coach-correct: #2dd4bf; --coach-miscue: #fbbf24;
+                        --coach-story-ink: #2a2154; --coach-correct: #15803d; --coach-miscue: #e0560b; --coach-omitted: #cc1f1f;
                         --coach-target: #f472b6;
                         --coach-mic: #7739ff; --coach-mic-low: #703bff; --coach-selected: #6932ce;
                         --coach-nb-cover: #171951; --coach-nb-border: #10133f; --coach-nb-edge: #8d89e7;
