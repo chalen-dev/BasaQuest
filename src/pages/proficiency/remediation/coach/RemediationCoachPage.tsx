@@ -1149,42 +1149,6 @@ export default function RemediationCoachPage() {
                                         </button>
                                     )}
                                 </div>
-                                {/* CLEAR RESULTS -- the coloured results are kept
-                                (see "SAVED RESULTS"); this removes them, for the
-                                open page or for every page. */}
-                                {!notebookOpen && !isRecording && !micBusy && hasAnyResult && (
-                                    <div className="relative flex flex-col items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setClearMenuOpen((open) => !open)}
-                                            aria-expanded={clearMenuOpen}
-                                            className="flex cursor-pointer items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-[0.8125rem] font-bold text-stone-700 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white/90 dark:bg-gray-900/60 dark:text-gray-200 dark:hover:bg-gray-900/80"
-                                        >
-                                            <Eraser size={13} />
-                                            {rt.clearResults}
-                                        </button>
-                                        {clearMenuOpen && (
-                                            <div className="flex flex-wrap items-center justify-center gap-2">
-                                                {hasCurrentResult && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => clearResults('page')}
-                                                        className="cursor-pointer rounded-full bg-white/90 px-3 py-1 text-[0.8125rem] font-bold text-stone-700 shadow-sm transition-colors duration-150 hover:bg-white dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-gray-900"
-                                                    >
-                                                        {rt.clearThisPage}
-                                                    </button>
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => clearResults('all')}
-                                                    className="cursor-pointer rounded-full bg-white/90 px-3 py-1 text-[0.8125rem] font-bold text-rose-700 shadow-sm transition-colors duration-150 hover:bg-white dark:bg-gray-900/80 dark:text-rose-300 dark:hover:bg-gray-900"
-                                                >
-                                                    {rt.clearAllPages}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
                             </div>
                         </div>
 
@@ -1226,6 +1190,42 @@ export default function RemediationCoachPage() {
                 >
                     {notebookOpen ? <Bird size={18} /> : <NotebookText size={18} />}
                 </button>
+                {/* CLEAR RESULTS -- beside the notebook button. The coloured results are
+                kept (see "SAVED RESULTS"); this removes them, for the open page or for
+                every page. */}
+                {!notebookOpen && !isRecording && !micBusy && hasAnyResult && (
+                    <>
+                        {clearMenuOpen && (
+                            <div className="fixed bottom-[4.75rem] left-4 z-40 flex flex-col gap-2 rounded-2xl border border-gray-900/10 bg-white/95 p-2 shadow-lg backdrop-blur-sm dark:border-gray-100/10 dark:bg-gray-900/95">
+                                {hasCurrentResult && (
+                                    <button
+                                        type="button"
+                                        onClick={() => clearResults('page')}
+                                        className="cursor-pointer rounded-xl px-4 py-2 text-left text-sm font-bold text-gray-700 transition-colors duration-150 hover:bg-gray-900/5 dark:text-gray-200 dark:hover:bg-gray-100/10"
+                                    >
+                                        {rt.clearThisPage}
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => clearResults('all')}
+                                    className="cursor-pointer rounded-xl px-4 py-2 text-left text-sm font-bold text-rose-700 transition-colors duration-150 hover:bg-rose-500/10 dark:text-rose-300"
+                                >
+                                    {rt.clearAllPages}
+                                </button>
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setClearMenuOpen((open) => !open)}
+                            aria-expanded={clearMenuOpen}
+                            className="fixed bottom-4 left-[4.75rem] z-40 flex h-12 cursor-pointer items-center gap-2 rounded-2xl border border-gray-900/10 bg-white/90 px-5 text-base font-bold text-gray-700 shadow-md backdrop-blur-sm transition-colors duration-200 hover:bg-white dark:border-gray-100/10 dark:bg-gray-900/85 dark:text-gray-200 dark:hover:bg-gray-900"
+                        >
+                            <Eraser size={20} />
+                            {rt.clearResults}
+                        </button>
+                    </>
+                )}
             </div>
         )
     }
