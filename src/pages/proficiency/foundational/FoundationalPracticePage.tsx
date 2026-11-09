@@ -7,6 +7,7 @@ import React, { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
 import { findFoundationalLevel } from './data/levels.ts'
+import LettersScene from './LettersScene.tsx'
 import type { FoundationalLevel } from './data/types.ts'
 
 type Card = {
@@ -70,6 +71,9 @@ const FoundationalPracticePage: React.FC = () => {
             </div>
         )
     }
+
+    // Level 1 is the blackboard classroom scene; the other levels use the plain card viewer below.
+    if (level.letters) return <LettersScene letters={level.letters} />
 
     const cards = buildCards(level)
     const card = cards[Math.min(index, cards.length - 1)]
