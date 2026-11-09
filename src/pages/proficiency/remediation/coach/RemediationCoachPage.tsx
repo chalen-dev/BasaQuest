@@ -717,19 +717,26 @@ export default function RemediationCoachPage() {
     // to the scoring service, and the answer is painted onto the passage word by word:
     // green correct, orange mispronounced, red skipped. Nothing is stored.
     const isRecording = rec.status === 'recording'
-    const isScoring = scorePassage.isPending
+    // Pages whose reading is being scored right now. Scoring runs in the background:
+    // the pupil can turn to another page meanwhile, and is told when the results land.
+    const [pendingKeys, setPendingKeys] = useState<string[]>([])
+    const pendingHere = !!currentPage && pendingKeys.includes(pageKey(currentPage.content.words))
     // From the moment recording stops until the take has been dealt with.
-    const micBusy = isScoring || rec.status === 'recorded'
+    const micBusy = pendingHere || rec.status === 'recorded'
     const micState = isRecording ? 'recording' : micBusy ? 'scoring' : 'idle'
     const darkToast = theme === 'dark'
     // What the effect below needs, kept current without making it re-run.
-    const latestRef = useRef({ content: currentPage?.content ?? null, language: material?.language })
+    const latestRef = useRef({ content: currentPage?.content ?? null, language: material?.language, pageKeys: [] as string[] })
     useEffect(() => {
-        latestRef.current = { content: currentPage?.content ?? null, language: material?.language }
+        latestRef.current = {
+            content: currentPage?.content ?? null,
+            language: material?.language,
+            pageKeys: pages.map((p) => pageKey(p.content.words)),
+        }
     })
 
     const handleMic = () => {
-        if (isScoring || isTurning || rec.status === 'recorded') return
+        if (pendingHere || isTurning || rec.status === 'recorded') return
         if (isRecording) {
             rec.stop() // the effect below scores the take once it arrives
             return
@@ -783,6 +790,15 @@ export default function RemediationCoachPage() {
             rec.reset()
             return
         }
+        // The take is held here from now on, so the recorder is free at once and the
+        // pupil can move to another page while it is scored.
+        const key = pageKey(words)
+        rec.reset()
+        setPendingKeys((prev) => [...prev, key])
+        const stillHere = () => {
+            const open = latestRef.current.content
+            return !!open && pageKey(open.words) === key
+        }
         void (async () => {
             try {
                 const result = await scorePassage.mutateAsync({ words, language, blob })
@@ -791,18 +807,28 @@ export default function RemediationCoachPage() {
                     if (!row) return null
                     return row.errorType === 'None' ? 'correct' : row.errorType === 'Omission' ? 'omitted' : 'mispronounced'
                 })
-                backdropRef.current?.setCurrentContent({ ...content, verdicts })
-                commitResults({ ...savedRef.current, [pageKey(words)]: verdicts })
+                commitResults({ ...savedRef.current, [key]: verdicts })
                 const correct = verdicts.filter((v) => v === 'correct').length
                 const allRight = correct === words.length
-                setCoachMessage(allRight ? rt.resultAll : rt.result(correct, words.length))
-                setCelebrate(allRight)
+                if (stillHere()) {
+                    backdropRef.current?.setCurrentContent({ ...content, verdicts })
+                    setCoachMessage(allRight ? rt.resultAll : rt.result(correct, words.length))
+                    setCelebrate(allRight)
+                } else {
+                    // Turned to another page while it was being scored: the colours wait on
+                    // that page; just say the results are in.
+                    const pageNumber = latestRef.current.pageKeys.indexOf(key) + 1
+                    showToast(rt.resultsReady(pageNumber), 'success', darkToast, { closable: true, timer: 6000 })
+                }
             } catch (err) {
-                restore()
+                if (stillHere()) restore()
                 const code = err instanceof ScorePassageError ? err.code : null
                 toast(code === 'silent' ? rt.silent : code === 'too_long' ? rt.tooLong : rt.scoringFailed, code ? 'warning' : 'error')
             } finally {
-                rec.reset()
+                setPendingKeys((prev) => {
+                    const at = prev.indexOf(key)
+                    return at < 0 ? prev : [...prev.slice(0, at), ...prev.slice(at + 1)]
+                })
             }
         })()
         // Runs when a take arrives; everything else it reads is current via refs or the render.
@@ -1023,8 +1049,8 @@ export default function RemediationCoachPage() {
                     <CoachTableBackdrop
                         ref={backdropRef}
                         initialContent={withResults(currentPage.content)}
-                        previousDisabled={isRecording ? false : isFirstPage || isTurning || micBusy}
-                        nextDisabled={isLastPage || isTurning || isRecording || micBusy}
+                        previousDisabled={isRecording ? false : isFirstPage || isTurning}
+                        nextDisabled={isLastPage || isTurning || isRecording}
                         previousLabel={isRecording ? rt.cancel : t.back}
                         nextLabel={t.continueButton}
                         onPrevious={isRecording ? handleCancelRecording : handlePrevious}

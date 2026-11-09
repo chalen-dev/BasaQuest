@@ -29,6 +29,7 @@ export const RECORDING_STRINGS: Record<
         resultAll: string
         resultLegend: string
         clearResults: string
+        resultsReady: (page: number) => string
         clearThisPage: string
         clearAllPages: string
     }
@@ -47,6 +48,7 @@ export const RECORDING_STRINGS: Record<
         resultAll: 'Napakagaling! Tama ang lahat ng salita.',
         resultLegend: 'Berde: tama, kahel: mali ang bigkas, pula: nalaktawan.',
         clearResults: 'Burahin ang resulta',
+        resultsReady: (page) => `Lumabas na ang resulta ng pagbasa sa pahina ${page}.`,
         clearThisPage: 'Sa pahinang ito',
         clearAllPages: 'Sa lahat ng pahina',
     },
@@ -64,6 +66,7 @@ export const RECORDING_STRINGS: Record<
         resultAll: 'Wonderful! Every word was right.',
         resultLegend: 'Green: correct, orange: said it differently, red: skipped.',
         clearResults: 'Clear results',
+        resultsReady: (page) => `Your results for page ${page} are ready.`,
         clearThisPage: 'This page only',
         clearAllPages: 'All pages',
     },
