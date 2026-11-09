@@ -238,7 +238,9 @@ import { AnimatedOwl } from '../../../../components/ui/AnimatedOwl.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import {
     readPracticed,
+    useCoachResultsQuery,
     useRemediationMaterialQuery,
+    useSaveCoachResultsMutation,
     type NameKind,
     type PassageGloss,
     type PassageName,
@@ -523,11 +525,19 @@ export default function RemediationCoachPage() {
     const [celebrate, setCelebrate] = useState(false)
     // SAVED RESULTS (see above): every page's last reading, kept in this browser.
     const storageKey = resultsStorageKey(studentId, materialId)
+    // The database copy follows the pupil to any device; this browser's copy is the
+    // fallback (and what survives if the database column is not there yet).
     const [savedResults, setSavedResults] = useState<SavedVerdicts>(() => loadSavedResults(storageKey))
+    const savedRef = useRef<SavedVerdicts>(savedResults)
     const [clearMenuOpen, setClearMenuOpen] = useState(false)
-    useEffect(() => {
-        storeSavedResults(storageKey, savedResults)
-    }, [storageKey, savedResults])
+    const { data: dbResults, isLoading: dbResultsLoading } = useCoachResultsQuery(materialId)
+    const saveResults = useSaveCoachResultsMutation()
+    const commitResults = (next: SavedVerdicts) => {
+        savedRef.current = next
+        setSavedResults(next)
+        storeSavedResults(storageKey, next)
+        if (materialId) saveResults.mutate({ id: materialId, results: next })
+    }
 
     // Seeded once from the query, same reasoning as RemediationSession.tsx:
     // nothing else in this file changes this material's words/passages,
@@ -565,7 +575,12 @@ export default function RemediationCoachPage() {
     const [selectedGloss, setSelectedGloss] = useState<string | null>(null)
 
     useEffect(() => {
-        if (material && !seeded) {
+        // Wait for the saved results too, so the first paint already has its colours.
+        if (material && !seeded && !dbResultsLoading) {
+            if (dbResults && Object.keys(dbResults).length > 0) {
+                savedRef.current = dbResults as SavedVerdicts
+                setSavedResults(savedRef.current)
+            }
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setSessionWords(material.words)
             // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -573,7 +588,7 @@ export default function RemediationCoachPage() {
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setSeeded(true)
         }
-    }, [material, seeded])
+    }, [material, seeded, dbResults, dbResultsLoading])
 
     // See this file's header comment ("PAGES"): normalizes whichever
     // source this material actually has into one common shape. Passage
@@ -599,14 +614,11 @@ export default function RemediationCoachPage() {
     const hasCurrentResult = !!currentPage && !!savedResults[pageKey(currentPage.content.words)]
     const clearResults = (scope: 'page' | 'all') => {
         if (scope === 'all') {
-            setSavedResults({})
+            commitResults({})
         } else if (currentPage) {
-            const key = pageKey(currentPage.content.words)
-            setSavedResults((prev) => {
-                const next = { ...prev }
-                delete next[key]
-                return next
-            })
+            const next = { ...savedRef.current }
+            delete next[pageKey(currentPage.content.words)]
+            commitResults(next)
         }
         setClearMenuOpen(false)
         setCoachMessage(null)
@@ -770,7 +782,7 @@ export default function RemediationCoachPage() {
                     return row.errorType === 'None' ? 'correct' : row.errorType === 'Omission' ? 'omitted' : 'mispronounced'
                 })
                 backdropRef.current?.setCurrentContent({ ...content, verdicts })
-                setSavedResults((prev) => ({ ...prev, [pageKey(words)]: verdicts }))
+                commitResults({ ...savedRef.current, [pageKey(words)]: verdicts })
                 const correct = verdicts.filter((v) => v === 'correct').length
                 const allRight = correct === words.length
                 setCoachMessage(allRight ? rt.resultAll : rt.result(correct, words.length))

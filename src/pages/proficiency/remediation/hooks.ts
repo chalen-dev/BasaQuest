@@ -478,3 +478,40 @@ export function useUpdateRemediationProgressMutation() {
         },
     })
 }
+// Reading Coach: each page's last scored reading, as
+// { "<page words joined by a space>": [verdict | null per word] } (see the
+// 20261109000000 migration). Fetched on its own, not folded into
+// useRemediationMaterialQuery's column list, and forgiving on purpose: until
+// that migration has been applied the column does not exist, and the Coach
+// must still open (it then falls back to this browser's copy).
+export type CoachSavedResults = Record<string, (string | null)[]>
+export function useCoachResultsQuery(materialId: string | undefined) {
+    return useQuery({
+        queryKey: ['remediation-coach-results', materialId],
+        queryFn: async (): Promise<CoachSavedResults | null> => {
+            const { data, error } = await supabase
+                .from('remediation_materials')
+                .select('coach_results')
+                .eq('id', materialId as string)
+                .single()
+            if (error) return null
+            const results = (data as { coach_results?: unknown } | null)?.coach_results
+            return results && typeof results === 'object' && !Array.isArray(results) ? (results as CoachSavedResults) : {}
+        },
+        enabled: !!materialId,
+        retry: false,
+        staleTime: Infinity,
+        refetchOnWindowFocus: false,
+    })
+}
+// Replaces the material's saved Coach results. A failed save (e.g. the
+// migration not applied yet) is only logged: the colours still work, they
+// just stay on this browser.
+export function useSaveCoachResultsMutation() {
+    return useMutation({
+        mutationFn: async ({ id, results }: { id: string; results: CoachSavedResults }) => {
+            const { error } = await supabase.from('remediation_materials').update({ coach_results: results }).eq('id', id)
+            if (error) console.warn('Could not save Coach results', error)
+        },
+    })
+}
