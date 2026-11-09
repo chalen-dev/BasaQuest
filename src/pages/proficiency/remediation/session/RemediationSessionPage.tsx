@@ -10,6 +10,7 @@
 //   onWordPracticeChange(flags) scene -> this page: every word's practiced flag
 //   wordPracticeSpeak(word)     scene -> this page: "Hear it" (server voice)
 //   wordPracticeSpeaking(bool)  this page -> scene: voice is loading (spinner)
+//   wordPracticeTalking(bool)   this page -> scene: voice is playing (owl talks)
 //
 // PERSISTENCE: every practiced toggle saves straight away
 // (useUpdateRemediationProgressMutation, which also stamps last_practiced_at),
@@ -44,6 +45,7 @@ type SceneWindow = Window & {
     onWordPracticeChange?: (flags: boolean[]) => void
     wordPracticeSpeak?: (word: string) => void
     wordPracticeSpeaking?: (loading: boolean) => void
+    wordPracticeTalking?: (talking: boolean) => void
 }
 type SceneWord = { word: string; type: string; count: number; tip: string; practiced: boolean }
 
@@ -79,7 +81,7 @@ export default function RemediationSessionPage() {
 
     const { data: material, isLoading, error } = useRemediationMaterialQuery(materialId)
     const updateProgress = useUpdateRemediationProgressMutation()
-    const { speak, isLoading: voiceLoading } = usePronounceWord()
+    const { speak, isLoading: voiceLoading, isPlaying: voicePlaying } = usePronounceWord()
 
     // The scene's own window, once its page has loaded.
     const [sceneWin, setSceneWin] = useState<SceneWindow | null>(null)
@@ -126,6 +128,11 @@ export default function RemediationSessionPage() {
     useEffect(() => {
         sceneWin?.wordPracticeSpeaking?.(voiceLoading)
     }, [sceneWin, voiceLoading])
+
+    // The owl talks while the voice plays.
+    useEffect(() => {
+        sceneWin?.wordPracticeTalking?.(voicePlaying)
+    }, [sceneWin, voicePlaying])
 
     // Scene -> page hooks, set when the frame loads (an event handler, since they
     // live on the iframe's own window). They go away with the iframe.

@@ -18,6 +18,7 @@
     "unseed:testdata": "tsx scripts/seed/remove-test-data.ts",
     "hash-password": "tsx scripts/hash-password.ts",
     "build:hash-tool": "node scripts/build-hash-tool.mjs",
+    "build:owl": "node scripts/build-owl-bundle.mjs",
     "db:reset": "supabase db reset",
     "db:fresh": "npm run storage:clear && npm run db:reset && npm run seed"
   },

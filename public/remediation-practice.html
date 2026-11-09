@@ -1063,6 +1063,7 @@ dialog{border:0;padding:0;background:var(--clear);color:var(--panel-ink);overflo
 </section>
 
 <dialog id="session-summary" aria-labelledby="summary-title"><div class="summary-panel"><h2 id="summary-title">Nice practice!</h2><p id="summary-copy"></p><button id="resume-session">Keep practicing</button><button id="restart-session">Start again</button><button id="leave-session">Leave practice</button></div></dialog>
+<script src="owl-rig.js"></script>
 <script>
 /* Editable sample data: 27 mispronunciations, 16 omissions, seven practiced.
    The check is self-reported; this prototype does not record or assess audio. */
@@ -1132,7 +1133,7 @@ function syncPractice(index,busy){
  applyHear();
  if(busy){clearTimeout(pulseTimer);$('hear-it').classList.remove('is-pulsing')}
 }
-function togglePracticed(){if(practiceNavigation.busy())return;const i=practiceNavigation.current();words[i].practiced=!words[i].practiced;practiceNavigation.refresh();syncPractice(i,false);notifyProgress();if(words[i].practiced&&!reduced.matches)document.querySelector('.practice-card .card-check').animate([{transform:'scale(.2) rotate(-25deg)',opacity:0},{transform:'scale(1.5) rotate(5deg)',opacity:1,offset:.55},{transform:'scale(1) rotate(0)',opacity:1}],{duration:520,easing:'ease-out'})}
+function togglePracticed(){if(practiceNavigation.busy())return;const i=practiceNavigation.current();words[i].practiced=!words[i].practiced;practiceNavigation.refresh();syncPractice(i,false);notifyProgress();if(words[i].practiced){const all=words.every(w=>w.practiced);owlReact(all?'celebrating':'happy',all?2800:1800)}if(words[i].practiced&&!reduced.matches)document.querySelector('.practice-card .card-check').animate([{transform:'scale(.2) rotate(-25deg)',opacity:0},{transform:'scale(1.5) rotate(5deg)',opacity:1,offset:.55},{transform:'scale(1) rotate(0)',opacity:1}],{duration:520,easing:'ease-out'})}
 async function finishSession(){if(practiceNavigation.busy())return;await stopCapture();$('summary-copy').textContent=`You practiced ${words.filter(w=>w.practiced).length} of ${words.length} words. You can return to any word in your notebook.`;$('session-summary').showModal()}
 (() => {
  const artwork=document.querySelector('.artwork');
@@ -1162,7 +1163,7 @@ async function finishSession(){if(practiceNavigation.busy())return;await stopCap
   el.querySelector('.card-word').textContent=entry.word;el.style.setProperty('--word-size',Math.min(13,140/entry.word.length)+'cqw');
   el.querySelector('.card-occurrence').textContent=entry.count>1?`Appeared ${entry.count}x in the reading`:'';
   el.querySelector('.card-check').textContent=entry.practiced?'✓':'';
-  el.querySelector('button').onclick=()=>{if(busy||micState!=='idle'||hearLoading)return;stopPlayback();if(window.wordPracticeSpeak){window.wordPracticeSpeak(entry.word)}else if('speechSynthesis' in window){speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(entry.word);utterance.lang='fil-PH';speechSynthesis.speak(utterance)}if(!reduced.matches)el.querySelector('button').animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:360})};
+  el.querySelector('button').onclick=()=>{if(busy||micState!=='idle'||hearLoading)return;stopPlayback();if(window.wordPracticeSpeak){window.wordPracticeSpeak(entry.word)}else if('speechSynthesis' in window){speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(entry.word);utterance.lang='fil-PH';utterance.onstart=()=>window.wordPracticeTalking(true);utterance.onend=utterance.onerror=()=>window.wordPracticeTalking(false);speechSynthesis.speak(utterance)}if(!reduced.matches)el.querySelector('button').animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:360})};
   el.append(makeArrow('previous'),makeArrow('next'));
   return el;
  }
@@ -1347,6 +1348,14 @@ let blinkTimer;function scheduleBlink(){clearTimeout(blinkTimer);if(document.hid
 const coachToggle=document.createElement('button');coachToggle.id='coach-toggle';coachToggle.type='button';
 coachToggle.setAttribute('aria-label','Hide practice guidance');coachToggle.setAttribute('aria-controls','coach-guidance');coachToggle.setAttribute('aria-expanded','true');
 $('scene').append(coachToggle);coachToggle.append($('owl'));
+/* The animated owl (owl-rig.js, built from src/components/ui/owlRig). The old drawing stays in the page, hidden, so the rest of this script keeps working. */
+var sceneOwl=null,owlTemp=null,owlTempTimer,owlTalking=false;
+(function(){if(!window.BasaOwl)return;const old=$('owl');old.style.display='none';const slot=document.createElement('div');slot.id='owl-rig';slot.style.cssText='width:100%;height:100%';coachToggle.append(slot);sceneOwl=window.BasaOwl.mountOwl(slot,{variant:'full'})})();
+function owlMood(){return micState==='recording'?'listening':(owlTemp||'neutral')}
+function owlSync(){if(!sceneOwl)return;sceneOwl.setEmotion(owlMood());sceneOwl.setTalking(owlTalking&&micState!=='recording')}
+function owlReact(name,ms){owlTemp=name;clearTimeout(owlTempTimer);owlSync();owlTempTimer=setTimeout(()=>{owlTemp=null;owlSync()},ms)}
+/* wordPracticeTalking(on): the voice is playing, so the owl's beak moves. */
+window.wordPracticeTalking=on=>{owlTalking=!!on;owlSync()};
 $('scene').append($('coach-guidance'),$('notebook-closed'));
 function showGuidance(show){$('coach-guidance').hidden=!show;coachToggle.setAttribute('aria-expanded',String(show));coachToggle.setAttribute('aria-label',show?'Hide practice guidance':'Show practice guidance')}
 coachToggle.onclick=()=>showGuidance($('coach-guidance').hidden);
@@ -1399,7 +1408,7 @@ listen.onclick=()=>{stopPlayback();window.speechSynthesis?.cancel();playback=new
 function stopPlayback(){if(playback){playback.pause();playback=null}}
 function message(text){notice.textContent=text}
 function showMic(state){
- micState=state;bar.dataset.mic=state;
+ micState=state;bar.dataset.mic=state;owlSync();
  const active=state==='recording';
  mic.lastElementChild.textContent=active?'Stop':'Record';
  mic.setAttribute('aria-label',active?'Stop recording':'Record this word');
