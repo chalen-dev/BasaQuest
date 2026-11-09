@@ -49,8 +49,14 @@ type SceneWindow = Window & {
 }
 type SceneWord = { word: string; type: string; count: number; tip: string; practiced: boolean }
 
-// A tip for words that have no generated one, in the scene's language of tips.
-function fallbackTip(entry: RemediationWordEntry): string {
+// A tip for words that have no generated one, in the material's own language
+// (an English material gets English tips, a Filipino one Filipino).
+function fallbackTip(entry: RemediationWordEntry, language: 'en' | 'fil'): string {
+    if (language === 'en') {
+        return entry.errorType === 'Omission'
+            ? `Don't skip the word "${entry.word}".`
+            : `Say it clearly: ${entry.word}.`
+    }
     return entry.errorType === 'Omission'
         ? `Huwag laktawan ang salitang ${entry.word}.`
         : `Bigkasin nang malinaw: ${entry.word}.`
@@ -116,7 +122,7 @@ export default function RemediationSessionPage() {
                 word: w.word,
                 type: w.errorType,
                 count: w.count,
-                tip: w.coachTip || fallbackTip(w),
+                tip: w.coachTip || fallbackTip(w, material.language),
                 practiced: readPracticed(w),
             })),
         )
