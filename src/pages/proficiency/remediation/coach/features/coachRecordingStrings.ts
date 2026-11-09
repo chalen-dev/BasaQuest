@@ -28,6 +28,9 @@ export const RECORDING_STRINGS: Record<
         result: (correct: number, total: number) => string
         resultAll: string
         resultLegend: string
+        clearResults: string
+        clearThisPage: string
+        clearAllPages: string
     }
 > = {
     fil: {
@@ -43,6 +46,9 @@ export const RECORDING_STRINGS: Record<
         result: (correct, total) => `${correct} sa ${total} salita ang tama. Berde: tama, kahel: mali ang bigkas, pula: nalaktawan.`,
         resultAll: 'Napakagaling! Tama ang lahat ng salita.',
         resultLegend: 'Berde: tama, kahel: mali ang bigkas, pula: nalaktawan.',
+        clearResults: 'Burahin ang resulta',
+        clearThisPage: 'Sa pahinang ito',
+        clearAllPages: 'Sa lahat ng pahina',
     },
     en: {
         record: 'Start recording',
@@ -57,5 +63,8 @@ export const RECORDING_STRINGS: Record<
         result: (correct, total) => `${correct} of ${total} words were right. Green: correct, orange: said it differently, red: skipped.`,
         resultAll: 'Wonderful! Every word was right.',
         resultLegend: 'Green: correct, orange: said it differently, red: skipped.',
+        clearResults: 'Clear results',
+        clearThisPage: 'This page only',
+        clearAllPages: 'All pages',
     },
 }

@@ -231,7 +231,7 @@
 // what's actually on the page.
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Bird, NotebookText, Volume2 } from 'lucide-react'
+import { Bird, Eraser, NotebookText, Volume2 } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useWordImageQuery } from '../../../../hooks/useWordImage.ts'
 import { AnimatedOwl } from '../../../../components/ui/AnimatedOwl.tsx'
@@ -251,6 +251,7 @@ import {
     type CoachSentenceContent,
     type CoachTableBackdropHandle,
 } from './features/backdrop/CoachTableBackdrop.tsx'
+import type { CoachWordVerdict } from './features/backdrop/coachStoryLayout.ts'
 import { STRINGS, getStaticCoachTip } from './features/remediationCoachStrings.ts'
 import { CoachNotebookSlot } from './features/CoachNotebookSlot.tsx'
 import { maxRecordingSeconds, RECORDING_STRINGS } from './features/coachRecordingStrings.ts'
@@ -467,6 +468,32 @@ function pagesFromWords(words: RemediationWordEntry[], lang: 'fil' | 'en'): Coac
 // header comment ("SIZING/CENTERING").
 const OWL_AREA_STYLE: CSSProperties = { left: '0%', top: '0%', width: '50%', height: '100%' }
 
+// SAVED RESULTS: the green/orange/red colouring of each page's last reading is
+// kept in this browser (per pupil and material) so it survives leaving the page
+// or a refresh. Keyed by the page's own text, so a regenerated passage never
+// inherits colours that belonged to different words.
+type SavedVerdicts = Record<string, (CoachWordVerdict | null)[]>
+const pageKey = (words: string[]) => words.join(' ')
+const resultsStorageKey = (studentId: string | undefined, materialId: string | undefined) =>
+    `basaquest.coachResults.${studentId ?? ''}.${materialId ?? ''}`
+function loadSavedResults(key: string): SavedVerdicts {
+    try {
+        const raw = window.localStorage.getItem(key)
+        const parsed: unknown = raw ? JSON.parse(raw) : null
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as SavedVerdicts) : {}
+    } catch {
+        return {}
+    }
+}
+function storeSavedResults(key: string, results: SavedVerdicts) {
+    try {
+        if (Object.keys(results).length === 0) window.localStorage.removeItem(key)
+        else window.localStorage.setItem(key, JSON.stringify(results))
+    } catch {
+        // Storage blocked or full: results just won't survive a reload.
+    }
+}
+
 export default function RemediationCoachPage() {
     const { studentId, materialId } = useParams<{ studentId: string; materialId: string }>()
     const navigate = useNavigate()
@@ -494,6 +521,13 @@ export default function RemediationCoachPage() {
     // The owl's remark on the last result; replaces the tip until the page changes.
     const [coachMessage, setCoachMessage] = useState<string | null>(null)
     const [celebrate, setCelebrate] = useState(false)
+    // SAVED RESULTS (see above): every page's last reading, kept in this browser.
+    const storageKey = resultsStorageKey(studentId, materialId)
+    const [savedResults, setSavedResults] = useState<SavedVerdicts>(() => loadSavedResults(storageKey))
+    const [clearMenuOpen, setClearMenuOpen] = useState(false)
+    useEffect(() => {
+        storeSavedResults(storageKey, savedResults)
+    }, [storageKey, savedResults])
 
     // Seeded once from the query, same reasoning as RemediationSession.tsx:
     // nothing else in this file changes this material's words/passages,
@@ -554,6 +588,31 @@ export default function RemediationCoachPage() {
             : pagesFromWords(sessionWords, lang)
 
     const currentPage = pages[currentIndex] ?? null
+
+    // A page's content with its saved colouring painted on (when it has one that
+    // still fits the page's words).
+    const withResults = (content: CoachSentenceContent): CoachSentenceContent => {
+        const saved = savedResults[pageKey(content.words)]
+        return saved && saved.length === content.words.length ? { ...content, verdicts: saved } : content
+    }
+    const hasAnyResult = Object.keys(savedResults).length > 0
+    const hasCurrentResult = !!currentPage && !!savedResults[pageKey(currentPage.content.words)]
+    const clearResults = (scope: 'page' | 'all') => {
+        if (scope === 'all') {
+            setSavedResults({})
+        } else if (currentPage) {
+            const key = pageKey(currentPage.content.words)
+            setSavedResults((prev) => {
+                const next = { ...prev }
+                delete next[key]
+                return next
+            })
+        }
+        setClearMenuOpen(false)
+        setCoachMessage(null)
+        setCelebrate(false)
+        if (currentPage) backdropRef.current?.setCurrentContent(currentPage.content)
+    }
 
     // PRELOAD: get the audio ready before it is tapped -- this page's passage, its
     // target words, then the next page's passage and target words. Plain strings
@@ -673,12 +732,17 @@ export default function RemediationCoachPage() {
         if (rec.status !== 'recorded' || !rec.blob || handledBlobRef.current === rec.blob) return
         const blob = rec.blob
         handledBlobRef.current = blob
+        const { content, language } = latestRef.current
+        // A take that is thrown away or turned back puts the page's saved colours back.
+        const restore = () => {
+            if (content) backdropRef.current?.setCurrentContent(withResults(content))
+        }
         if (discardRef.current) {
             discardRef.current = false
+            restore()
             rec.reset()
             return
         }
-        const { content, language } = latestRef.current
         if (!content || !language) {
             rec.reset()
             return
@@ -693,6 +757,7 @@ export default function RemediationCoachPage() {
                 : findCoachRecordingProblem(rec.seconds, rec.voicedSeconds)
         if (problem) {
             toast(problem === 'silent' ? rt.silent : problem === 'too_short' ? rt.tooShort : rt.tooLong, 'warning')
+            restore()
             rec.reset()
             return
         }
@@ -705,11 +770,13 @@ export default function RemediationCoachPage() {
                     return row.errorType === 'None' ? 'correct' : row.errorType === 'Omission' ? 'omitted' : 'mispronounced'
                 })
                 backdropRef.current?.setCurrentContent({ ...content, verdicts })
+                setSavedResults((prev) => ({ ...prev, [pageKey(words)]: verdicts }))
                 const correct = verdicts.filter((v) => v === 'correct').length
                 const allRight = correct === words.length
                 setCoachMessage(allRight ? rt.resultAll : rt.result(correct, words.length))
                 setCelebrate(allRight)
             } catch (err) {
+                restore()
                 const code = err instanceof ScorePassageError ? err.code : null
                 toast(code === 'silent' ? rt.silent : code === 'too_long' ? rt.tooLong : rt.scoringFailed, code ? 'warning' : 'error')
             } finally {
@@ -748,7 +815,7 @@ export default function RemediationCoachPage() {
         setCelebrate(false)
         setIsTurning(true)
         setCurrentIndex(newIndex)
-        await backdropRef.current?.turnTo(nextPage.content, direction)
+        await backdropRef.current?.turnTo(withResults(nextPage.content), direction)
         setIsTurning(false)
     }
     const handlePrevious = () => {
@@ -933,7 +1000,7 @@ export default function RemediationCoachPage() {
                 >
                     <CoachTableBackdrop
                         ref={backdropRef}
-                        initialContent={currentPage.content}
+                        initialContent={withResults(currentPage.content)}
                         previousDisabled={isRecording ? false : isFirstPage || isTurning || micBusy}
                         nextDisabled={isLastPage || isTurning || isRecording || micBusy}
                         previousLabel={isRecording ? rt.cancel : t.back}
@@ -1033,6 +1100,42 @@ export default function RemediationCoachPage() {
                                         </button>
                                     )}
                                 </div>
+                                {/* CLEAR RESULTS -- the coloured results are kept
+                                (see "SAVED RESULTS"); this removes them, for the
+                                open page or for every page. */}
+                                {!notebookOpen && !isRecording && !micBusy && hasAnyResult && (
+                                    <div className="relative flex flex-col items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setClearMenuOpen((open) => !open)}
+                                            aria-expanded={clearMenuOpen}
+                                            className="flex cursor-pointer items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-[0.8125rem] font-bold text-stone-700 shadow-sm backdrop-blur-sm transition-colors duration-150 hover:bg-white/90 dark:bg-gray-900/60 dark:text-gray-200 dark:hover:bg-gray-900/80"
+                                        >
+                                            <Eraser size={13} />
+                                            {rt.clearResults}
+                                        </button>
+                                        {clearMenuOpen && (
+                                            <div className="flex flex-wrap items-center justify-center gap-2">
+                                                {hasCurrentResult && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => clearResults('page')}
+                                                        className="cursor-pointer rounded-full bg-white/90 px-3 py-1 text-[0.8125rem] font-bold text-stone-700 shadow-sm transition-colors duration-150 hover:bg-white dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-gray-900"
+                                                    >
+                                                        {rt.clearThisPage}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => clearResults('all')}
+                                                    className="cursor-pointer rounded-full bg-white/90 px-3 py-1 text-[0.8125rem] font-bold text-rose-700 shadow-sm transition-colors duration-150 hover:bg-white dark:bg-gray-900/80 dark:text-rose-300 dark:hover:bg-gray-900"
+                                                >
+                                                    {rt.clearAllPages}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
