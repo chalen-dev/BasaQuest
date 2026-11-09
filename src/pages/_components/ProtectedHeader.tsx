@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext.tsx'
 import { useTheme } from '../../contexts/ThemeContext.tsx'
 import { useLang } from '../../contexts/LangContext.tsx'
 import { useProfile } from '../../hooks/useProfile.ts'
-import { OWL_NEUTRAL_IMAGE } from '../../components/ui/Owl.tsx'
+import { Owl } from '../../components/ui/Owl.tsx'
 import { Tooltip } from '../../components/ui/Tooltip.tsx'
 import { LangToggle, type Lang } from '../../components/buttons/LangToggle.tsx'
 import { ThemeToggleButton } from '../../components/buttons/ThemeToggleButton.tsx'
@@ -161,17 +161,9 @@ export default function ProtectedHeader() {
         <header className="fixed inset-x-0 top-0 z-40 border-b border-gray-900/10 bg-orange-50/30 backdrop-blur-sm transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-950/35">
             <div className="mx-auto flex max-w-[84rem] items-center gap-2.5 px-4 py-3">
                 <NavLink to="/home" className="flex shrink-0 items-center gap-2">
-                    {/* Brand mark uses the static neutral owl, not a mood
-                        image — the header logo shouldn't shift expression
-                        based on app state. */}
-                    <img
-                        src={OWL_NEUTRAL_IMAGE}
-                        alt="BasaQuest owl mascot"
-                        width={40}
-                        height={40}
-                        className="select-none"
-                        draggable={false}
-                    />
+                    {/* Brand mark: the round owl portrait, always neutral — the
+                        header logo shouldn't shift expression based on app state. */}
+                    <Owl mood="neutral" variant="icon" size={40} />
                     <div className="leading-tight">
                         <div className="text-lg font-extrabold text-gray-900 dark:text-gray-50">BasaQuest</div>
                         <div className="hidden text-[0.75rem] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:block">
