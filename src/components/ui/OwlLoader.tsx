@@ -8,14 +8,18 @@ interface OwlLoaderProps {
     message?: string
     /** Pixel size of the owl artwork. */
     size?: number
+    /** "icon" (default): the round owl portrait with a spinning ring around it.
+     *  "full": the whole bird floating and flapping, no ring. */
+    variant?: 'icon' | 'full'
     /** Covers the whole viewport with a centered, blurred backdrop. */
     fullScreen?: boolean
     className?: string
 }
 
 /**
- * A loading indicator that swaps the usual spinner for the BasaQuest owl —
- * it floats gently, flaps its wings, and blinks while you wait.
+ * A loading indicator that swaps the usual spinner for the BasaQuest owl. The
+ * default is the round owl portrait inside a spinning ring; variant="full" is the
+ * whole bird, which floats gently, flaps its wings and blinks while you wait.
  *
  * Usage:
  *   <OwlLoader />                                // inline, drops into a card/section
@@ -25,14 +29,19 @@ interface OwlLoaderProps {
 export const OwlLoader: React.FC<OwlLoaderProps> = ({
     message = 'Loading…',
     size = 96,
+    variant = 'icon',
     fullScreen = false,
     className = '',
 }) => {
     const content = (
         <div className={`flex flex-col items-center justify-center gap-4 ${className}`}>
-            <div className="animate-owl-float">
-                <Owl mood="loading" size={size} animated />
-            </div>
+            {variant === 'icon' ? (
+                <Owl mood="loading" variant="icon" size={size} />
+            ) : (
+                <div className="animate-owl-float">
+                    <Owl mood="loading" size={size} animated />
+                </div>
+            )}
 
             {message && (
                 <div className="flex items-center gap-2">
