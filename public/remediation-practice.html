@@ -1130,7 +1130,7 @@ function syncPractice(index,busy){
  if($('listen-take'))refreshTake();
  if(busy){clearTimeout(pulseTimer);$('hear-it').classList.remove('is-pulsing')}
 }
-function togglePracticed(){if(practiceNavigation.busy())return;const i=practiceNavigation.current();words[i].practiced=!words[i].practiced;practiceNavigation.refresh();syncPractice(i,false);if(words[i].practiced&&!reduced.matches)document.querySelector('.practice-card .card-check').animate([{transform:'scale(.2) rotate(-25deg)',opacity:0},{transform:'scale(1.5) rotate(5deg)',opacity:1,offset:.55},{transform:'scale(1) rotate(0)',opacity:1}],{duration:520,easing:'ease-out'})}
+function togglePracticed(){if(practiceNavigation.busy())return;const i=practiceNavigation.current();words[i].practiced=!words[i].practiced;practiceNavigation.refresh();syncPractice(i,false);notifyProgress();if(words[i].practiced&&!reduced.matches)document.querySelector('.practice-card .card-check').animate([{transform:'scale(.2) rotate(-25deg)',opacity:0},{transform:'scale(1.5) rotate(5deg)',opacity:1,offset:.55},{transform:'scale(1) rotate(0)',opacity:1}],{duration:520,easing:'ease-out'})}
 async function finishSession(){if(practiceNavigation.busy())return;await stopCapture();$('summary-copy').textContent=`You practiced ${words.filter(w=>w.practiced).length} of ${words.length} words. You can return to any word in your notebook.`;$('session-summary').showModal()}
 (() => {
  const artwork=document.querySelector('.artwork');
@@ -1149,7 +1149,7 @@ async function finishSession(){if(practiceNavigation.busy())return;await stopCap
   return arrow;
  }
  $('book-wrap').append(deck);
- let current=2,busy=false,front,animations=[],destination=current;
+ let current=0,busy=false,front,animations=[],destination=current;
  function card(index){
   const entry=words[index],el=document.createElement('article');el.className='practice-card';
   el.dataset.index=index;
@@ -1160,7 +1160,7 @@ async function finishSession(){if(practiceNavigation.busy())return;await stopCap
   el.querySelector('.card-word').textContent=entry.word;el.style.setProperty('--word-size',Math.min(13,140/entry.word.length)+'cqw');
   el.querySelector('.card-occurrence').textContent=entry.count>1?`Appeared ${entry.count}x in the reading`:'';
   el.querySelector('.card-check').textContent=entry.practiced?'✓':'';
-  el.querySelector('button').onclick=()=>{if(busy||micState!=='idle')return;stopPlayback();if('speechSynthesis' in window){speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(entry.word);utterance.lang='fil-PH';speechSynthesis.speak(utterance)}if(!reduced.matches)el.querySelector('button').animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:360})};
+  el.querySelector('button').onclick=()=>{if(busy||micState!=='idle')return;stopPlayback();if(window.wordPracticeSpeak){window.wordPracticeSpeak(entry.word)}else if('speechSynthesis' in window){speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(entry.word);utterance.lang='fil-PH';speechSynthesis.speak(utterance)}if(!reduced.matches)el.querySelector('button').animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:360})};
   el.append(makeArrow('previous'),makeArrow('next'));
   return el;
  }
@@ -1241,7 +1241,7 @@ function renderDeskWords(){
   const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.setAttribute('aria-label',entry.word+': Practiced');
   checkbox.onchange=()=>{
    words[index].practiced=checkbox.checked;
-   practiceNavigation.refresh();syncPractice(practiceNavigation.current(),false);updateDeskProgress();
+   practiceNavigation.refresh();syncPractice(practiceNavigation.current(),false);updateDeskProgress();notifyProgress();
   };
   status.append(checkbox,document.createTextNode('Practiced'));
   const action=document.createElement('button');action.type='button';action.className='steno-practice';action.textContent='Practice this word →';
@@ -1335,7 +1335,7 @@ backdrop.addEventListener('click',e=>{
 document.addEventListener('keydown',event=>{if(notebookView&&event.key==='Escape'){event.preventDefault();closeNotebook()}});
 reduced.addEventListener('change',()=>{if(reduced.matches)cameraAnimation?.finish()});
 window.addEventListener('resize',()=>cameraAnimation?.finish());
-$('exit').onclick=finishSession;$('end-early').onclick=finishSession;$('resume-session').onclick=()=>$('session-summary').close();$('restart-session').onclick=async()=>{words.forEach(w=>w.practiced=false);$('session-summary').close();if(practiceNavigation.current())await practiceNavigation.go(0);practiceNavigation.refresh();syncPractice(0,false)};
+$('exit').onclick=finishSession;$('end-early').onclick=finishSession;$('resume-session').onclick=()=>$('session-summary').close();$('restart-session').onclick=async()=>{words.forEach(w=>w.practiced=false);notifyProgress();$('session-summary').close();if(practiceNavigation.current())await practiceNavigation.go(0);practiceNavigation.refresh();syncPractice(0,false)};
 document.addEventListener('keydown',e=>{if(e.altKey||e.ctrlKey||e.metaKey||e.repeat||$('session-summary').open)return;if($('notebook-open').open)return;if(e.key.toLowerCase()==='n'){e.preventDefault();openNotebook()}if(micState!=='idle'&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();return}if(e.key==='ArrowLeft'){e.preventDefault();practiceNavigation.go(practiceNavigation.current()-1)}if(e.key==='ArrowRight'){e.preventDefault();if(practiceNavigation.current()<words.length-1)practiceNavigation.go(practiceNavigation.current()+1)}});
 // Original owl blink classes and CSS animations, with an idle-only scheduler.
 let blinkTimer;function scheduleBlink(){clearTimeout(blinkTimer);if(document.hidden||reduced.matches)return;blinkTimer=setTimeout(()=>{if(!practiceNavigation.busy())$('owl-mascot').classList.add('owl-blink');scheduleBlink()},3800+Math.random()*2200)}$('owl-mascot').addEventListener('animationend',e=>{if(e.animationName==='owl-blink')$('owl-mascot').classList.remove('owl-blink')});document.addEventListener('visibilitychange',scheduleBlink);reduced.addEventListener('change',scheduleBlink);scheduleBlink();
@@ -1481,4 +1481,10 @@ $('notebook-closed').setAttribute('aria-label','Open word list');
 $('scene').prepend(world);positionOutsideTools();
 
 $('leave-session').onclick=()=>{window.parent!==window&&window.parent.postMessage({type:'word-practice:exit'},location.origin)};
+/* Hooks for the app that hosts this page (src/pages/proficiency/remediation/session).
+   wordPracticeLoad(list): swap in the pupil's real words [{word,type,count,tip,practiced}].
+   onWordPracticeChange(flags): called with every word's practiced flag after each change.
+   wordPracticeSpeak(word): optional, replaces the browser voice for "Hear it". */
+function notifyProgress(){if(window.onWordPracticeChange)window.onWordPracticeChange(words.map(w=>w.practiced))}
+window.wordPracticeLoad=list=>{words.splice(0,words.length,...list.map(w=>({word:w.word,type:w.type,count:w.count||1,tip:w.tip||'',practiced:!!w.practiced})));notebookSelection=null;practiceNavigation.refresh();syncPractice(practiceNavigation.current(),false)};
 </script></body></html>

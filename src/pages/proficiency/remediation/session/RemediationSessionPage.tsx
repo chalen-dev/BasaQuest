@@ -2,39 +2,185 @@
 //
 // Word-for-word practice session (the table, book, owl and word notebook).
 // The scene is the standalone prototype in public/remediation-practice.html,
-// shown full-bleed in an iframe. That keeps its own styles and scripts from
-// touching the rest of the app, and lets a newer version of the prototype be
-// dropped in as one file.
+// shown full-bleed in an iframe so its own styles and scripts stay away from
+// the rest of the app. The iframe is same-origin, so this page talks to it
+// through three window hooks the prototype defines (see the end of its script):
 //
-// NOT WIRED YET: the prototype still runs on its sample word list and does
-// not save anything. Wiring it up means passing the pupil's real words in and
-// saving each "practiced" toggle (see the old page's persistence notes in
-// git history). The only link to the app today is Leave practice, which sends
-// a message that returns to this pupil's remediation list.
-import { useEffect } from 'react'
+//   wordPracticeLoad(list)      this page -> scene: the pupil's real words
+//   onWordPracticeChange(flags) scene -> this page: every word's practiced flag
+//   wordPracticeSpeak(word)     scene -> this page: "Hear it" (server voice)
+//
+// PERSISTENCE: every practiced toggle saves straight away
+// (useUpdateRemediationProgressMutation, which also stamps last_practiced_at),
+// so there is no save-on-exit step. `wordsRef` is the pupil's word list with the
+// latest flags, kept outside React state because the scene owns the UI and this
+// page only needs the list when it saves. Leave practice (from the scene's
+// summary dialog) saves once more and returns to the pupil's remediation list.
+//
+// PRONUNCIATION: the server voice (usePronounceWord), not the browser's, because
+// device voices say Filipino words wrongly, which defeats the purpose here.
+//
+// NOT WIRED YET: the scene's own Day/Night toggle (separate from the app theme),
+// the owl's "Appeared Nx" count source beyond `count`, and the microphone take
+// (recorded in the browser only, never uploaded or scored).
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { Owl } from '../../../../components/ui/Owl'
+import { OwlLoader } from '../../../../components/ui/OwlLoader'
+import { useLang } from '../../../../contexts/LangContext'
+import {
+    readPracticed,
+    useRemediationMaterialQuery,
+    useUpdateRemediationProgressMutation,
+    type RemediationWordEntry,
+} from '../hooks'
+import { usePronounceWord } from './features/usePronounceWord'
 
 const PROTOTYPE_URL = '/remediation-practice.html'
 
-export default function RemediationSessionPage() {
-    const { studentId } = useParams<{ studentId: string }>()
-    const navigate = useNavigate()
+type SceneWindow = Window & {
+    wordPracticeLoad?: (list: SceneWord[]) => void
+    onWordPracticeChange?: (flags: boolean[]) => void
+    wordPracticeSpeak?: (word: string) => void
+}
+type SceneWord = { word: string; type: string; count: number; tip: string; practiced: boolean }
 
+// A tip for words that have no generated one, in the scene's language of tips.
+function fallbackTip(entry: RemediationWordEntry): string {
+    return entry.errorType === 'Omission'
+        ? `Huwag laktawan ang salitang ${entry.word}.`
+        : `Bigkasin nang malinaw: ${entry.word}.`
+}
+
+const NOTE = {
+    fil: {
+        notFoundTitle: 'Hindi mahanap ang pagsasanay',
+        notFoundDesc: 'Maaaring natanggal na ito o wala kang access dito.',
+        emptyTitle: 'Walang salitang sasanayin',
+        emptyDesc: 'Walang mga salita sa materyal na ito.',
+        back: 'Bumalik',
+    },
+    en: {
+        notFoundTitle: "Couldn't find this practice",
+        notFoundDesc: 'It may have been removed, or you may not have access.',
+        emptyTitle: 'No words to practice',
+        emptyDesc: 'This material has no words in it.',
+        back: 'Go back',
+    },
+} as const
+
+export default function RemediationSessionPage() {
+    const { studentId, materialId } = useParams<{ studentId: string; materialId: string }>()
+    const navigate = useNavigate()
+    const { lang } = useLang()
+    const t = NOTE[lang]
+
+    const { data: material, isLoading, error } = useRemediationMaterialQuery(materialId)
+    const updateProgress = useUpdateRemediationProgressMutation()
+    const { speak } = usePronounceWord()
+
+    // The scene's own window, once its page has loaded.
+    const [sceneWin, setSceneWin] = useState<SceneWindow | null>(null)
+    const [sceneReady, setSceneReady] = useState(false)
+    const wordsRef = useRef<RemediationWordEntry[] | null>(null)
+    const materialRef = useRef(material)
+    useEffect(() => {
+        materialRef.current = material
+    }, [material])
+    // Always the latest speak(), without re-binding the scene's hook on every render.
+    const speakRef = useRef(speak)
+    useEffect(() => {
+        speakRef.current = speak
+    }, [speak])
+
+    const updateRef = useRef(updateProgress.mutate)
+    useEffect(() => {
+        updateRef.current = updateProgress.mutate
+    }, [updateProgress.mutate])
+
+    const goBack = useCallback(() => navigate(`/students/remediation/${studentId}`), [navigate, studentId])
+
+    // Hand the real words to the scene once both it and the data are there. The
+    // list is seeded once; later refetches (our own saves) never overwrite it.
+    useEffect(() => {
+        const win = sceneWin
+        if (!material || !win?.wordPracticeLoad || wordsRef.current) return
+        if (material.words.length === 0) return
+        wordsRef.current = material.words
+        win.wordPracticeLoad(
+            material.words.map((w) => ({
+                word: w.word,
+                type: w.errorType,
+                count: w.count,
+                tip: w.coachTip || fallbackTip(w),
+                practiced: readPracticed(w),
+            })),
+        )
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSceneReady(true)
+    }, [sceneWin, material])
+
+    // Scene -> page hooks, set when the frame loads (an event handler, since they
+    // live on the iframe's own window). They go away with the iframe.
+    const bindScene = (win: SceneWindow | null) => {
+        if (!win) return
+        win.onWordPracticeChange = (flags) => {
+            const current = wordsRef.current
+            const mat = materialRef.current
+            if (!current || !mat) return
+            const next = current.map((w, i) => ({ ...w, practiced: flags[i] === true }))
+            wordsRef.current = next
+            updateRef.current({ id: mat.id, studentId: mat.student_id, words: next })
+        }
+        win.wordPracticeSpeak = (word) => {
+            void speakRef.current(word, materialRef.current?.language ?? 'fil')
+        }
+        setSceneWin(win)
+    }
+
+    // Leave practice (scene -> page message).
     useEffect(() => {
         const onMessage = (event: MessageEvent) => {
             if (event.origin !== window.location.origin) return
-            if (event.data?.type === 'word-practice:exit') navigate(`/students/remediation/${studentId}`)
+            if (event.data?.type === 'word-practice:exit') goBack()
         }
         window.addEventListener('message', onMessage)
         return () => window.removeEventListener('message', onMessage)
-    }, [navigate, studentId])
+    }, [goBack])
+
+    if (isLoading) return <OwlLoader className="py-32" />
+
+    if (error || !material) return <Message title={t.notFoundTitle} desc={t.notFoundDesc} back={t.back} onBack={goBack} />
+    if (material.words.length === 0) return <Message title={t.emptyTitle} desc={t.emptyDesc} back={t.back} onBack={goBack} />
 
     return (
-        <iframe
-            title="Word practice"
-            src={PROTOTYPE_URL}
-            allow="microphone; autoplay"
-            className="fixed inset-0 h-full w-full border-0"
-        />
+        <>
+            <iframe
+                title="Word practice"
+                src={PROTOTYPE_URL}
+                allow="microphone; autoplay"
+                onLoad={(e) => bindScene(e.currentTarget.contentWindow as SceneWindow | null)}
+                // Hidden until the pupil's words are in, so the sample words never flash.
+                className={`fixed inset-0 h-full w-full border-0 ${sceneReady ? '' : 'invisible'}`}
+            />
+            {!sceneReady && <OwlLoader className="fixed inset-0 z-10 flex items-center justify-center bg-white dark:bg-gray-950" />}
+        </>
+    )
+}
+
+function Message({ title, desc, back, onBack }: { title: string; desc: string; back: string; onBack: () => void }) {
+    return (
+        <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 p-6 text-center">
+            <Owl mood="neutral" size={64} />
+            <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{title}</h2>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{desc}</p>
+            <button
+                type="button"
+                onClick={onBack}
+                className="mt-2 cursor-pointer rounded-full border border-gray-900/10 bg-white px-5 py-2 text-sm font-bold text-gray-700 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200"
+            >
+                {back}
+            </button>
+        </div>
     )
 }
