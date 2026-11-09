@@ -255,7 +255,7 @@ import { STRINGS, getStaticCoachTip } from './features/remediationCoachStrings.t
 import { CoachNotebookSlot } from './features/CoachNotebookSlot.tsx'
 import { maxRecordingSeconds, RECORDING_STRINGS } from './features/coachRecordingStrings.ts'
 import { ScorePassageError, useScorePassage } from './features/useScorePassage.ts'
-import { findRecordingProblem } from '../../pre_assessment/assessment_session/features/recordingCheck.ts'
+import { findCoachRecordingProblem } from './features/coachRecordingCheck.ts'
 import { useRecorder } from '../../pre_assessment/assessment_session/features/useRecorder.ts'
 import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { showToast } from '../../../../helpers/swalHelpers.ts'
@@ -690,7 +690,7 @@ export default function RemediationCoachPage() {
         const problem =
             rec.seconds >= maxRecordingSeconds(words.length)
                 ? 'too_long'
-                : findRecordingProblem(rec.seconds, rec.voicedSeconds, words.length)
+                : findCoachRecordingProblem(rec.seconds, rec.voicedSeconds)
         if (problem) {
             toast(problem === 'silent' ? rt.silent : problem === 'too_short' ? rt.tooShort : rt.tooLong, 'warning')
             rec.reset()
