@@ -486,9 +486,9 @@ dialog{border:0;padding:0;background:var(--clear);color:var(--panel-ink);overflo
 [data-mic=recording] #record-word svg{display:none}
 [data-mic=recording] #record-word::before{content:'';width:18px;height:18px;border-radius:3px;background:white;margin:3px}
 .routine button:disabled{opacity:.5}
-.mic-meter{display:flex;align-items:center;justify-content:center;gap:3px;width:0;overflow:hidden;opacity:0;transition:width .24s ease,opacity .2s}
-[data-mic=recording] .mic-meter{width:46px;opacity:1}
-.mic-meter i{width:4px;flex:none;height:30px;border-radius:3px;background:var(--bubble-ink);transform:scaleY(.12)}
+.mic-meter{display:flex;align-items:center;justify-content:center;gap:2px;width:0;overflow:hidden;opacity:0;transition:width .24s ease,opacity .2s}
+[data-mic=recording] .mic-meter{width:clamp(90px,7vw,123px);opacity:1}
+.mic-meter i{flex:1;max-width:4px;height:44px;border-radius:999px;background:#f43f5e;transform:scaleY(.08)}
 #mic-notice{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);padding:7px 14px;border:1px solid var(--bubble-edge);border-radius:14px;background:var(--bubble-bg);color:var(--bubble-ink);text-align:center;font-size:14px}
 #mic-notice:empty,#listen-take[hidden]{display:none}
 
@@ -1387,7 +1387,7 @@ mic.id='record-word';mic.type='button';
 mic.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg><span>Record</span>';
 function meter(){
  const el=document.createElement('div');el.className='mic-meter';el.setAttribute('aria-hidden','true');
- for(let i=0;i<6;i++)el.append(document.createElement('i'));
+ for(let i=0;i<18;i++)el.append(document.createElement('i'));
  return el;
 }
 const leftMeter=meter(),rightMeter=meter();
@@ -1438,7 +1438,7 @@ async function startCapture(){
   session.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
   if(capture!==session){release(session);return}
   const context=session.context=new AudioContext();
-  const analyser=context.createAnalyser();analyser.fftSize=256;
+  const analyser=context.createAnalyser();analyser.fftSize=1024;analyser.smoothingTimeConstant=0;analyser.minDecibels=-85;analyser.maxDecibels=-25;
   session.source=context.createMediaStreamSource(session.stream);session.source.connect(analyser);
   const silent=context.createGain();silent.gain.value=0;analyser.connect(silent);silent.connect(context.destination);
   await context.resume();if(capture!==session)return;
@@ -1454,15 +1454,16 @@ async function startCapture(){
    complete(session);
   };
   session.stream.getAudioTracks()[0].onended=()=>{if(capture===session){message('Microphone disconnected.');stopCapture()}};
-  const data=new Uint8Array(analyser.frequencyBinCount);
+  /* Same equalizer as the reading assessment (useRecorder + Waveform): 36 log-spaced voice bands, instant attack,
+     eased release, 18 bars a side sampled from them, the left side mirrored. */
+  const data=new Uint8Array(analyser.frequencyBinCount),nyq=context.sampleRate/2,N=36,edges=[],shown=new Array(N).fill(0);
+  for(let i=0;i<=N;i++){const hz=60*Math.pow(8000/60,i/N);edges.push(Math.min(analyser.frequencyBinCount-1,Math.max(0,Math.round(hz/nyq*analyser.frequencyBinCount))))}
   function draw(time){
    if(capture!==session||micState!=='recording')return;
-   if(!session.last||time-session.last>(reduced.matches?250:45)){
+   if(!session.last||time-session.last>(reduced.matches?250:0)){
     session.last=time;analyser.getByteFrequencyData(data);
-    [1,2,4,7,12,20].forEach((bin,i)=>{
-     const level=Math.max(data[bin],data[bin+1])/255;
-     for(const item of [leftMeter.children[5-i],rightMeter.children[i]])item.style.transform='scaleY('+(.12+level*.88)+')';
-    });
+    for(let i=0;i<N;i++){const lo=edges[i],hi=Math.max(lo+1,edges[i+1]);let sum=0;for(let k=lo;k<hi;k++)sum+=data[k]||0;const target=Math.min(1,Math.pow(sum/(hi-lo)/255,.55));shown[i]=target>=shown[i]?target:shown[i]+(target-shown[i])*.35}
+    for(let i=0;i<18;i++){const t='scaleY('+Math.max(.08,Math.min(1,shown[i*2]))+')';leftMeter.children[17-i].style.transform=t;rightMeter.children[i].style.transform=t}
    }
    session.frame=requestAnimationFrame(draw);
   }
