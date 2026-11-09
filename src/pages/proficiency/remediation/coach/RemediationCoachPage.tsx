@@ -654,10 +654,6 @@ export default function RemediationCoachPage() {
             return
         }
         if (!currentPage || !material) return
-        if (material.language !== 'en') {
-            showToast(rt.filipinoNotReady, 'info', darkToast, { closable: true, timer: 6000 })
-            return
-        }
         stopPassage()
         setCoachMessage(null)
         setCelebrate(false)

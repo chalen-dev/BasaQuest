@@ -20,7 +20,6 @@ export const RECORDING_STRINGS: Record<
         stop: string
         cancel: string
         scoring: string
-        filipinoNotReady: string
         silent: string
         tooShort: string
         tooLong: string
@@ -36,7 +35,6 @@ export const RECORDING_STRINGS: Record<
         stop: 'Tapusin at i-score',
         cancel: 'Kanselahin ang recording',
         scoring: 'Sinusuri ang pagbasa…',
-        filipinoNotReady: 'Hindi pa available ang pag-score sa mga talatang Filipino. Gumagana na ito sa mga talatang English.',
         silent: 'Hindi ka namin narinig. Lumapit sa mikropono at basahin muli ang talata.',
         tooShort: 'Masyadong maikli ang recording para sa buong talata. Basahin ang buong talata, pagkatapos ay subukan muli.',
         tooLong: 'Masyadong mahaba ang recording. Basahin lamang ang talata, pagkatapos ay pindutin ang tapos.',
@@ -51,7 +49,6 @@ export const RECORDING_STRINGS: Record<
         stop: 'Finish and score',
         cancel: 'Cancel recording',
         scoring: 'Checking your reading…',
-        filipinoNotReady: 'Scoring is not ready for Filipino passages yet. It already works for English passages.',
         silent: "We couldn't hear you. Move closer to the microphone and read the passage again.",
         tooShort: 'That recording is too short for the whole passage. Read all of it, then try again.',
         tooLong: 'That recording is too long. Read just the passage, then press finish.',

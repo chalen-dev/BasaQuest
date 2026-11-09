@@ -55,11 +55,8 @@ export class ScorePassageError extends Error {
 export function useScorePassage() {
     return useMutation({
         mutationFn: async ({ words, language, blob }: ScorePassageArgs): Promise<ScorePassageResult> => {
-            // Only English has a scoring pipeline today (Azure pronunciation
-            // assessment); the page checks this first and never gets here for Filipino.
-            if (language !== 'en') {
-                throw new ScorePassageError('Only the English scoring flow is implemented right now.')
-            }
+            // English is scored by Azure pronunciation assessment, Filipino by the
+            // separate Filipino model; the scoring service picks by `language`.
             if (!SCORING_SERVICE_URL) {
                 throw new ScorePassageError('Scoring service is not configured.')
             }
