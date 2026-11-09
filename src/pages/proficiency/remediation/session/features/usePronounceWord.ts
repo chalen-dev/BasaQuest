@@ -158,6 +158,45 @@ export function prefetchAudio(text: string, language: PronounceLanguage, whole =
         .catch(() => {})
 }
 
+// Awaitable version for a screen that wants its clips ready BEFORE it opens (Letters &
+// Sounds): resolves each word's clip (generating new ones on the server) and downloads it,
+// a few at a time, then resolves once they are all buffered. Gives up after `maxMs` so a slow
+// network or a failed word never keeps the screen closed; whatever is ready by then stays
+// cached, and the rest loads on the first tap as before. Never rejects.
+export async function preloadAudio(words: string[], language: PronounceLanguage, maxMs = 8000): Promise<void> {
+    if (USE_PLACEHOLDER_PRONUNCIATION) return
+    const queue = [...new Set(words.map((w) => w.trim()).filter((w) => slugifyWord(w)))]
+    const buffer = (url: string) =>
+        new Promise<void>((resolve) => {
+            if (warmed.has(url)) return resolve()
+            const audio = new Audio()
+            const done = () => {
+                audio.oncanplaythrough = null
+                audio.onerror = null
+                resolve()
+            }
+            audio.oncanplaythrough = done
+            audio.onerror = done
+            // A clip that never reports ready must not hold the queue.
+            setTimeout(done, 2500)
+            audio.preload = 'auto'
+            audio.src = url
+            warmed.set(url, audio)
+        })
+    const worker = async () => {
+        for (let word = queue.shift(); word !== undefined; word = queue.shift()) {
+            try {
+                await buffer(await resolveAudioUrl(word, language, false))
+            } catch {
+                // This word loads on its first tap instead.
+            }
+        }
+    }
+    const all = Promise.all([worker(), worker(), worker(), worker()]).then(() => undefined)
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, maxMs))
+    await Promise.race([all, timeout])
+}
+
 // Called when a teacher saves a passage set: makes the server generate and store
 // every passage's audio and its target words' audio now, so the pupil never waits
 // on Azure for them. One at a time, so a big set does not fire dozens of requests

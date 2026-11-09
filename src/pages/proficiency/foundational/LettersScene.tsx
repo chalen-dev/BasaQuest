@@ -22,13 +22,14 @@
 // library image, else the emoji. Progress is not saved yet.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { usePronounceWord } from '../remediation/session/features/usePronounceWord.ts'
+import { prefetchAudio, preloadAudio, usePronounceWord } from '../remediation/session/features/usePronounceWord.ts'
+import { OwlLoader } from '../../../components/ui/OwlLoader.tsx'
 import { useProfile } from '../../../hooks/useProfile.ts'
-import type { FoundationalLetter } from './data/types.ts'
+import type { FoundationalLanguage, FoundationalLetter } from './data/types.ts'
 import { buildSceneLetters, useFoundationalSetQuery, useLibraryPicturesQuery, type SceneLetter } from './hooks.ts'
 
 type SceneWindow = Window & {
-    lettersLoad?: (list: SceneLetter[]) => void
+    lettersLoad?: (list: SceneLetter[], language: FoundationalLanguage) => void
     lettersCanEdit?: (canEdit: boolean) => void
     lettersSpeak?: (word: string) => void
     lettersSpeaking?: (loading: boolean) => void
@@ -37,9 +38,9 @@ type SceneWindow = Window & {
 
 const SCENE_URL = '/letters-practice.html'
 
-export default function LettersScene({ levelId, letters }: { levelId: string; letters: FoundationalLetter[] }) {
+export default function LettersScene({ levelId, language, letters }: { levelId: string; language: FoundationalLanguage; letters: FoundationalLetter[] }) {
     const navigate = useNavigate()
-    const { profile } = useProfile()
+    const { profile, loading: profileLoading } = useProfile()
     const { speak, stop, isLoading, isPlaying } = usePronounceWord()
     const [sceneWin, setSceneWin] = useState<SceneWindow | null>(null)
     const setQuery = useFoundationalSetQuery(levelId)
@@ -50,10 +51,34 @@ export default function LettersScene({ levelId, letters }: { levelId: string; le
         () => (cards && cards.length ? cards.map((c) => c.word) : letters.flatMap((l) => [l.word, ...(l.extra_words ?? []).map((e) => e.word)])),
         [cards, letters],
     )
-    const pictures = useLibraryPicturesQuery(allWords).data
+    const pictures = useLibraryPicturesQuery(allWords, language).data
     const list = useMemo(() => buildSceneLetters(letters, cards, pictures), [letters, cards, pictures])
 
     const canEdit = profile?.role === 'teacher' || profile?.role === 'admin'
+
+    // The voice clips are loaded BEFORE the scene opens, so "Hear it" plays at once. The 26 main words
+    // are awaited (up to a few seconds); the extra objects load quietly afterwards. The scene itself
+    // loads behind the owl in the meantime.
+    const [audioReady, setAudioReady] = useState(false)
+    const cardsSettled = !profileLoading && !setQuery.isLoading
+    const mainWords = list.map((l) => l.word).join('|')
+    const extraWords = list.flatMap((l) => l.extras.map((e) => e.word)).join('|')
+    useEffect(() => {
+        if (!cardsSettled) return
+        let cancelled = false
+        void preloadAudio(mainWords.split('|'), language).then(() => {
+            if (!cancelled) setAudioReady(true)
+        })
+        if (extraWords) extraWords.split('|').forEach((word) => prefetchAudio(word, language))
+        return () => {
+            cancelled = true
+        }
+    }, [cardsSettled, mainWords, extraWords, language])
+    // Never keep the scene closed for long: if something above stalls, open it anyway.
+    useEffect(() => {
+        const id = window.setTimeout(() => setAudioReady(true), 12000)
+        return () => window.clearTimeout(id)
+    }, [])
 
     const speakRef = useRef(speak)
     useEffect(() => {
@@ -65,8 +90,8 @@ export default function LettersScene({ levelId, letters }: { levelId: string; le
     }, [stop])
 
     useEffect(() => {
-        sceneWin?.lettersLoad?.(list)
-    }, [sceneWin, list])
+        sceneWin?.lettersLoad?.(list, language)
+    }, [sceneWin, list, language])
 
     useEffect(() => {
         sceneWin?.lettersCanEdit?.(canEdit)
@@ -95,18 +120,21 @@ export default function LettersScene({ levelId, letters }: { levelId: string; le
     const bindScene = (win: SceneWindow | null) => {
         if (!win) return
         win.lettersSpeak = (word) => {
-            void speakRef.current(word, 'en')
+            void speakRef.current(word, language)
         }
         setSceneWin(win)
     }
 
     return (
-        <iframe
-            title="Letters & Sounds"
-            src={SCENE_URL}
-            allow="autoplay"
-            onLoad={(e) => bindScene(e.currentTarget.contentWindow as SceneWindow | null)}
-            className="fixed inset-0 z-[60] h-full w-full border-0"
-        />
+        <>
+            <iframe
+                title="Letters & Sounds"
+                src={SCENE_URL}
+                allow="autoplay"
+                onLoad={(e) => bindScene(e.currentTarget.contentWindow as SceneWindow | null)}
+                className={`fixed inset-0 z-[60] h-full w-full border-0 ${audioReady ? '' : 'invisible'}`}
+            />
+            {!audioReady && <OwlLoader className="fixed inset-0 z-[61] flex items-center justify-center bg-white dark:bg-gray-950" />}
+        </>
     )
 }

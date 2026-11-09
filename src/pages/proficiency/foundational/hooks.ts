@@ -15,6 +15,12 @@ import { useProfile, type Profile } from '../../../hooks/useProfile.ts'
 import { normalizeImageWord } from '../../../hooks/useWordImage.ts'
 import type { FoundationalLetter } from './data/types.ts'
 
+// The letters in the order the scene shows them: English alphabetically, Filipino in the order the data
+// lists them (the Abakada, with NG after N).
+export function sortLetters(letters: FoundationalLetter[]): FoundationalLetter[] {
+    return letters[0]?.language === 'fil' ? [...letters] : [...letters].sort((a, b) => a.lower.localeCompare(b.lower))
+}
+
 export type FoundationalSetRow = { id: string; level_key: string; owner_id: string | null }
 export type FoundationalCardRow = {
     id: string
@@ -108,11 +114,11 @@ export const PICTURE_ALIASES: Record<string, string> = { yam: 'sweet potato' }
 // photo, its water buffalo a boat, its box a boxing glove). Keep in step with PREFER_DRAWING in public/letters-practice.html.
 export const PREFER_DRAWING = new Set(['carabao', 'jeepney', 'box'])
 
-export function useLibraryPicturesQuery(words: string[]) {
+export function useLibraryPicturesQuery(words: string[], language: 'en' | 'fil' = 'en') {
     const wanted = words.map(normalizeImageWord).filter(Boolean)
     const keys = [...new Set([...wanted, ...wanted.map((w) => PICTURE_ALIASES[w]).filter(Boolean)])].sort()
     return useQuery({
-        queryKey: [...KEY, 'library', keys.join('|')] as const,
+        queryKey: [...KEY, 'library', language, keys.join('|')] as const,
         enabled: keys.length > 0,
         staleTime: Infinity,
         retry: false,
@@ -122,7 +128,7 @@ export function useLibraryPicturesQuery(words: string[]) {
                 const { data, error } = await supabase
                     .from('word_images')
                     .select('word, image_path, is_default')
-                    .eq('language', 'en')
+                    .eq('language', language)
                     .in('word', keys.slice(from, from + 100))
                 if (error) throw error
                 const rows = (data ?? []) as { word: string; image_path: string; is_default: boolean }[]
@@ -137,6 +143,8 @@ export function useLibraryPicturesQuery(words: string[]) {
 }
 
 export type SceneLetter = {
+    upper: string
+    lower: string
     word: string
     sound: string
     image: string
@@ -155,15 +163,15 @@ export function buildSceneLetters(
         const key = normalizeImageWord(word)
         return pictures?.[key] ?? pictures?.[PICTURE_ALIASES[key] ?? ''] ?? ''
     }
-    return [...builtIn]
-        .sort((a, b) => a.lower.localeCompare(b.lower))
-        .map((letter) => {
+    return sortLetters(builtIn).map((letter) => {
             const own = (cards ?? []).filter((c) => c.letter === letter.lower).sort((a, b) => a.position - b.position)
             const objects = own.length
                 ? own.map((c) => ({ word: c.word, image: c.emoji }))
                 : [{ word: letter.word, image: letter.image }, ...(letter.extra_words ?? [])]
             const [main, ...rest] = objects
             return {
+                upper: letter.upper,
+                lower: letter.lower,
                 word: main.word,
                 sound: letter.letter_sound.replace(/\//g, ''),
                 image: main.image,

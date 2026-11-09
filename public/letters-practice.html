@@ -253,6 +253,22 @@ themeSwitch.onclick=()=>{
 };
 
 const letters=Array.from('abcdefghijklmnopqrstuvwxyz');
+/* Capital forms, one per letter (the host sends them: Filipino has the two-letter NG). */
+const uppers=letters.map(l=>l.toUpperCase());
+const tileLabel=i=>uppers[i]+(uppers[i].length>1?' ':'')+letters[i];
+/* All the words the scene says itself, per language. The host passes the language with lettersLoad. */
+const TEXT={
+  en:{htmlLang:'en',back:'Back',day:'Day',night:'Night',nightAria:'Night mode',edit:'Edit cards',hear:' Hear it',prev:'Previous letter',next:'Next letter',nav:'Choose a letter',progress:'Alphabet progress',hello:'Tap a letter above!',another:'Show another picture',speech:'en-US',
+    tab:(u,w)=>u+' for '+w,counter:(n,t)=>'Letter '+n+' of '+t,
+    phrase:(u,w,start)=>u+(start?' is for ':' is at the end of ')+'<b>'+w+'</b>',
+    says:(u,l,snd)=>u+l+' says /'+snd+'/. '},
+  fil:{htmlLang:'fil',back:'Bumalik',day:'Araw',night:'Gabi',nightAria:'Panggabing tema',edit:'I-edit ang mga kard',hear:' Pakinggan',prev:'Nakaraang titik',next:'Susunod na titik',nav:'Pumili ng titik',progress:'Pag-usad sa alpabeto',hello:'Pindutin ang titik sa itaas!',another:'Ipakita ang susunod na larawan',speech:'fil-PH',
+    tab:(u,w)=>u+' para sa '+w,counter:(n,t)=>'Titik '+n+' ng '+t,
+    phrase:(u,w)=>'Ang '+u+' ay para sa <b>'+w+'</b>',
+    says:(u,l,snd)=>'Ang tunog ng '+u+' ay /'+snd+'/. '}
+};
+let lang='en';
+const tx=()=>TEXT[lang];
 const words='apple banana carabao duck egg fish goat hen ink jeepney kite lemon mango nest ox papaya queen rice sun tiger umbrella van watermelon box yo-yo zebra'.split(' ');
 const icons=Array.from('🍎🍌🚗🦆🥚🐟🐐🐔🖋🪼🪁🍋🥭🪺🍊🍈👸🍚🌻🐯☂🚐🍉🎶🧶🦓');
 const colors=['#ffb5bb','#ffe28e','#d4b9ed','#ffccaa','#a5dbf2','#a8e5c6'];
@@ -269,18 +285,22 @@ function renderPicture(){
   const p=document.querySelector('#picture'),list=objects[selected],o=list[curObj],many=list.length>1;
   p.innerHTML=artHtml(o);
   p.classList.toggle('many',many);p.tabIndex=many?0:-1;
-  p.setAttribute('role',many?'button':'img');p.setAttribute('aria-label',many?'Show another picture':o.word);
+  p.setAttribute('role',many?'button':'img');p.setAttribute('aria-label',many?tx().another:o.word);
   document.querySelector('.dots').innerHTML=many?list.map((_,k)=>'<i'+(k===curObj?' class="on"':'')+'></i>').join(''):'';
 }
 function nextObject(){if(objects[selected].length>1){hello=false;curObj=(curObj+1)%objects[selected].length;show(selected,true)}}
 const nav=document.querySelector('nav');
 let selected=0;
-words.forEach((word,i)=>{const button=document.createElement('button');button.style.setProperty('--tile',colors[i%6]);button.setAttribute('aria-label',letters[i].toUpperCase()+' for '+word);button.innerHTML='<span class="tile-letter">'+letters[i].toUpperCase()+letters[i]+'</span><span aria-hidden="true">'+artHtml(objects[i][0])+'</span>';button.onclick=()=>userShow(i);nav.append(button)});
+function buildNav(){
+  nav.replaceChildren();
+  words.forEach((word,i)=>{const button=document.createElement('button');button.style.setProperty('--tile',colors[i%6]);button.setAttribute('aria-label',tx().tab(uppers[i],word));button.innerHTML='<span class="tile-letter">'+tileLabel(i)+'</span><span aria-hidden="true">'+artHtml(objects[i][0])+'</span>';button.onclick=()=>userShow(i);nav.append(button)});
+}
+buildNav();
 const sounds='a b k d e f g h i j k l m n o p kw r s t u v w ks y z'.split(' ');
 function renderBubble(letter,word,index){
   const hint=document.createElement('span');
   hint.className='sound-hint';
-  hint.textContent=letter+letters[index]+' says /'+sounds[index]+'/. ';
+  hint.textContent=tx().says(letter,letters[index],sounds[index]);
   document.querySelector('.bubble').replaceChildren(hint,word[0].toUpperCase()+word.slice(1)+'!');
 }
 function fitIllustration(){
@@ -294,12 +314,12 @@ function fitIllustration(){
   }
 }
 matchMedia('(min-width:761px)').addEventListener('change',fitIllustration);
-function show(i,keep){selected=(i+26)%26;if(!keep)curObj=0;const word=objects[selected][curObj].word,letter=letters[selected].toUpperCase();document.querySelector('h1').textContent=letter+letters[selected];document.querySelector('.word').textContent=word;document.querySelector('.phrase').innerHTML=letter+(word[0]===letters[selected]?' is for ':' is at the end of ')+'<b>'+word+'</b>';renderBubble(letter,word,selected);document.querySelector('small').textContent='Letter '+(selected+1)+' of 26';renderPicture();fitIllustration();Array.from(nav.children).forEach((b,n)=>b.setAttribute('aria-pressed',n===selected));document.querySelector('progress').value=selected+1;revealSelection();stopAudio()}
+function show(i,keep){const total=letters.length;selected=(i+total)%total;if(!keep)curObj=0;const word=objects[selected][curObj].word,letter=uppers[selected];document.querySelector('h1').textContent=tileLabel(selected);document.querySelector('.word').textContent=word;document.querySelector('.phrase').innerHTML=tx().phrase(letter,word,word.toLowerCase().startsWith(letters[selected]));renderBubble(letter,word,selected);document.querySelector('small').textContent=tx().counter(selected+1,total);renderPicture();fitIllustration();Array.from(nav.children).forEach((b,n)=>b.setAttribute('aria-pressed',n===selected));document.querySelector('progress').max=total;document.querySelector('progress').value=selected+1;revealSelection();stopAudio()}
 document.querySelector('#prev').onclick=()=>userShow(selected-1);document.querySelector('#next').onclick=()=>userShow(selected+1);document.onkeydown=e=>{if(e.key==='ArrowRight')userShow(selected+1);if(e.key==='ArrowLeft')userShow(selected-1)};
 /* The owl greets first and asks for a letter; the first real pick replaces the greeting. */
 let hello=true;
 function userShow(i){hello=false;show(i)}
-function showHello(){document.querySelector('.bubble').textContent='Tap a letter above!';if(typeof setOwl==='function')setOwl('encouraging',false)}
+function showHello(){document.querySelector('.bubble').textContent=tx().hello;if(typeof setOwl==='function')setOwl('encouraging',false)}
 
 const hear=document.querySelector('.hear');
 const owlSlot=document.querySelector('.owl');
@@ -317,7 +337,7 @@ hear.onclick=()=>{
   if(window.lettersSpeak){window.lettersSpeak(word);return}
   if('speechSynthesis' in window){
     speechSynthesis.cancel();
-    const say=new SpeechSynthesisUtterance(word);say.lang='en-US';
+    const say=new SpeechSynthesisUtterance(word);say.lang=tx().speech;
     say.onstart=()=>setOwl('happy',true);say.onend=()=>setOwl('neutral',false);
     speechSynthesis.speak(say);
   }
@@ -342,13 +362,38 @@ function revealSelection(){
   }
 }
 revealSelection();
-/* lettersLoad(list): swap in the level's letters [{word,sound,image,extras:[{word,image}]}], one per letter A-Z in order. */
-window.lettersLoad=list=>{
-  if(!Array.isArray(list)||list.length!==26)return;
+/* applyLang(code): the fixed words of the page (buttons, labels) in that language. */
+function applyLang(code){
+  lang=TEXT[code]?code:'en';
+  const t=tx();
+  document.documentElement.lang=t.htmlLang;
+  document.title=lang==='fil'?'Mga Titik at Tunog':'Letters & Sounds';
+  document.querySelector('.back-button').lastChild.textContent=t.back;
+  document.querySelector('.back-button').title=t.back;
+  themeSwitch.querySelector('.day').lastChild.textContent=t.day;
+  themeSwitch.querySelector('.night').lastChild.textContent=t.night;
+  themeSwitch.setAttribute('aria-label',t.nightAria);
+  editBtn.setAttribute('aria-label',t.edit);editBtn.querySelector('.label').textContent=t.edit;
+  hear.lastChild.textContent=t.hear;
+  document.querySelector('#prev').setAttribute('aria-label',t.prev);
+  document.querySelector('#next').setAttribute('aria-label',t.next);
+  nav.setAttribute('aria-label',t.nav);
+  document.querySelector('progress').setAttribute('aria-label',t.progress);
+}
+/* lettersLoad(list, language): swap in the level's letters, in teaching order:
+   [{upper,lower,word,sound,image,imageUrl,extras:[{word,image,imageUrl}]}]. Any number of letters (26 English, 20 Filipino). */
+window.lettersLoad=(list,language)=>{
+  if(!Array.isArray(list)||list.length<1)return;
+  const code=language||'en';
+  const same=list.length===letters.length&&code===lang&&list.every((l,i)=>(l.lower||'')===letters[i]);
+  letters.splice(0,letters.length,...list.map(l=>l.lower||''));
+  uppers.splice(0,uppers.length,...list.map(l=>l.upper||(l.lower||'').toUpperCase()));
   words.splice(0,words.length,...list.map(l=>l.word));
   objects.splice(0,objects.length,...list.map(l=>[{word:l.word,image:l.image||'',imageUrl:l.imageUrl||''},...(l.extras||[])]));
   sounds.splice(0,sounds.length,...list.map(l=>l.sound));
-  Array.from(nav.children).forEach((b,i)=>{b.setAttribute('aria-label',letters[i].toUpperCase()+' for '+words[i]);b.children[1].innerHTML=artHtml(objects[i][0])});
+  applyLang(code);
+  if(!same){selected=0;curObj=0}
+  buildNav();
   show(selected);
   if(hello)showHello();
 };

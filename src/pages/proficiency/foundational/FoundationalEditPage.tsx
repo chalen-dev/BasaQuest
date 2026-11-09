@@ -15,10 +15,11 @@ import { normalizeImageWord, useWordImageQuery } from '../../../hooks/useWordIma
 import { useTheme } from '../../../contexts/ThemeContext.tsx'
 import { showConfirmation } from '../../../helpers/swalHelpers.ts'
 import { findFoundationalLevel } from './data/levels.ts'
-import type { FoundationalLetter } from './data/types.ts'
+import type { FoundationalLanguage, FoundationalLetter } from './data/types.ts'
 import {
     PICTURE_ALIASES,
     PREFER_DRAWING,
+    sortLetters,
     useFoundationalEditorQuery,
     useMakeMyCopyMutation,
     useResetToDefaultMutation,
@@ -65,7 +66,7 @@ const FoundationalEditPage: React.FC = () => {
 
     const isAdmin = profile.role === 'admin'
     const state = editor.data
-    const letters = [...level.letters].sort((a, b) => a.lower.localeCompare(b.lower))
+    const letters = sortLetters(level.letters)
 
     const onMakeCopy = () => {
         if (state?.defaultSet) makeCopy.mutate(state.defaultSet.id)
@@ -205,6 +206,7 @@ function LetterEditor({ setId, letter, saved }: { setId: string; letter: Foundat
                 <CardRow
                     key={index}
                     letter={letter.lower}
+                    language={letter.language}
                     card={card}
                     isMain={index === 0}
                     onChange={(patch) => update(index, patch)}
@@ -232,6 +234,7 @@ function LetterEditor({ setId, letter, saved }: { setId: string; letter: Foundat
 
 function CardRow({
     letter,
+    language,
     card,
     isMain,
     onChange,
@@ -242,6 +245,7 @@ function CardRow({
     canDown,
 }: {
     letter: string
+    language: FoundationalLanguage
     card: DraftCard
     isMain: boolean
     onChange: (patch: Partial<DraftCard>) => void
@@ -253,8 +257,8 @@ function CardRow({
 }) {
     const word = card.word.trim().toLowerCase()
     // Same picture choice as the scene: aliased names, and our own drawing for a few words.
-    const usesDrawing = PREFER_DRAWING.has(word)
-    const found = useWordImageQuery(usesDrawing ? null : PICTURE_ALIASES[normalizeImageWord(word)] ?? (word || null), 'en').data
+    const usesDrawing = language === 'en' && PREFER_DRAWING.has(word)
+    const found = useWordImageQuery(usesDrawing ? null : (language === 'en' ? PICTURE_ALIASES[normalizeImageWord(word)] : undefined) ?? (word || null), language).data
     const library = usesDrawing ? undefined : found
     // x is the one letter taught from the END of its word (box, fox).
     const offLetter = word !== '' && letter !== 'x' && !word.startsWith(letter)
