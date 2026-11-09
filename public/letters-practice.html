@@ -259,8 +259,8 @@ illustrations[18]="<svg class=\"art\" aria-hidden=\"true\" viewBox=\"0 0 64 58\"
 illustrations[23]="<svg class=\"art\" aria-hidden=\"true\" viewBox=\"0 0 64 58\"><g stroke=\"#534461\" stroke-width=\"1.8\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M8 21L17 9H47L56 21Z\" fill=\"#e8bd80\"/><rect x=\"8\" y=\"21\" width=\"48\" height=\"30\" rx=\"3\" fill=\"#d9a566\"/><rect x=\"27\" y=\"21\" width=\"10\" height=\"15\" fill=\"#f3d8a4\"/></g></svg>";
 illustrations[24]="<svg class=\"art\" aria-hidden=\"true\" viewBox=\"0 0 64 58\"><g stroke=\"#534461\" stroke-width=\"1.8\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><ellipse cx=\"32\" cy=\"7\" rx=\"7\" ry=\"4\" fill=\"none\"/><path d=\"M32 11V22\" fill=\"none\"/><circle cx=\"32\" cy=\"38\" r=\"17\" fill=\"#ff7aa8\"/><circle cx=\"32\" cy=\"38\" r=\"10\" fill=\"#ffd0e1\"/><circle cx=\"32\" cy=\"38\" r=\"3\" fill=\"#534461\"/></g></svg>";
 const nav=document.querySelector('nav');
-let selected=12;
-words.forEach((word,i)=>{const button=document.createElement('button');button.style.setProperty('--tile',colors[i%6]);button.setAttribute('aria-label',letters[i].toUpperCase()+' for '+word);button.innerHTML='<span class="tile-letter">'+letters[i].toUpperCase()+letters[i]+'</span><span aria-hidden="true">'+illustrations[i]+'</span>';button.onclick=()=>show(i);nav.append(button)});
+let selected=0;
+words.forEach((word,i)=>{const button=document.createElement('button');button.style.setProperty('--tile',colors[i%6]);button.setAttribute('aria-label',letters[i].toUpperCase()+' for '+word);button.innerHTML='<span class="tile-letter">'+letters[i].toUpperCase()+letters[i]+'</span><span aria-hidden="true">'+illustrations[i]+'</span>';button.onclick=()=>userShow(i);nav.append(button)});
 const sounds='a b k d e f g h i j k l m n o p kw r s t u v w ks y z'.split(' ');
 function renderBubble(letter,word,index){
   const hint=document.createElement('span');
@@ -280,7 +280,11 @@ function fitIllustration(){
 }
 matchMedia('(min-width:761px)').addEventListener('change',fitIllustration);
 function show(i){selected=(i+26)%26;const word=words[selected],letter=letters[selected].toUpperCase();document.querySelector('h1').textContent=letter+letters[selected];document.querySelector('.word').textContent=word;document.querySelector('.phrase').innerHTML=letter+(word[0]===letters[selected]?' is for ':' is in ')+'<b>'+word+'</b>';renderBubble(letter,word,selected);document.querySelector('small').textContent='Letter '+(selected+1)+' of 26';document.querySelector('#picture').innerHTML=illustrations[selected];fitIllustration();Array.from(nav.children).forEach((b,n)=>b.setAttribute('aria-pressed',n===selected));document.querySelector('progress').value=selected+1;revealSelection();stopAudio()}
-document.querySelector('#prev').onclick=()=>show(selected-1);document.querySelector('#next').onclick=()=>show(selected+1);document.onkeydown=e=>{if(e.key==='ArrowRight')show(selected+1);if(e.key==='ArrowLeft')show(selected-1)};
+document.querySelector('#prev').onclick=()=>userShow(selected-1);document.querySelector('#next').onclick=()=>userShow(selected+1);document.onkeydown=e=>{if(e.key==='ArrowRight')userShow(selected+1);if(e.key==='ArrowLeft')userShow(selected-1)};
+/* The owl greets first and asks for a letter; the first real pick replaces the greeting. */
+let hello=true;
+function userShow(i){hello=false;show(i)}
+function showHello(){document.querySelector('.bubble').textContent='Hi! Tap a letter at the top to start.';if(typeof setOwl==='function')setOwl('encouraging',false)}
 
 const hear=document.querySelector('.hear');
 const owlSlot=document.querySelector('.owl');
@@ -307,7 +311,8 @@ hear.onclick=()=>{
 window.lettersTalking=on=>setOwl(on?'happy':'neutral',!!on);
 window.lettersSpeaking=on=>{hearLoading=!!on;hear.classList.toggle('is-loading',hearLoading);hear.setAttribute('aria-busy',String(hearLoading))};
 window.addEventListener('pagehide',stopAudio);
-show(12);
+show(0);
+showHello();
 function revealSelection(){
   const tile=nav.children[selected];
   if(nav.scrollWidth>nav.clientWidth){
@@ -323,5 +328,6 @@ window.lettersLoad=list=>{
   sounds.splice(0,sounds.length,...list.map(l=>l.sound));
   Array.from(nav.children).forEach((b,i)=>b.setAttribute('aria-label',letters[i].toUpperCase()+' for '+words[i]));
   show(selected);
+  if(hello)showHello();
 };
 </script></html>
