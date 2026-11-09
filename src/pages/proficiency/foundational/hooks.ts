@@ -101,8 +101,13 @@ export function useFoundationalEditorQuery(levelKey: string) {
 
 // Pictures from the Word Pictures library for these words (English), by word. A word's default
 // picture wins, else any. Words with none are simply absent.
+// Words the library stores under another name. The key is the normalized word, the value the
+// library's own spelling (it also keeps some two-word entries with the space).
+const PICTURE_ALIASES: Record<string, string> = { carabao: 'waterbuffalo', yam: 'sweet potato' }
+
 export function useLibraryPicturesQuery(words: string[]) {
-    const keys = [...new Set(words.map(normalizeImageWord).filter(Boolean))].sort()
+    const wanted = words.map(normalizeImageWord).filter(Boolean)
+    const keys = [...new Set([...wanted, ...wanted.map((w) => PICTURE_ALIASES[w]).filter(Boolean)])].sort()
     return useQuery({
         queryKey: [...KEY, 'library', keys.join('|')] as const,
         enabled: keys.length > 0,
@@ -143,7 +148,10 @@ export function buildSceneLetters(
     cards: FoundationalCardRow[] | undefined,
     pictures: Record<string, string> | undefined,
 ): SceneLetter[] {
-    const url = (word: string) => pictures?.[normalizeImageWord(word)] ?? ''
+    const url = (word: string) => {
+        const key = normalizeImageWord(word)
+        return pictures?.[key] ?? pictures?.[PICTURE_ALIASES[key] ?? ''] ?? ''
+    }
     return [...builtIn]
         .sort((a, b) => a.lower.localeCompare(b.lower))
         .map((letter) => {
