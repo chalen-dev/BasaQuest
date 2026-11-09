@@ -349,7 +349,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                                 <Owl
                                     mood={isRecording || isCountingDown ? 'thinking' : isRecorded ? 'happy' : 'neutral'}
                                     variant="icon"
-                                    size={60}
+                                    size={88}
                                     talking={owlTalking && encourageOpen && !isRecording && !isCountingDown && !isRecorded}
                                     alt=""
                                 />
