@@ -103,7 +103,7 @@ export function useFoundationalEditorQuery(levelKey: string) {
 // picture wins, else any. Words with none are simply absent.
 // Words the library stores under another name. The key is the normalized word, the value the
 // library's own spelling (it also keeps some two-word entries with the space).
-const PICTURE_ALIASES: Record<string, string> = { carabao: 'waterbuffalo', yam: 'sweet potato' }
+const PICTURE_ALIASES: Record<string, string> = { yam: 'sweet potato' }
 
 export function useLibraryPicturesQuery(words: string[]) {
     const wanted = words.map(normalizeImageWord).filter(Boolean)
