@@ -140,15 +140,12 @@
 // `currentPage.content.words[currentPage.content.targetIndices[0]]`
 // rather than needing a separate raw word reference kept around.
 //
-// OWL: the mascot here is AnimatedOwl.tsx — the real animated inline-SVG
-// owl ported from the prototype (breathing/swaying idle loop, blinking,
-// a talking pulse whenever the speech-bubble text changes, a hover glow
-// using the prototype's own --owl-rim color, etc.). Deliberately NOT
-// Owl.tsx (the flat per-mood PNG) — see AnimatedOwl.tsx's own header
-// comment for why that's a separate component instead of a rewrite of
-// Owl.tsx in place. `listening`/`celebrate` aren't driven by anything
-// yet since there's no recording/scoring state in this file right now —
-// they'll get wired up alongside the mic. `paused` IS wired now, to
+// OWL (UPDATED): the mascot is now the app's shared live owl (OwlRig, in
+// components/ui/owlRig), the same one used everywhere else: it listens while
+// recording, celebrates a perfect read, encourages after a partial one, and
+// its beak moves for a moment whenever the speech bubble shows a new line. The
+// older notes in this block about AnimatedOwl.tsx (now removed) describe the
+// previous mascot; `idle` is paused while the notebook is open. Older text: `paused` IS wired now, to
 // `companionMode !== 'owl'` — see WORD NOTEBOOK below.
 //
 // SIZING/CENTERING: the owl+bubble group and the notebook panel both
@@ -234,7 +231,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Bird, Eraser, NotebookText, Volume2 } from 'lucide-react'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useWordImageQuery } from '../../../../hooks/useWordImage.ts'
-import { AnimatedOwl } from '../../../../components/ui/AnimatedOwl.tsx'
+import { Owl } from '../../../../components/ui/Owl.tsx'
+import { OwlRig } from '../../../../components/ui/owlRig/OwlRig.tsx'
 import { Skeleton } from '../../../../components/ui/Skeleton.tsx'
 import {
     readPracticed,
@@ -698,6 +696,18 @@ export default function RemediationCoachPage() {
         return () => window.clearTimeout(timer)
     }, [speechBubbleText])
 
+    // The owl's beak moves while it "says" a new line (same timing the old owl used:
+    // 48ms a character, between 1.2 and 5.5 seconds).
+    const [owlTalking, setOwlTalking] = useState(false)
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setOwlTalking(!!speechBubbleText)
+        if (!speechBubbleText) return
+        const talkFor = Math.max(1200, Math.min(5500, speechBubbleText.length * 48))
+        const timer = window.setTimeout(() => setOwlTalking(false), talkFor)
+        return () => window.clearTimeout(timer)
+    }, [speechBubbleText])
+
     const goBack = () => navigate(`/students/remediation/${studentId}`)
 
     // RECORDING: the pupil presses the microphone, reads the passage on the page, and
@@ -870,7 +880,7 @@ export default function RemediationCoachPage() {
         content = (
             <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center px-4 text-center">
                 <section className="flex flex-col items-center gap-3 rounded-3xl border border-gray-900/5 bg-white/90 p-8 text-center shadow-lg backdrop-blur-sm dark:border-gray-100/10 dark:bg-gray-900/90">
-                    <AnimatedOwl size={64} />
+                    <Owl mood="confused" size={64} />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.notFoundTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.notFoundDesc}</p>
                     <button
@@ -890,7 +900,7 @@ export default function RemediationCoachPage() {
         content = (
             <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center gap-4 px-4 text-center">
                 <div className="flex flex-col items-center gap-4 rounded-3xl border border-gray-900/5 bg-white/90 p-10 shadow-lg backdrop-blur-sm dark:border-gray-100/10 dark:bg-gray-900/90">
-                    <AnimatedOwl size={88} celebrate />
+                    <Owl mood="celebrating" size={88} />
                     <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{t.completionTitle}</h2>
                     <p className="max-w-sm text-base font-medium text-gray-600 dark:text-gray-400">{t.completionDesc}</p>
                     <button
@@ -1046,13 +1056,14 @@ export default function RemediationCoachPage() {
                                     aria-hidden={notebookOpen}
                                     style={{ width: '66%' }}
                                 >
-                                    <AnimatedOwl
+                                    <OwlRig
+                                        fluid
                                         size={280}
-                                        speakText={speechBubbleText}
-                                        paused={notebookOpen}
-                                        listening={isRecording}
-                                        celebrate={celebrate}
-                                        className="h-auto w-full drop-shadow-lg"
+                                        emotion={celebrate ? 'celebrating' : isRecording ? 'listening' : coachMessage ? 'encouraging' : 'neutral'}
+                                        talking={owlTalking && !isRecording}
+                                        idle={!notebookOpen}
+                                        label="BasaQuest owl mascot"
+                                        className="drop-shadow-lg"
                                     />
                                 </div>
                                 {/* SPEECH BUBBLE + HEAR IT -- hides

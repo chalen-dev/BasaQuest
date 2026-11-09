@@ -34,6 +34,9 @@ export type OwlRigProps = {
     /** Icon only: what sits behind the owl inside the circle. "transparent" (default)
      *  shows whatever the page has behind it; "filled" is the pale green disc. */
     background?: 'transparent' | 'filled'
+    /** Fill the parent's width (kept square) instead of a fixed `size` in px; `size` then
+     *  only decides how much detail the animation uses. */
+    fluid?: boolean
 }
 
 const REDUCED_QUERY = '(prefers-reduced-motion: reduce)'
@@ -54,6 +57,7 @@ export function OwlRig({
     className = '',
     label,
     background = 'transparent',
+    fluid = false,
 }: OwlRigProps) {
     // A valid, unique id prefix (useId's colons are not safe inside url(#...)).
     const prefix = 'owl' + useId().replace(/[^a-zA-Z0-9]/g, '') + '-'
@@ -126,8 +130,9 @@ export function OwlRig({
                 display: 'inline-block',
                 position: 'relative',
                 verticalAlign: 'middle',
-                width: size,
-                height: size,
+                width: fluid ? '100%' : size,
+                height: fluid ? undefined : size,
+                aspectRatio: fluid ? '1 / 1' : undefined,
                 filter: variant === 'icon' ? `drop-shadow(0 ${size * 0.025}px ${size * 0.04}px rgba(21,75,73,.125))` : undefined,
             }}
         />
