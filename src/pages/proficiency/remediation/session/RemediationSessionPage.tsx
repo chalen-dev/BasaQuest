@@ -11,6 +11,9 @@
 //   wordPracticeSpeak(word)     scene -> this page: "Hear it" (server voice)
 //   wordPracticeSpeaking(bool)  this page -> scene: voice is loading (spinner)
 //   wordPracticeTalking(bool)   this page -> scene: voice is playing (owl talks)
+//   wordPracticeVerify(word, blob)  scene -> this page: the pupil's recording of one word
+//                               goes to the scoring service; resolves to
+//                               'correct' | 'mispronounced' | 'omitted' | 'silent'
 //
 // PERSISTENCE: every practiced toggle saves straight away
 // (useUpdateRemediationProgressMutation, which also stamps last_practiced_at),
@@ -22,9 +25,12 @@
 // PRONUNCIATION: the server voice (usePronounceWord), not the browser's, because
 // device voices say Filipino words wrongly, which defeats the purpose here.
 //
-// NOT WIRED YET: the scene's own Day/Night toggle (separate from the app theme),
-// the owl's "Appeared Nx" count source beyond `count`, and the microphone take
-// (recorded in the browser only, never uploaded or scored).
+// VERIFY: the recording of a word is scored by the scoring service (the same
+// /score-passage call the Reading Coach uses, with a one-word "passage"). A
+// correct reading marks the word practiced in the scene; nothing is stored.
+//
+// NOT WIRED YET: the scene's own Day/Night toggle (separate from the app theme)
+// and the owl's "Appeared Nx" count source beyond `count`.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Owl } from '../../../../components/ui/Owl'
@@ -37,6 +43,7 @@ import {
     type RemediationWordEntry,
 } from '../hooks'
 import { usePronounceWord } from './features/usePronounceWord'
+import { ScorePassageError, useScorePassage } from '../coach/features/useScorePassage'
 
 const PROTOTYPE_URL = '/remediation-practice.html'
 
@@ -46,6 +53,7 @@ type SceneWindow = Window & {
     wordPracticeSpeak?: (word: string) => void
     wordPracticeSpeaking?: (loading: boolean) => void
     wordPracticeTalking?: (talking: boolean) => void
+    wordPracticeVerify?: (word: string, blob: Blob) => Promise<'correct' | 'mispronounced' | 'omitted' | 'silent'>
 }
 type SceneWord = { word: string; type: string; count: number; tip: string; practiced: boolean }
 
@@ -103,6 +111,12 @@ export default function RemediationSessionPage() {
         speakRef.current = speak
     }, [speak])
 
+    const scoreWord = useScorePassage()
+    const scoreRef = useRef(scoreWord.mutateAsync)
+    useEffect(() => {
+        scoreRef.current = scoreWord.mutateAsync
+    }, [scoreWord.mutateAsync])
+
     const updateRef = useRef(updateProgress.mutate)
     useEffect(() => {
         updateRef.current = updateProgress.mutate
@@ -154,6 +168,17 @@ export default function RemediationSessionPage() {
         }
         win.wordPracticeSpeak = (word) => {
             void speakRef.current(word, materialRef.current?.language ?? 'fil')
+        }
+        win.wordPracticeVerify = async (word, blob) => {
+            try {
+                const result = await scoreRef.current({ words: [word], language: materialRef.current?.language ?? 'fil', blob })
+                const row = result.words.find((r) => r.wordIndex === 0)
+                if (!row || row.errorType === 'Omission') return 'omitted'
+                return row.errorType === 'None' ? 'correct' : 'mispronounced'
+            } catch (err) {
+                if (err instanceof ScorePassageError && err.code === 'silent') return 'silent'
+                throw err
+            }
         }
         setSceneWin(win)
     }

@@ -479,12 +479,17 @@ dialog{border:0;padding:0;background:var(--clear);color:var(--panel-ink);overflo
 
 #bottom-bar{grid-template-columns:minmax(max-content,1fr) auto auto minmax(max-content,1fr);gap:clamp(8px,1.3vw,22px)}
 #bottom-bar .routine{gap:4px}
-#bottom-bar #record-word{width:64px;height:64px;border-radius:50%;border:2px solid var(--bubble-edge);background:#08796d;color:white;flex-shrink:0;flex-direction:column;gap:1px;padding:4px;box-shadow:0 3px 0 #124b46}
-#record-word svg{width:23px;height:23px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
-#record-word span{font-size:11px;font-weight:700}
+#bottom-bar #record-word{width:88px;height:88px;border-radius:50%;border:2px solid var(--bubble-edge);background:#08796d;color:white;flex-shrink:0;flex-direction:column;gap:2px;padding:4px;box-shadow:0 4px 0 #124b46}
+#record-word svg{width:34px;height:34px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
+#record-word span{font-size:13px;font-weight:700}
 #bottom-bar[data-mic=recording] #record-word{background:#a82f48}
 [data-mic=recording] #record-word svg{display:none}
-[data-mic=recording] #record-word::before{content:'';width:18px;height:18px;border-radius:3px;background:white;margin:3px}
+[data-mic=recording] #record-word::before{content:'';width:26px;height:26px;border-radius:4px;background:white;margin:4px}
+#mic-notice[data-state=checking]::before{content:'';display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-1px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:notice-spin .8s linear infinite}
+#mic-notice[data-state=correct]{border-color:#1f9d6b;color:#0b6b46}
+#mic-notice[data-state=retry]{border-color:#c8761f}
+@keyframes notice-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#mic-notice[data-state=checking]::before{animation:none}}
 .routine button:disabled{opacity:.5}
 .mic-meter{display:flex;align-items:center;justify-content:center;gap:2px;width:0;overflow:hidden;opacity:0;transition:width .24s ease,opacity .2s}
 [data-mic=recording] .mic-meter{width:clamp(90px,7vw,123px);opacity:1}
@@ -1407,7 +1412,8 @@ const notice=document.createElement('div');notice.id='mic-notice';notice.setAttr
 const listen=document.createElement('button');listen.id='listen-take';listen.textContent='Play my recording';listen.hidden=true;routine.prepend(listen);
 listen.onclick=()=>{stopPlayback();window.speechSynthesis?.cancel();playback=new Audio(takes.get(practiceNavigation.current()));playback.play().catch(()=>message('This recording could not be played.'))};
 function stopPlayback(){if(playback){playback.pause();playback=null}}
-function message(text){notice.textContent=text}
+var noticeFor=null,verifyToken=0;
+function message(text,state,index){notice.textContent=text;if(state)notice.dataset.state=state;else delete notice.dataset.state;noticeFor=text&&index!=null?index:null}
 function showMic(state){
  micState=state;bar.dataset.mic=state;owlSync();
  const active=state==='recording';
@@ -1416,7 +1422,22 @@ function showMic(state){
  mic.title=active?'Stop recording':'Record this word';
  syncPractice(practiceNavigation.current(),practiceNavigation.busy());
 }
-function refreshTake(){listen.hidden=micState!=='idle'||practiceNavigation.busy()||!takes.has(practiceNavigation.current())}
+function refreshTake(){if(noticeFor!==null&&noticeFor!==practiceNavigation.current())message('');listen.hidden=micState!=='idle'||practiceNavigation.busy()||!takes.has(practiceNavigation.current())}
+/* Hand the take to the host (the scoring service) and show what it says. A correct reading marks the word practiced. */
+async function verifyTake(index,blob){
+ if(!window.wordPracticeVerify||!words[index])return;
+ const token=++verifyToken,entry=words[index];
+ message('Checking your reading…','checking',index);
+ let verdict;
+ try{verdict=await window.wordPracticeVerify(entry.word,blob)}catch(_){verdict='error'}
+ if(token!==verifyToken)return;
+ if(verdict==='correct'){
+  message('Well done — that sounded right!','correct',index);
+  if(!entry.practiced){entry.practiced=true;practiceNavigation.refresh();syncPractice(practiceNavigation.current(),false);notifyProgress();const all=words.every(w=>w.practiced);owlReact(all?'celebrating':'happy',all?2800:1800)}else owlReact('happy',1800);
+ }else if(verdict==='mispronounced'){message('Close! Tap Hear it, then try saying it again.','retry',index);owlReact('encouraging',2200)}
+ else if(verdict==='omitted'||verdict==='silent'){message("We couldn't hear the word. Move closer and try again.",'retry',index);owlReact('confused',2200)}
+ else{message("Couldn't check it just now. You can still mark it yourself.",'retry',index)}
+}
 function release(session){
  cancelAnimationFrame(session.frame);
  session.stream?.getTracks().forEach(track=>track.stop());
@@ -1439,7 +1460,7 @@ async function stopCapture(){
 }
 async function startCapture(){
  if(capture||practiceNavigation.busy()||notebookView||cameraBusy)return;
- stopPlayback();window.speechSynthesis?.cancel();message('');
+ stopPlayback();window.speechSynthesis?.cancel();verifyToken++;message('');
  const session={index:practiceNavigation.current(),chunks:[]};
  session.finished=new Promise(resolve=>session.resolve=resolve);
  capture=session;showMic('starting');
@@ -1459,7 +1480,9 @@ async function startCapture(){
    if(capture!==session)return;
    if(!session.failed&&session.chunks.length){
     const old=takes.get(session.index);if(old)URL.revokeObjectURL(old);
-    takes.set(session.index,URL.createObjectURL(new Blob(session.chunks,{type:recorder.mimeType})));
+    const blob=new Blob(session.chunks,{type:recorder.mimeType});
+    takes.set(session.index,URL.createObjectURL(blob));
+    verifyTake(session.index,blob);
    }
    complete(session);
   };
