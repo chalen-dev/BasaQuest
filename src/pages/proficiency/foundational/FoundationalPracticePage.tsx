@@ -65,7 +65,7 @@ const FoundationalPracticePage: React.FC = () => {
 
     if (!level) {
         return (
-            <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
+            <div className="mx-auto max-w-3xl px-4 pb-12 pt-6">
                 {backButton}
                 <p className="text-base font-semibold text-gray-700 dark:text-gray-300">This level does not exist.</p>
             </div>
@@ -80,7 +80,7 @@ const FoundationalPracticePage: React.FC = () => {
     const isSentence = card.detail === 'Sentence'
 
     return (
-        <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
+        <div className="mx-auto max-w-3xl px-4 pb-12 pt-6">
             {backButton}
             <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{level.title}</h1>
             <p className="mb-6 text-sm font-medium text-gray-600 dark:text-gray-400">

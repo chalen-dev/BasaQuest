@@ -135,7 +135,6 @@ const router = createBrowserRouter(
                         <Route path="/home" element={<HomePage />} />
                         <Route path="/credits" element={<PictureCreditsPage />} />
                         <Route path="/reading/proficiency" element={<MaterialSelectionPage />} />
-                        <Route path="/reading/proficiency/foundational/:levelId" element={<FoundationalPracticePage />} />
                         <Route path="/reading/proficiency/results" element={<MyResultsPage />} />
                         <Route path="/reading/proficiency/assessment" element={<ProficiencyAssessmentSelectStudentPage />} />
                         {/* Fluent Reading's own Review / Results / Remediation for the
@@ -173,6 +172,11 @@ const router = createBrowserRouter(
                     (standalone prototype in an iframe, not wired to data
                     yet), so it has no layout or header of its own. */}
                     <Route path="/students/remediation/:studentId/session/:materialId" element={<DesktopOnly><RemediationSessionPage /></DesktopOnly>} />
+                    {/* Foundational practice (Letters & Sounds): Level 1 is a
+                    full-bleed classroom scene with its own Back button, so no
+                    shared header; the other levels' card viewer has its own
+                    back button too. */}
+                    <Route path="/reading/proficiency/foundational/:levelId" element={<FoundationalPracticePage />} />
                     {/* Reading Coach Mode — its own full-bleed layout, no
                     shared header at all (see RemediationCoachLayout.tsx's
                     header comment). Split out from RemediationSessionLayout
