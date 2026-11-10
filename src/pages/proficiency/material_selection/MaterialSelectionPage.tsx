@@ -1,5 +1,5 @@
 // File: src/pages/proficiency/MaterialSelection.tsx
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ClipboardCheck, Star } from 'lucide-react'
 import { Owl } from '../../../components/ui/Owl.tsx'
@@ -152,6 +152,31 @@ const STRINGS: Record<Lang, {
 // A sideways shelf: a title line, then a row of cards between two tall arrow buttons.
 const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }> = ({ title, children }) => {
     const ref = useRef<HTMLDivElement>(null)
+    const outerRef = useRef<HTMLDivElement>(null)
+    // The arrows only appear when the cards do not all fit in the row's full width
+    // (measured against the whole row, so hiding them cannot flip the answer back).
+    const [overflowing, setOverflowing] = useState(false)
+    useEffect(() => {
+        const scroller = ref.current
+        const outer = outerRef.current
+        if (!scroller || !outer) return
+        const measure = () => setOverflowing(scroller.scrollWidth > outer.clientWidth + 1)
+        // Watch the row and every card in it (cards can change width without the DOM changing).
+        const resize = new ResizeObserver(measure)
+        const watchCards = () => {
+            resize.disconnect()
+            resize.observe(outer)
+            Array.from(scroller.children).forEach((card) => resize.observe(card))
+            measure()
+        }
+        watchCards()
+        const mutation = new MutationObserver(watchCards)
+        mutation.observe(scroller, { childList: true })
+        return () => {
+            resize.disconnect()
+            mutation.disconnect()
+        }
+    }, [])
     const { lang } = useLang()
     const t = STRINGS[lang]
     const page = (dir: -1 | 1) => {
@@ -160,23 +185,23 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
     }
     // Just a big `<` and `>` with no button around them, one on each side of the cards.
     const arrow =
-        'flex w-12 shrink-0 cursor-pointer items-center justify-center self-stretch rounded-2xl text-gray-700 drop-shadow-md transition-[color,transform] hover:text-teal-500 active:scale-90 dark:text-gray-100 dark:hover:text-teal-300 sm:w-20'
+        'hidden w-20 shrink-0 cursor-pointer items-center justify-center self-stretch rounded-2xl text-gray-700 drop-shadow-md transition-[color,transform] hover:text-teal-500 active:scale-90 dark:text-gray-100 dark:hover:text-teal-300 sm:flex'
     return (
         <div>
             {title && <div className="mb-2 min-w-0">{title}</div>}
-            <div className="flex items-stretch gap-3 pb-6 pt-2">
-                <button type="button" aria-label={t.scrollLeft} onClick={() => page(-1)} className={arrow}>
-                    <ChevronLeft className="h-16 w-16 sm:h-24 sm:w-24" strokeWidth={3.5} />
-                </button>
+            <div ref={outerRef} className="flex items-stretch gap-3 pb-6 pt-2">
+                {overflowing && <button type="button" aria-label={t.scrollLeft} onClick={() => page(-1)} className={arrow}>
+                    <ChevronLeft className="h-24 w-24" strokeWidth={3.5} />
+                </button>}
                 <div
                     ref={ref}
                     className="flex min-w-0 flex-1 gap-5 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                     {children}
                 </div>
-                <button type="button" aria-label={t.scrollRight} onClick={() => page(1)} className={arrow}>
-                    <ChevronRight className="h-16 w-16 sm:h-24 sm:w-24" strokeWidth={3.5} />
-                </button>
+                {overflowing && <button type="button" aria-label={t.scrollRight} onClick={() => page(1)} className={arrow}>
+                    <ChevronRight className="h-24 w-24" strokeWidth={3.5} />
+                </button>}
             </div>
         </div>
     )
