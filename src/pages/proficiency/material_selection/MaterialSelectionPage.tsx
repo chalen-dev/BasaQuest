@@ -153,14 +153,14 @@ const STRINGS: Record<Lang, {
 const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }> = ({ title, children }) => {
     const ref = useRef<HTMLDivElement>(null)
     const outerRef = useRef<HTMLDivElement>(null)
-    // The arrows only appear when the cards do not all fit in the row's full width
-    // (measured against the whole row, so hiding them cannot flip the answer back).
+    // The arrows only show when the cards do not all fit. Their columns are always kept
+    // (just invisible), so every row lines up the same and the check cannot flip-flop.
     const [overflowing, setOverflowing] = useState(false)
     useEffect(() => {
         const scroller = ref.current
         const outer = outerRef.current
         if (!scroller || !outer) return
-        const measure = () => setOverflowing(scroller.scrollWidth > outer.clientWidth + 1)
+        const measure = () => setOverflowing(scroller.scrollWidth > scroller.clientWidth + 1)
         // Watch the row and every card in it (cards can change width without the DOM changing).
         const resize = new ResizeObserver(measure)
         const watchCards = () => {
@@ -190,18 +190,18 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
         <div>
             {title && <div className="mb-2 min-w-0">{title}</div>}
             <div ref={outerRef} className="flex items-stretch gap-3 pb-6 pt-2">
-                {overflowing && <button type="button" aria-label={t.scrollLeft} onClick={() => page(-1)} className={arrow}>
+                <button type="button" aria-label={t.scrollLeft} aria-hidden={!overflowing} tabIndex={overflowing ? 0 : -1} onClick={() => page(-1)} className={`${arrow} ${overflowing ? '' : 'invisible'}`}>
                     <ChevronLeft className="h-24 w-24" strokeWidth={3.5} />
-                </button>}
+                </button>
                 <div
                     ref={ref}
                     className="flex min-w-0 flex-1 gap-5 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                     {children}
                 </div>
-                {overflowing && <button type="button" aria-label={t.scrollRight} onClick={() => page(1)} className={arrow}>
+                <button type="button" aria-label={t.scrollRight} aria-hidden={!overflowing} tabIndex={overflowing ? 0 : -1} onClick={() => page(1)} className={`${arrow} ${overflowing ? '' : 'invisible'}`}>
                     <ChevronRight className="h-24 w-24" strokeWidth={3.5} />
-                </button>}
+                </button>
             </div>
         </div>
     )
