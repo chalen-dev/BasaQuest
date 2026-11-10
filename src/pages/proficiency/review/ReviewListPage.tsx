@@ -34,7 +34,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Mic, ArrowRight, Clock, Loader2, TimerReset, TriangleAlert } from 'lucide-react'
+import { Mic, ArrowRight, Clock, Loader2, RotateCcw, TimerReset, TriangleAlert } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { Pagination } from '../../../components/ui/Pagination'
@@ -42,6 +42,7 @@ import { Skeleton } from '../../../components/ui/Skeleton'
 import { SourceBadge } from '../../../components/ui/SourceBadge'
 import { DifficultyStars } from '../../../components/ui/DifficultyStars'
 import type { Lang } from '../../../components/buttons/LangToggle'
+import { useRetryScoring } from '../pre_assessment/assessment_session/features/useSubmitAttempt'
 import { REVIEW_PAGE_SIZE, SCORING_STUCK_MINUTES, useNow, usePendingReviewAttemptsQuery, useScoringInProgressQuery } from './hooks'
 const STRINGS: Record<Lang, {
     title: string
@@ -64,6 +65,10 @@ const STRINGS: Record<Lang, {
     scoringSectionTitle: string
     scoringSectionDesc: string
     scoringStuck: string
+    failedSectionTitle: string
+    failedSectionDesc: string
+    retryButton: string
+    retryingLabel: string
 }> = {
     fil: {
         title: 'Naghihintay ng Review',
@@ -86,6 +91,10 @@ const STRINGS: Record<Lang, {
         scoringSectionTitle: 'Sinusuri pa',
         scoringSectionDesc: 'Lalabas dito ang mga pagbasang ito pagkatapos masuri. Hindi mo kailangang hintayin.',
         scoringStuck: 'Matagal na ito. Buksan para subukan muli.',
+        failedSectionTitle: 'Hindi nasuri',
+        failedSectionDesc: 'Naka-save ang recording. Subukan muli para masuri ulit.',
+        retryButton: 'Subukan muli',
+        retryingLabel: 'Sinusubukan...',
     },
     en: {
         title: 'Pending Review',
@@ -108,6 +117,10 @@ const STRINGS: Record<Lang, {
         scoringSectionTitle: 'Being scored',
         scoringSectionDesc: "These readings join the list below as soon as they're scored. You don't need to wait.",
         scoringStuck: 'Taking longer than usual. Open it to retry.',
+        failedSectionTitle: "Couldn't be scored",
+        failedSectionDesc: 'The recording is saved. Retry to score it again.',
+        retryButton: 'Retry',
+        retryingLabel: 'Retrying...',
     },
 }
 // Fixed to Asia/Manila regardless of the viewing device's own timezone —
@@ -157,12 +170,32 @@ export const ReviewListPage: React.FC = () => {
     const [page, setPage] = useState(0)
     const { data, isPending: isLoading, error } = usePendingReviewAttemptsQuery({ teacherId: profile?.id, page })
     const attempts = data?.attempts ?? []
+    const queryClient = useQueryClient()
     const { data: inProgressData } = useScoringInProgressQuery(profile?.id)
-    const inProgress = inProgressData ?? []
+    const attention = inProgressData ?? []
+    const inProgress = attention.filter((a) => a.status !== 'failed')
+    const failed = attention.filter((a) => a.status === 'failed')
     const now = useNow()
+    // Retrying holds until scoring ends, so the row shows a spinner of its own meanwhile.
+    const retryScoring = useRetryScoring()
+    const [retrying, setRetrying] = useState<string[]>([])
+    const handleRetry = async (attempt: { id: string; language: 'en' | 'fil'; passage_text: string }) => {
+        setRetrying((ids) => [...ids, attempt.id])
+        // Check in shortly after it starts: the row then moves to "being scored".
+        const early = window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['pending-review-attempts'] }), 1500)
+        try {
+            await retryScoring.mutateAsync({ attemptId: attempt.id, language: attempt.language, passageText: attempt.passage_text })
+        } catch (err) {
+            console.error('ReviewList: retry scoring failed', err)
+        } finally {
+            window.clearTimeout(early)
+            setRetrying((ids) => ids.filter((id) => id !== attempt.id))
+            void queryClient.invalidateQueries({ queryKey: ['pending-review-attempts'] })
+            void queryClient.invalidateQueries({ queryKey: ['pending-review-count'] })
+        }
+    }
     // When a reading finishes scoring it leaves the section above: refresh the list
     // and the count so it shows up below (and in the header badge) right away.
-    const queryClient = useQueryClient()
     const previousInProgress = useRef(0)
     useEffect(() => {
         if (inProgress.length < previousInProgress.current) {
@@ -171,7 +204,7 @@ export const ReviewListPage: React.FC = () => {
         }
         previousInProgress.current = inProgress.length
     }, [inProgress.length, queryClient])
-    const total = (data?.total ?? 0) + inProgress.length
+    const total = (data?.total ?? 0) + attention.length
     const pageCount = Math.max(1, Math.ceil(total / REVIEW_PAGE_SIZE))
     return (
         <>
@@ -220,13 +253,76 @@ export const ReviewListPage: React.FC = () => {
                 <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-7 text-base font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
                     {error instanceof Error ? error.message : String(error)}
                 </div>
-            ) : attempts.length === 0 && inProgress.length === 0 ? (
+            ) : attempts.length === 0 && attention.length === 0 ? (
                 <div className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-12 text-center dark:border-gray-100/10 dark:bg-gray-900">
                     <p className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.emptyTitle}</p>
                     <p className="mt-1.5 text-base font-medium text-gray-500 dark:text-gray-300">{t.emptyDesc}</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-3.5">
+                    {failed.length > 0 && (
+                        <section role="alert" aria-label={t.failedSectionTitle} className="mb-2 flex flex-col gap-3 rounded-3xl border-2 border-rose-500/40 bg-rose-500/5 p-4 dark:border-rose-400/30 dark:bg-rose-400/5">
+                            <div className="flex items-start gap-3 px-2">
+                                <TriangleAlert size={22} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                                <div>
+                                    <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">
+                                        {t.failedSectionTitle} ({failed.length})
+                                    </h2>
+                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t.failedSectionDesc}</p>
+                                </div>
+                            </div>
+                            {failed.map((attempt) => {
+                                const name = attempt.student?.full_name || attempt.student?.username || t.unnamedStudent
+                                const isRetrying = retrying.includes(attempt.id)
+                                return (
+                                    <div
+                                        key={attempt.id}
+                                        className="flex items-center gap-3 rounded-2xl border-2 border-gray-900/5 bg-white p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
+                                    >
+                                        <button
+                                            onClick={() => navigate(`/students/review/${attempt.id}`)}
+                                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-4 text-left"
+                                        >
+                                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400">
+                                                <TriangleAlert size={22} />
+                                            </span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="flex flex-wrap items-center gap-2">
+                                                    <span className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{name}</span>
+                                                    <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                                        {attempt.language === 'fil' ? t.filipinoLabel : t.englishLabel}
+                                                    </span>
+                                                    <span className="rounded-full bg-rose-500/15 px-3 py-1 text-sm font-bold text-rose-700 dark:bg-rose-400/15 dark:text-rose-300">
+                                                        {t.scoringFailed}
+                                                    </span>
+                                                </span>
+                                                {attempt.passage_title && (
+                                                    <span className="mt-1 block truncate text-base font-semibold text-gray-500 dark:text-gray-400">{attempt.passage_title}</span>
+                                                )}
+                                                {attempt.error_message && (
+                                                    <span className="mt-0.5 block truncate text-xs font-semibold text-gray-400 dark:text-gray-500">{attempt.error_message}</span>
+                                                )}
+                                                <span className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-gray-400 dark:text-gray-500">
+                                                    <Clock size={13} />
+                                                    {formatPHTime(attempt.created_at)}
+                                                </span>
+                                            </span>
+                                        </button>
+                                        {attempt.language === 'en' && (
+                                            <button
+                                                onClick={() => void handleRetry(attempt)}
+                                                disabled={isRetrying}
+                                                className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                                            >
+                                                {isRetrying ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" /> : <RotateCcw size={16} />}
+                                                {isRetrying ? t.retryingLabel : t.retryButton}
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </section>
+                    )}
                     {inProgress.length > 0 && (
                         <section aria-label={t.scoringSectionTitle} className="mb-2 flex flex-col gap-3 rounded-3xl border-2 border-dashed border-amber-500/40 bg-amber-500/5 p-4 dark:border-amber-400/30 dark:bg-amber-400/5">
                             <div className="px-2">

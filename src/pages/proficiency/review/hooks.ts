@@ -26,6 +26,8 @@ export type PendingReviewAttempt = {
     // insert (20260812060319) and never touched again, review or not.
     // Drives the "days left" badge in ReviewList.tsx.
     purge_after: string
+    // Why scoring failed, when it did (only fetched for the "needs attention" rows).
+    error_message?: string | null
     student: { full_name: string | null; username: string | null; grade_level: number | null } | null
 }
 export type ReviewedAttempt = {
@@ -104,7 +106,8 @@ export const REVIEW_PAGE_SIZE = 8
 // scorer has not picked it up yet). A Filipino reading sits at 'pending' with no
 // scoring path at all, so it is left out rather than shown with a spinner forever.
 const SCORING_OR_DONE_FILTER = 'status.in.(scored,failed,processing),and(status.eq.pending,language.eq.en)'
-const SCORING_ONLY_FILTER = 'status.eq.processing,and(status.eq.pending,language.eq.en)'
+// The rows shown above the list: still being scored, or failed and waiting for a retry.
+const NEEDS_ATTENTION_FILTER = 'status.in.(processing,failed),and(status.eq.pending,language.eq.en)'
 // Past this long, "being scored" is treated as stuck (the scorer died or the request
 // never arrived) and the teacher is offered a retry instead of a spinner.
 export const SCORING_STUCK_MINUTES = 10
@@ -151,7 +154,7 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
                 .from('assessment_attempts')
                 .select('id, student_id, language, passage_title, passage_text, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, purge_after', { count: 'exact' })
                 .eq('teacher_id', teacherId as string)
-                .in('status', ['scored', 'failed'])
+                .eq('status', 'scored')
                 .is('reviewed_at', null)
                 .order('created_at', { ascending: true })
                 .range(from, to)
@@ -176,17 +179,18 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
         placeholderData: (prev) => prev,
     })
 }
-// Readings still being scored, newest first, for the section on top of the inbox.
-// Polls while any exist, so each one lands in the list below the moment it is done.
+// Readings still being scored, or that failed, newest first, for the sections on top of
+// the inbox. Polls while any is still being scored, so each one lands in the list below
+// the moment it is done; a failed one waits there for a retry.
 export function useScoringInProgressQuery(teacherId: string | undefined) {
     return useQuery({
         queryKey: [...pendingReviewAttemptsKey(teacherId), 'in-progress'],
         queryFn: async () => {
             const { data: attempts, error } = await supabase
                 .from('assessment_attempts')
-                .select('id, student_id, language, passage_title, passage_text, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, purge_after')
+                .select('id, student_id, language, passage_title, passage_text, grade_level, status, error_message, accuracy_score, fluency_score, pron_score, created_at, scored_at, purge_after')
                 .eq('teacher_id', teacherId as string)
-                .or(SCORING_ONLY_FILTER)
+                .or(NEEDS_ATTENTION_FILTER)
                 .is('reviewed_at', null)
                 .order('created_at', { ascending: false })
             if (error) throw error
@@ -203,7 +207,7 @@ export function useScoringInProgressQuery(teacherId: string | undefined) {
             return (attempts ?? []).map((a) => ({ ...a, student: studentsById.get(a.student_id) ?? null })) as PendingReviewAttempt[]
         },
         enabled: !!teacherId,
-        refetchInterval: (query) => ((query.state.data?.length ?? 0) > 0 ? 4000 : false),
+        refetchInterval: (query) => (query.state.data?.some((a) => a.status !== 'failed') ? 4000 : false),
     })
 }
 type ReviewedAttemptsArgs = { teacherId: string | undefined; page: number }
