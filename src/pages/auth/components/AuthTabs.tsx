@@ -11,7 +11,7 @@ export const AuthTabs: React.FC<AuthTabsProps> = ({ active, labels }) => {
     const navigate = useNavigate()
 
     return (
-        <div className="mb-6 flex gap-1.5 rounded-full bg-gray-100 p-1 dark:bg-gray-800">
+        <div className="mx-auto mb-6 flex w-full max-w-[calc(28rem-3rem-2px)] gap-1.5 rounded-full bg-gray-100 p-1 dark:bg-gray-800">
             <button
                 type="button"
                 onClick={() => navigate('/login')}
