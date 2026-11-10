@@ -1450,6 +1450,7 @@ function refreshTake(){if(noticeFor!==null&&noticeFor!==practiceNavigation.curre
 async function verifyTake(index,blob){
  if(!window.wordPracticeVerify||!words[index])return;
  const token=++verifyToken,entry=words[index];
+ checkCounts[index]=(checkCounts[index]||0)+1;lastCheckAt=Date.now();
  message('Checking your reading…','checking',index);
  let verdict;
  try{verdict=await window.wordPracticeVerify(entry.word,blob)}catch(_){verdict='error'}
@@ -1460,6 +1461,7 @@ async function verifyTake(index,blob){
   if(!entry.practiced){entry.practiced=true;practiceNavigation.refresh();syncPractice(practiceNavigation.current(),false);notifyProgress();const all=words.every(w=>w.practiced);owlReact(all?'celebrating':'happy',all?2800:1800)}else owlReact('happy',1800);
  }else if(verdict==='mispronounced'){paintVerdict(index,'wrong');message('Close! Tap Hear it, then try saying it again.','retry',index);owlReact('encouraging',2200)}
  else if(verdict==='omitted'||verdict==='silent'){paintVerdict(index,verdict==='omitted'?'wrong':null);message("We couldn't hear the word. Move closer and try again.",'retry',index);owlReact('confused',2200)}
+ else if(verdict==='rate_limited'){message('Too many checks right now. Wait a minute, then try again.','retry',index)}
  else{message("Couldn't check it just now. You can still mark it yourself.",'retry',index)}
 }
 /* Colour the word on its card(s): 'correct' green, 'wrong' red, null back to normal. */
@@ -1500,8 +1502,14 @@ async function stopCapture(){
  }
  return session.finished;
 }
+/* Spending guard: each check is a paid call, so a word can be checked only so many times, with a short pause between tries. */
+const MAX_CHECKS_PER_WORD=5,CHECK_COOLDOWN_MS=3000,checkCounts={};var lastCheckAt=0;
 async function startCapture(){
  if(capture||practiceNavigation.busy()||notebookView||cameraBusy)return;
+ {const i=practiceNavigation.current();
+  if((checkCounts[i]||0)>=MAX_CHECKS_PER_WORD){message("That's the most tries for this word. Mark it yourself or move on.",'retry',i);return}
+  const wait=lastCheckAt+CHECK_COOLDOWN_MS-Date.now();
+  if(wait>0){message('Take a breath, then try again in '+Math.ceil(wait/1000)+'s.','retry',i);return}}
  stopPlayback();window.speechSynthesis?.cancel();verifyToken++;message('');paintVerdict(practiceNavigation.current(),null);
  const session={index:practiceNavigation.current(),chunks:[]};
  session.finished=new Promise(resolve=>session.resolve=resolve);
@@ -1529,12 +1537,16 @@ async function startCapture(){
   session.stream.getAudioTracks()[0].onended=()=>{if(capture===session){message('Microphone disconnected.');stopCapture()}};
   /* Same equalizer as the reading assessment (useRecorder + Waveform): 36 log-spaced voice bands, instant attack,
      eased release, 18 bars a side sampled from them, the left side mirrored. */
-  const data=new Uint8Array(analyser.frequencyBinCount),nyq=context.sampleRate/2,N=36,edges=[],shown=new Array(N).fill(0);
+  const data=new Uint8Array(analyser.frequencyBinCount),wave=new Uint8Array(analyser.fftSize),nyq=context.sampleRate/2,N=36,edges=[],shown=new Array(N).fill(0);
   for(let i=0;i<=N;i++){const hz=60*Math.pow(8000/60,i/N);edges.push(Math.min(analyser.frequencyBinCount-1,Math.max(0,Math.round(hz/nyq*analyser.frequencyBinCount))))}
   function draw(time){
    if(capture!==session||micState!=='recording')return;
    if(!session.last||time-session.last>(reduced.matches?250:0)){
     session.last=time;analyser.getByteFrequencyData(data);
+    /* Auto-stop: once the word has been heard (voice for a moment) and it then goes quiet for 0.8s, the take ends by itself. */
+    analyser.getByteTimeDomainData(wave);let sq=0;for(let k=0;k<wave.length;k++){const v=(wave[k]-128)/128;sq+=v*v}
+    if(Math.sqrt(sq/wave.length)>0.02){session.voiced=(session.voiced||0)+1;session.quietSince=0}else if(!session.quietSince)session.quietSince=time;
+    if(session.voiced>=6&&session.quietSince&&time-session.quietSince>800){stopCapture();return}
     for(let i=0;i<N;i++){const lo=edges[i],hi=Math.max(lo+1,edges[i+1]);let sum=0;for(let k=lo;k<hi;k++)sum+=data[k]||0;const target=Math.min(1,Math.pow(sum/(hi-lo)/255,.55));shown[i]=target>=shown[i]?target:shown[i]+(target-shown[i])*.35}
     for(let i=0;i<18;i++){const t='scaleY('+Math.max(.08,Math.min(1,shown[i*2]))+')';leftMeter.children[17-i].style.transform=t;rightMeter.children[i].style.transform=t}
    }

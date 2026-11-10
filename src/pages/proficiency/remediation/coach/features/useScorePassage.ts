@@ -43,9 +43,10 @@ export type ScorePassageResult = {
 }
 
 export class ScorePassageError extends Error {
-    /** 'silent' / 'too_long' when the service turned the take away; null otherwise. */
-    code: 'silent' | 'too_long' | null
-    constructor(message: string, code: 'silent' | 'too_long' | null = null) {
+    /** 'silent' / 'too_long' when the service turned the take away, 'rate_limited' when this
+     *  account has checked too many readings lately; null otherwise. */
+    code: 'silent' | 'too_long' | 'rate_limited' | null
+    constructor(message: string, code: 'silent' | 'too_long' | 'rate_limited' | null = null) {
         super(message)
         this.name = 'ScorePassageError'
         this.code = code
@@ -76,7 +77,7 @@ export function useScorePassage() {
             })
             if (!res.ok) {
                 const body = (await res.json().catch(() => null)) as { error?: string; code?: string } | null
-                const code = body?.code === 'silent' || body?.code === 'too_long' ? body.code : null
+                const code = body?.code === 'silent' || body?.code === 'too_long' || body?.code === 'rate_limited' ? body.code : null
                 throw new ScorePassageError(`Scoring request failed (${res.status}). ${body?.error ?? ''}`.trim(), code)
             }
             return (await res.json()) as ScorePassageResult

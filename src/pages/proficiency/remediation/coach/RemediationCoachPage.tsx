@@ -823,7 +823,7 @@ export default function RemediationCoachPage() {
             } catch (err) {
                 if (stillHere()) restore()
                 const code = err instanceof ScorePassageError ? err.code : null
-                toast(code === 'silent' ? rt.silent : code === 'too_long' ? rt.tooLong : rt.scoringFailed, code ? 'warning' : 'error')
+                toast(code === 'silent' ? rt.silent : code === 'too_long' ? rt.tooLong : code === 'rate_limited' ? rt.rateLimited : rt.scoringFailed, code ? 'warning' : 'error')
             } finally {
                 setPendingKeys((prev) => {
                     const at = prev.indexOf(key)

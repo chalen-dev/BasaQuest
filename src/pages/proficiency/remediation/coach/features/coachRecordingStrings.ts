@@ -25,6 +25,7 @@ export const RECORDING_STRINGS: Record<
         tooLong: string
         micDenied: string
         scoringFailed: string
+        rateLimited: string
         result: (correct: number, total: number) => string
         resultAll: string
         resultLegend: string
@@ -44,6 +45,7 @@ export const RECORDING_STRINGS: Record<
         tooLong: 'Masyadong mahaba ang recording. Basahin lamang ang talata, pagkatapos ay pindutin ang tapos.',
         micDenied: 'Hindi pinayagan ang paggamit ng mikropono. Payagan ito sa browser para makapag-record.',
         scoringFailed: 'Hindi namin masuri ang pagbasa ngayon. Subukan muli.',
+        rateLimited: 'Napakarami nang nasuri na pagbasa. Maghintay sandali, pagkatapos ay subukan muli.',
         result: (correct, total) => `${correct} sa ${total} salita ang tama. Berde: tama, kahel: mali ang bigkas, pula: nalaktawan.`,
         resultAll: 'Napakagaling! Tama ang lahat ng salita.',
         resultLegend: 'Berde: tama, kahel: mali ang bigkas, pula: nalaktawan.',
@@ -62,6 +64,7 @@ export const RECORDING_STRINGS: Record<
         tooLong: 'That recording is too long. Read just the passage, then press finish.',
         micDenied: 'Microphone access was denied. Allow it in your browser to record.',
         scoringFailed: "We couldn't check your reading right now. Please try again.",
+        rateLimited: 'A lot of readings have been checked already. Wait a moment, then try again.',
         result: (correct, total) => `${correct} of ${total} words were right. Green: correct, orange: said it differently, red: skipped.`,
         resultAll: 'Wonderful! Every word was right.',
         resultLegend: 'Green: correct, orange: said it differently, red: skipped.',

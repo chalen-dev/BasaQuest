@@ -57,7 +57,7 @@ type SceneWindow = Window & {
     wordPracticeSpeaking?: (loading: boolean) => void
     wordPracticeTalking?: (talking: boolean) => void
     wordPracticeTheme?: (night: boolean) => void
-    wordPracticeVerify?: (word: string, blob: Blob) => Promise<'correct' | 'mispronounced' | 'omitted' | 'silent'>
+    wordPracticeVerify?: (word: string, blob: Blob) => Promise<'correct' | 'mispronounced' | 'omitted' | 'silent' | 'rate_limited'>
 }
 type SceneWord = { word: string; type: string; count: number; tip: string; practiced: boolean }
 
@@ -193,6 +193,7 @@ export default function RemediationSessionPage() {
                 return row.errorType === 'None' ? 'correct' : 'mispronounced'
             } catch (err) {
                 if (err instanceof ScorePassageError && err.code === 'silent') return 'silent'
+                if (err instanceof ScorePassageError && err.code === 'rate_limited') return 'rate_limited'
                 throw err
             }
         }
