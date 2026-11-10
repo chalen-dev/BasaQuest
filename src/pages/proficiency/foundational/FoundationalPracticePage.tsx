@@ -114,6 +114,8 @@ const amberButton =
 function GroupViewer({ level }: { level: FoundationalLevel }) {
     const t = TEXT[level.language]
     const groups = useMemo(() => buildGroups(level), [level])
+    // Sounds and words first: example sentences and phrases only appear from Level 5, where reading sentences is the lesson.
+    const showSentence = level.level >= 5
     const [groupIndex, setGroupIndex] = useState(0)
     const [pick, setPick] = useState(0)
     const { speak, isLoading, isPlaying } = usePronounceWord()
@@ -155,7 +157,7 @@ function GroupViewer({ level }: { level: FoundationalLevel }) {
                 </span>
                 <span className="text-7xl" aria-hidden="true">{card.image}</span>
                 <span className={`font-extrabold text-gray-900 dark:text-gray-50 ${card.isSentence ? 'text-3xl' : 'text-6xl'}`}>{card.big}</span>
-                {card.sentence && <p className="text-base font-medium text-gray-700 dark:text-gray-200">{card.sentence}</p>}
+                {showSentence && card.sentence && <p className="text-base font-medium text-gray-700 dark:text-gray-200">{card.sentence}</p>}
                 <button
                     onClick={() => void speak(card.say, level.language, card.isSentence === true)}
                     disabled={isLoading}
