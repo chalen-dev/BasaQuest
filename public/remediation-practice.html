@@ -498,6 +498,13 @@ dialog{border:0;padding:0;background:var(--clear);color:var(--panel-ink);overflo
 .mic-meter i{flex:1;max-width:4px;height:44px;border-radius:999px;background:#f43f5e;transform:scaleY(.08)}
 #mic-notice{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);padding:7px 14px;border:1px solid var(--bubble-edge);border-radius:14px;background:var(--bubble-bg);color:var(--bubble-ink);text-align:center;font-size:14px}
 #mic-notice:empty,#listen-take[hidden]{display:none}
+#bottom-bar[data-mic=countdown] #record-word svg,#bottom-bar #record-word[data-count=go] svg{display:none}
+#bottom-bar #record-word[data-count=ready]{background:#b45309}
+#bottom-bar #record-word[data-count=set]{background:#c2410c}
+#bottom-bar #record-word[data-count=go]{background:#15803d}
+#bottom-bar #record-word[data-count]{transition:background-color .15s}
+#bottom-bar #record-word[data-count] span{font-size:17px}
+#bottom-bar #record-word[data-count=go]::before{display:none}
 #rec-timer{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:7px 14px;border:1px solid var(--bubble-edge);border-radius:14px;background:var(--bubble-bg);color:var(--bubble-ink);font:700 15px ui-monospace,Consolas,monospace;white-space:nowrap}
 [data-mic=recording] #rec-timer{display:flex}
 #rec-timer .bar{width:120px;height:7px;border-radius:99px;background:#7774;overflow:hidden}
@@ -1430,7 +1437,7 @@ function stopPlayback(){if(playback){playback.pause();playback=null}}
 var noticeFor=null,verifyToken=0;
 function message(text,state,index){notice.textContent=text;if(state)notice.dataset.state=state;else delete notice.dataset.state;noticeFor=text&&index!=null?index:null}
 function showMic(state){
- micState=state;bar.dataset.mic=state;owlSync();
+ micState=state;bar.dataset.mic=state;delete mic.dataset.count;owlSync();
  const active=state==='recording';
  mic.lastElementChild.textContent=active?'Stop':'Record';
  mic.setAttribute('aria-label',active?'Stop recording':'Record this word');
@@ -1459,7 +1466,20 @@ function paintVerdict(index,verdict){
  if(words[index])words[index].verdict=verdict||undefined;
  document.querySelectorAll('.practice-card[data-index="'+index+'"] .card-word').forEach(el=>{if(verdict)el.dataset.verdict=verdict;else delete el.dataset.verdict});
 }
-function release(session){clearTimeout(session.limit);clearInterval(session.tick);
+/* Ready... Set... Go! on the record button. Everything (microphone, audio context, recorder) is already prepared when this runs, so nothing can lag between the countdown and the recording. Tapping the button during it cancels. */
+function runCountdown(session,go){
+ const steps=[['ready','Ready...'],['set','Set...']];
+ showMic('countdown');
+ mic.setAttribute('aria-label','Cancel');mic.title='Cancel';
+ let i=0;
+ const next=()=>{
+  if(capture!==session||micState!=='countdown')return;
+  if(i<steps.length){mic.dataset.count=steps[i][0];mic.lastElementChild.textContent=steps[i][1];i++;session.cd=setTimeout(next,800)}
+  else go();
+ };
+ next();
+}
+function release(session){clearTimeout(session.limit);clearInterval(session.tick);clearTimeout(session.cd);
  cancelAnimationFrame(session.frame);
  session.stream?.getTracks().forEach(track=>track.stop());
  if(session.context&&session.context.state!=='closed')session.context.close().catch(()=>{});
@@ -1472,7 +1492,7 @@ function complete(session){
 async function stopCapture(){
  stopPlayback();
  const session=capture;if(!session)return;
- if(micState==='starting'){complete(session);return}
+ if(micState==='starting'||micState==='countdown'){complete(session);return}
  if(micState==='recording'){
   showMic('stopping');
   if(session.recorder.state!=='inactive')session.recorder.stop();
@@ -1519,15 +1539,15 @@ async function startCapture(){
    }
    session.frame=requestAnimationFrame(draw);
   }
-  recorder.onstart=()=>{if(capture!==session)return;showMic('recording');draw(performance.now());session.t0=performance.now();tickTimer(session);session.tick=setInterval(()=>tickTimer(session),100);session.limit=setTimeout(()=>{if(capture===session&&micState==='recording')stopCapture()},REC_LIMIT*1000)};
-  recorder.start();
+  recorder.onstart=()=>{if(capture!==session)return;showMic('recording');mic.dataset.count='go';mic.lastElementChild.textContent='Go!';setTimeout(()=>{if(micState==='recording'){delete mic.dataset.count;mic.lastElementChild.textContent='Stop'}},700);draw(performance.now());session.t0=performance.now();tickTimer(session);session.tick=setInterval(()=>tickTimer(session),100);session.limit=setTimeout(()=>{if(capture===session&&micState==='recording')stopCapture()},REC_LIMIT*1000)};
+  runCountdown(session,()=>recorder.start());
  }catch(error){
   if(capture!==session)return;
   message(error.name==='NotAllowedError'?'Microphone access was denied. Allow it in your browser to record.':error.name==='NotFoundError'?'No microphone found. Connect one and try again.':'Could not start recording. Check your microphone and browser settings.');
   complete(session);
  }
 }
-mic.onclick=()=>micState==='recording'?stopCapture():startCapture();
+mic.onclick=()=>['recording','countdown'].includes(micState)?stopCapture():startCapture();
 window.addEventListener('pagehide',()=>{stopCapture();for(const url of takes.values())URL.revokeObjectURL(url);takes.clear()});
 showMic('idle');
 $('notebook-closed').querySelector('.notebook-caption').textContent='More words';
