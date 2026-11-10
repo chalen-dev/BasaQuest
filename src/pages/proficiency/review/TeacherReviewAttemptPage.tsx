@@ -253,7 +253,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
                 {backLink}
-                <section className="flex flex-col items-center gap-3 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">
+                <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
                     <Owl mood="neutral" size={64} />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.notFoundTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.notFoundDesc}</p>
@@ -271,7 +271,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                 </p>
             )}
             {attempt.status === 'pending' || attempt.status === 'processing' ? (
-                <section className="flex flex-col items-center gap-3 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-8 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
+                <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-amber-500/40 bg-white p-8 text-center shadow-md dark:border-amber-400/30 dark:bg-gray-900">
                     <OwlLoader message="…" />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.scoringTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringDesc}</p>
@@ -286,7 +286,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                     )}
                 </section>
             ) : attempt.status === 'failed' ? (
-                <section className="flex flex-col items-center gap-3 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">
+                <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
                     <Owl mood="neutral" size={64} />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.failedTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.failedDesc}</p>
