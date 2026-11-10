@@ -114,6 +114,12 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
             if (talkTimerRef.current) clearTimeout(talkTimerRef.current)
         }
     }, [])
+    // The hint goes away by itself after a while (the pupil can bring it back by tapping the owl).
+    useEffect(() => {
+        if (!encourageOpen) return
+        const timer = setTimeout(() => setEncourageOpen(false), 12000)
+        return () => clearTimeout(timer)
+    }, [encourageOpen])
     const reopenEncourage = () => {
         setEncourageOpen(true)
         setOwlTalking(true)
@@ -293,7 +299,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
             {encourageOpen && !busy && !isRecording && !isCountingDown && !isRecorded && (
                 <div
                     role="status"
-                    className="absolute bottom-full left-5 z-10 mb-3 max-w-[min(26rem,75vw)] rounded-2xl border border-gray-900/10 bg-white py-2.5 pl-4 pr-10 text-sm font-semibold text-gray-700 shadow-lg dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 sm:left-6"
+                    className="absolute bottom-full left-5 z-10 mb-3 max-w-[min(26rem,75vw)] rounded-2xl border-2 border-teal-500 bg-white py-2.5 pl-4 pr-10 text-sm font-semibold text-gray-700 shadow-xl shadow-teal-500/20 dark:border-teal-400 dark:bg-gray-900 dark:text-gray-200 sm:left-6"
                 >
                     {t.recorderEncourage}
                     <button
@@ -305,7 +311,7 @@ export function RecorderPanel({ t, submitted, submitting, rec, onSubmit, hintsBl
                         <X size={15} />
                     </button>
                     {/* Tail, pointing down at the owl */}
-                    <span className="absolute -bottom-1.5 left-7 h-3 w-3 rotate-45 border-b border-r border-gray-900/10 bg-white dark:border-gray-100/10 dark:bg-gray-900" />
+                    <span className="absolute -bottom-[7px] left-7 h-3 w-3 rotate-45 border-b-2 border-r-2 border-teal-500 bg-white dark:border-teal-400 dark:bg-gray-900" />
                 </div>
             )}
             <section className="grid min-h-[7.5rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 rounded-3xl border border-gray-900/5 bg-white/95 px-5 py-4 shadow-[0_-6px_28px_rgba(0,0,0,0.12)] backdrop-blur transition-colors duration-300 dark:border-gray-100/10 dark:bg-gray-900/95 sm:px-6 lg:grid-cols-[1fr_auto_1fr]">
