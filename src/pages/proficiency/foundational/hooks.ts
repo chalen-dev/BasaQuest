@@ -142,6 +142,20 @@ export function useLibraryPicturesQuery(words: string[], language: 'en' | 'fil' 
     })
 }
 
+// The scene's own drawings (public/letters-art.js: word -> inline SVG), so the editor can show what a
+// pupil will actually see. Our own static file, read once.
+export function useLetterArtQuery() {
+    return useQuery({
+        queryKey: [...KEY, 'letter-art'] as const,
+        staleTime: Infinity,
+        retry: false,
+        queryFn: async (): Promise<Record<string, string>> => {
+            const text = await (await fetch('/letters-art.js')).text()
+            return new Function(`${text.replace('window.LETTER_ART=', 'return ').replace(/;\s*$/, '')}`)() as Record<string, string>
+        },
+    })
+}
+
 export type SceneLetter = {
     upper: string
     lower: string

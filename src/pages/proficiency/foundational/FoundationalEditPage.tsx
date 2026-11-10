@@ -21,6 +21,7 @@ import {
     PREFER_DRAWING,
     sortLetters,
     useFoundationalEditorQuery,
+    useLetterArtQuery,
     useMakeMyCopyMutation,
     useResetToDefaultMutation,
     useSaveLetterMutation,
@@ -277,7 +278,9 @@ function CardTile({
 }) {
     const word = card.word.trim().toLowerCase()
     // Same picture choice as the scene: aliased names, and our own drawing for a few words.
-    const usesDrawing = language === 'en' && PREFER_DRAWING.has(word)
+    const art = useLetterArtQuery().data
+    const drawing = PREFER_DRAWING.has(word) ? art?.[word] : undefined
+    const usesDrawing = !!drawing
     const found = useWordImageQuery(usesDrawing ? null : (language === 'en' ? PICTURE_ALIASES[normalizeImageWord(word)] : undefined) ?? (word || null), language).data
     const library = usesDrawing ? undefined : found
     // x is the one English letter taught from the END of its word (box, fox); Ñ sits inside its words (piña).
@@ -302,7 +305,13 @@ function CardTile({
                     title="Click to preview"
                     className="flex h-full w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-lg bg-white text-5xl ring-1 ring-gray-900/10"
                 >
-                    {library ? <img src={library.url} alt="" className="h-full w-full object-contain" /> : <span aria-hidden="true">{card.emoji || '?'}</span>}
+                    {drawing ? (
+                        <span aria-hidden="true" className="h-full w-full p-1 [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: drawing }} />
+                    ) : library ? (
+                        <img src={library.url} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                        <span aria-hidden="true">{card.emoji || '?'}</span>
+                    )}
                 </button>
                 {isMain && (
                     <span className="pointer-events-none absolute left-1 top-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">Main</span>
@@ -326,10 +335,16 @@ function CardTile({
                             <X size={18} />
                         </button>
                         <div className="flex aspect-square w-full items-center justify-center text-[9rem] leading-none">
-                            {library ? <img src={library.url} alt={card.word} className="h-full w-full object-contain" /> : <span aria-hidden="true">{card.emoji || '?'}</span>}
+                            {drawing ? (
+                                <span aria-hidden="true" className="h-full w-full [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: drawing }} />
+                            ) : library ? (
+                                <img src={library.url} alt={card.word} className="h-full w-full object-contain" />
+                            ) : (
+                                <span aria-hidden="true">{card.emoji || '?'}</span>
+                            )}
                         </div>
                         <p className="text-2xl font-extrabold text-gray-900">{card.word || 'No word yet'}</p>
-                        {usesDrawing && <p className="text-xs font-semibold text-gray-600">Pupils see the BasaQuest drawing for this word. Preview shows the emoji.</p>}
+                        {usesDrawing && <p className="text-xs font-semibold text-gray-600">Pupils see this BasaQuest drawing for this word.</p>}
                         {library && library.credit && <p className="text-xs font-semibold text-gray-600">{library.credit}</p>}
                     </div>
                 </div>
