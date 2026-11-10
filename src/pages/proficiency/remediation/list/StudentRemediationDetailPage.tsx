@@ -216,7 +216,7 @@ function MaterialCard({
                     aria-label={t.deleteAria}
                     onClick={onDelete}
                     disabled={isDeleting}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors duration-200 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                    className="cursor-pointer flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors duration-200 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                 >
                     <Trash2 size={15} />
                 </button>
@@ -239,7 +239,7 @@ function MaterialCard({
                 <button
                     type="button"
                     onClick={onOpenCoach}
-                    className="flex items-center gap-2 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                    className="cursor-pointer flex items-center gap-2 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
                 >
                     <Mic size={17} />
                     {t.playCoachButton}
@@ -247,7 +247,7 @@ function MaterialCard({
                 <button
                     type="button"
                     onClick={onStart}
-                    className="flex items-center gap-2 rounded-full bg-purple-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#6d28d9] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#6d28d9] dark:bg-purple-600 dark:shadow-[0_4px_0_0_#5b21b6]"
+                    className="cursor-pointer flex items-center gap-2 rounded-full bg-purple-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#6d28d9] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#6d28d9] dark:bg-purple-600 dark:shadow-[0_4px_0_0_#5b21b6]"
                 >
                     <PlayCircle size={17} />
                     {t.startButton}
@@ -292,7 +292,7 @@ function DraftCard({ draft, t, onResume }: { draft: RemediationMaterialDraft; t:
             <button
                 type="button"
                 onClick={onResume}
-                className="flex shrink-0 items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#b45309] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#b45309] dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]"
+                className="cursor-pointer flex shrink-0 items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#b45309] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#b45309] dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]"
             >
                 <PlayCircle size={16} />
                 {t.resumeButton}
