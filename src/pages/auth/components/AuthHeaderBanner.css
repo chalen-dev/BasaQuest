@@ -1,0 +1,124 @@
+/* File: src/pages/auth/components/AuthHeaderBanner.css
+ *
+ * The login / register card header: a library shelf painted as one wide piece
+ * of art (a day and a night version), with the owl perched on a short stack of
+ * planks. Switching light/dark cross-fades the two pictures. Colours come from
+ * variables so the shelf edge, planks and text follow the theme. */
+.auth-banner {
+    --ab-wall: #fff3cd;
+    --ab-wall-bottom: #f4cf9f;
+    --ab-edge: #c99262;
+    --ab-shelf: #b48059;
+    --ab-wood: #bf7652;
+    --ab-wood2: #915d46;
+    --ab-ink: #263348;
+    --ab-fade: 850ms;
+    position: relative;
+    height: 128px;
+    overflow: hidden;
+    isolation: isolate;
+    container-type: inline-size;
+    background: linear-gradient(160deg, var(--ab-wall), var(--ab-wall-bottom));
+    transition: background-color var(--ab-fade) ease-in-out;
+}
+.dark .auth-banner {
+    --ab-wall: #1e254b;
+    --ab-wall-bottom: #10172d;
+    --ab-edge: #38415e;
+    --ab-shelf: #252d42;
+    --ab-wood: #947354;
+    --ab-wood2: #655348;
+    --ab-ink: #f8fafc;
+}
+/* The shelf board along the bottom edge. */
+.auth-banner::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 12px;
+    border-top: 2px solid var(--ab-edge);
+    background: var(--ab-shelf);
+    z-index: -1;
+    transition: background-color var(--ab-fade) ease-in-out, border-color var(--ab-fade) ease-in-out;
+}
+/* Art layers: a fade that keeps the title readable, over the shelf picture. */
+.auth-banner__art {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-size: 100% 100%, auto 128px;
+    background-position: left top, -39px top;
+    transition: opacity var(--ab-fade) ease-in-out;
+}
+.auth-banner__art--night {
+    background-image: linear-gradient(90deg, #181c32f7 0%, #181c32ed 170px, #181c3250 260px, transparent 330px), var(--ab-night-art);
+    opacity: 0;
+}
+.auth-banner__art--day {
+    background-image: linear-gradient(90deg, #fff0d7f7 0%, #fff0d7ed 170px, #fff0d750 260px, transparent 330px), var(--ab-day-art);
+    opacity: 1;
+}
+.dark .auth-banner__art--night {
+    opacity: 1;
+}
+.dark .auth-banner__art--day {
+    opacity: 0;
+}
+.auth-banner__row {
+    display: flex;
+    height: 100%;
+    align-items: flex-end;
+    gap: 16px;
+    padding: 0 24px 14px;
+}
+.auth-banner__perch {
+    display: grid;
+    width: 66px;
+    flex: none;
+    justify-items: center;
+}
+.auth-banner__perch img {
+    display: block;
+    height: 64px;
+    width: auto;
+    z-index: 1;
+}
+.auth-banner__plank {
+    height: 8px;
+    width: 48px;
+    border-radius: 2px;
+    background: var(--ab-wood);
+    box-shadow: inset 0 -2px #0003;
+    transition: background-color var(--ab-fade) ease-in-out;
+}
+.auth-banner__plank--bottom {
+    width: 62px;
+    background: var(--ab-wood2);
+}
+.auth-banner__identity {
+    align-self: center;
+    flex: 1;
+    min-width: 0;
+    color: var(--ab-ink);
+    transition: color var(--ab-fade) ease-in-out;
+}
+.auth-banner__brand {
+    font-size: 26px;
+    font-weight: 850;
+    letter-spacing: -1.2px;
+    line-height: 1.1;
+}
+.auth-banner__school {
+    margin-top: 5px;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.35;
+}
+@container (max-width: 380px) {
+    .auth-banner__row {
+        gap: 12px;
+        padding-inline: 18px;
+    }
+}
