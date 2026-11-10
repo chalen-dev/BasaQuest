@@ -57,6 +57,15 @@ function slugify(word: string): string {
         .trim()
 }
 
+
+// Storage keys must be plain ASCII (a key with "ñ" or "é" is refused with "Invalid key", so
+// words like "piña" never got a clip). Any other character is written as _uXXXX (its code
+// point), so "piña" is stored as "pi_u00f1a" while the voice still says the real word.
+// The app builds the same path (usePronounceWord.ts), so keep the two in step.
+function fileSafe(slug: string): string {
+    return Array.from(slug, (ch) => (/[a-z0-9]/.test(ch) ? ch : `_u${ch.codePointAt(0)!.toString(16).padStart(4, '0')}`)).join('')
+}
+
 // Longest passage read aloud in one request; Coach passages are a few sentences.
 const MAX_PASSAGE_CHARS = 2000
 
@@ -147,7 +156,7 @@ Deno.serve(async (req: Request) => {
             const rawWord = typeof body?.word === 'string' ? body.word : ''
             const slug = slugify(rawWord)
             spoken = slug
-            filename = `${slug}.mp3`
+            filename = `${fileSafe(slug)}.mp3`
         }
         if (!spoken || !lang) {
             return jsonResponse({ error: 'Expected { word: string } or { text: string }, plus language: "en" | "fil".' }, 400)

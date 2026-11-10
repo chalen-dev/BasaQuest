@@ -98,6 +98,12 @@ function slugifyWord(word: string): string {
         .replace(/'/g, '')
 }
 
+// Storage keys must be plain ASCII ("piña" with its ñ is refused as an invalid key), so any other
+// character is written as _uXXXX (its code point). Same rule as the pronounce-word edge function.
+function fileSafe(slug: string): string {
+    return Array.from(slug, (ch) => (/[a-z0-9]/.test(ch) ? ch : `_u${ch.codePointAt(0)!.toString(16).padStart(4, '0')}`)).join('')
+}
+
 async function sha256Hex(text: string): Promise<string> {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
     return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
@@ -122,7 +128,7 @@ function resolveAudioUrl(text: string, language: PronounceLanguage, whole: boole
     const request = (async () => {
         const spoken = whole ? normalizeText(text) : text
         try {
-            const name = whole ? `passage-${await sha256Hex(spoken)}` : slugifyWord(spoken)
+            const name = whole ? `passage-${await sha256Hex(spoken)}` : fileSafe(slugifyWord(spoken))
             const direct = supabase.storage.from(BUCKET).getPublicUrl(`${language}/${name}.mp3`).data.publicUrl
             if ((await fetch(direct, { method: 'HEAD' })).ok) return direct
         } catch {
