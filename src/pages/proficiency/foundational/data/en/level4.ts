@@ -6,11 +6,11 @@ import { wordsFromRows, type FoundationalLevel, type WordRow } from '../types.ts
 
 const ROWS: WordRow[] = [
     // the silent e changes the vowel: short word -> long word
-    ['cape', 'a_e (cap → cape)', '🦸', 'The cat has a cape.', ['cap', 'cane']],
-    ['kite', 'i_e (kit → kite)', '🪁', 'I can see a kite.', ['kit', 'bite']],
-    ['pine', 'i_e (pin → pine)', '🌲', 'The nest is in the pine.', ['pin', 'pile']],
-    ['robe', 'o_e (rob → robe)', '👘', 'The kid has a robe.', ['rob', 'rope']],
-    ['tube', 'u_e (tub → tube)', '🧪', 'The tube is in the box.', ['tub', 'cube']],
+    ['cape', 'silent e pair: cap → cape', '🦸', 'The cat has a cape.', ['cap', 'cane']],
+    ['kite', 'silent e pair: kit → kite', '🪁', 'I can see a kite.', ['kit', 'bite']],
+    ['pine', 'silent e pair: pin → pine', '🌲', 'The nest is in the pine.', ['pin', 'pile']],
+    ['robe', 'silent e pair: rob → robe', '👘', 'The kid has a robe.', ['rob', 'rope']],
+    ['tube', 'silent e pair: tub → tube', '🧪', 'The tube is in the box.', ['tub', 'cube']],
     // a_e
     ['cake', 'a_e', '🍰', 'The cake is on the dish.', ['cane', 'cape']],
     ['snake', 'a_e', '🐍', 'The snake is on the log.', ['snack', 'steak']],

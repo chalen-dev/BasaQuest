@@ -41,7 +41,7 @@ const ROWS: WordRow[] = [
     ['tsokolate', 'ts: tso-ko-la-te', '🍫', 'Ang bata ay may tsokolate.', ['sokolate', 'tokolate']],
     ['tsaa', 'ts: tsa-a', '🍵', 'Ang tsaa ay nasa tasa.', ['saa', 'taa']],
     ['tsuper', 'ts: tsu-per', '🚖', 'Ang tsuper ay nasa traysikel.', ['super', 'tuper']],
-    ['diyaryo', 'diyaryo: di-yar-yo', '📰', 'Ang diyaryo ay nasa mesa.', ['diaryo', 'diyaro']],
+    ['diyaryo', 'iy: di-yar-yo', '📰', 'Ang diyaryo ay nasa mesa.', ['diaryo', 'diyaro']],
 ]
 
 export const FIL_LEVEL_4: FoundationalLevel = {

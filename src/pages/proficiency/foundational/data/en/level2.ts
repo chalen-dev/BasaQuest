@@ -90,7 +90,7 @@ const ROWS: WordRow[] = [
     ['pup', 'short u · -up family', '🐕', 'The pup is in the box.', ['pip', 'pop']],
     ['mud', 'short u · -ud family', '🟤', 'The pig is in the mud.', ['mad', 'mug']],
     ['bud', 'short u · -ud family', '🌱', 'The bud is on the rug.', ['bed', 'bad']],
-    ['bus', 'short u', '🚌', 'I see a bus and a jeepney.', ['bun', 'bug']],
+    ['bus', 'short u · -us family', '🚌', 'I see a bus and a jeepney.', ['bun', 'bug']],
 ]
 
 export const EN_LEVEL_2: FoundationalLevel = {
