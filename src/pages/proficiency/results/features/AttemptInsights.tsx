@@ -74,7 +74,6 @@ export const AttemptInsights: React.FC<AttemptInsightsProps> = ({
                     <ScorePill label={reviewT.accuracy} value={attempt.accuracy_score} hint={reviewT.accuracyHint} />
                     <ScorePill label={reviewT.fluency} value={attempt.fluency_score} hint={reviewT.fluencyHint} estimated={attempt.language === 'fil'} estimatedNote={reviewT.estimatedNote} />
                     <ScorePill label={reviewT.completeness} value={attempt.completeness_score} hint={reviewT.completenessHint} />
-                    <ScorePill label={reviewT.prosody} value={attempt.prosody_score} hint={reviewT.prosodyHint} />
                     <ScorePill label={reviewT.pronunciation} value={attempt.pron_score} hint={reviewT.pronunciationHint} estimated={attempt.language === 'fil'} estimatedNote={reviewT.estimatedNote} />
                 </div>
                 {hasAnyInsight && (
