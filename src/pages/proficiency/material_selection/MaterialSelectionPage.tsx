@@ -178,7 +178,7 @@ export const MaterialSelectionPage: React.FC = () => {
                         <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50 sm:text-3xl">
                             {t.greetingTitle(username)}
                         </h1>
-                        <p className="mt-1 max-w-xl text-base font-medium text-gray-600 dark:text-gray-400">
+                        <p className="mt-1 max-w-xl text-base font-medium text-gray-700 dark:text-gray-200">
                             {t.greetingDesc}
                         </p>
                         {gradeSection && (
@@ -260,7 +260,7 @@ export const MaterialSelectionPage: React.FC = () => {
                 cards (one per language/level), same shape as the materials
                 grid below, so multiple entries can sit side by side */}
             <h2 className="mb-1 text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.foundationalHeading}</h2>
-            <p className="mb-4 max-w-2xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.foundationalDesc}</p>
+            <p className="mb-4 max-w-2xl text-sm font-medium text-gray-700 dark:text-gray-200">{t.foundationalDesc}</p>
             <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {FOUNDATIONALS.map((item) => (
                     <div
