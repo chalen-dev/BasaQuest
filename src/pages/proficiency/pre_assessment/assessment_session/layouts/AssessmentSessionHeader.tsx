@@ -11,10 +11,12 @@
 // wiring): when it's set, that means AssessmentSession.tsx's inline
 // word-review step is actively showing, and there's nothing to warn
 // about losing — Exit just saves the current review as a draft and
-// leaves immediately, no confirmation popup. Every other step (intro,
-// passage, recording, still-scoring) has no handler registered, so Exit
-// falls back to the original "are you sure, the passage will be lost"
-// confirmation before navigating.
+// leaves immediately, no confirmation popup. The same goes for the
+// still-scoring wait (the recording is already saved and waits in
+// Review): the page registers an empty handler, so Exit leaves at once.
+// Every other step (intro, passage, recording) has no handler
+// registered, so Exit falls back to the original "are you sure, the
+// passage will be lost" confirmation before navigating.
 //
 // When a "Now" (one-device, teacher-run) session is active — see
 // PreAssessment.tsx's handleStartNow — this also shows a small "Acting

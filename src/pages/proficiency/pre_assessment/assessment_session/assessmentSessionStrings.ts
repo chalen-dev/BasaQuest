@@ -198,6 +198,10 @@ export type AssessmentStrings = {
     scoringFailedDesc: string
     retryScoringLabel: string
     retryingScoringLabel: string
+    // Offered while the scores are still being worked out: the recording is
+    // already saved, so the teacher can leave and open it later from Review.
+    leavePupilsLabel: string
+    leaveReviewLabel: string
     reviewConfirmedToast: string
 }
 
@@ -292,11 +296,13 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         regenerateConfirmButton: 'Oo, gumawa ng bago',
         editedBadge: 'Binago mo',
         scoringTitle: 'Sinusuri ang Pagbasa',
-        scoringDesc: 'Ilang segundo lang ito — sinusuri ng sistema ang bawat salita bago mo ito ma-kumpirma.',
+        scoringDesc: 'Na-save na ang pagbasa. Maaaring abutin ng ilang minuto ang pagsusuri sa bawat salita — puwede kang maghintay, o umalis at buksan ito sa Suriin kapag handa na.',
         scoringFailedTitle: 'Nagkaproblema sa Pagsusuri',
         scoringFailedDesc: 'Hindi nasuri ang pagbasa. Puwede mong subukan ulit nang hindi na kailangang mag-record muli.',
         retryScoringLabel: 'Subukan Ulit',
         retryingScoringLabel: 'Sinusubukan Ulit…',
+        leavePupilsLabel: 'Pumili ng ibang mag-aaral',
+        leaveReviewLabel: 'Pumunta sa Suriin',
         reviewConfirmedToast: 'Nakumpirma ang resulta.',
     },
     en: {
@@ -389,11 +395,13 @@ export const STRINGS: Record<Lang, AssessmentStrings> = {
         regenerateConfirmButton: 'Yes, generate a new one',
         editedBadge: 'Edited',
         scoringTitle: 'Scoring the Reading',
-        scoringDesc: "This only takes a few seconds — the system is scoring each word before you confirm the results.",
+        scoringDesc: "The reading is saved. Scoring each word can take a minute — you can wait here, or leave and open it from Review when it's ready.",
         scoringFailedTitle: 'Scoring Ran Into a Problem',
         scoringFailedDesc: "The reading couldn't be scored. You can try again without re-recording.",
         retryScoringLabel: 'Try Again',
         retryingScoringLabel: 'Retrying…',
+        leavePupilsLabel: 'Choose another pupil',
+        leaveReviewLabel: 'Go to Review',
         reviewConfirmedToast: 'Results confirmed.',
     },
 }

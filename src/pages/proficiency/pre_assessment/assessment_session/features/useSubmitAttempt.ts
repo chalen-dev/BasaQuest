@@ -60,6 +60,12 @@ export type SubmitAttemptArgs = {
     gradeLevel: number | null
     blob: Blob
     durationSeconds: number
+    // Default true: the mutation settles only once scoring has finished (a pupil's
+    // own device needs the outcome to say "sent" or "couldn't process"). A teacher
+    // at the screen passes false: the mutation settles as soon as the recording is
+    // saved, scoring carries on in the background, and the screen follows it by
+    // polling the attempt, so the teacher can leave while it runs.
+    waitForScoring?: boolean
 }
 
 export type SubmitAttemptResult = {
@@ -210,6 +216,12 @@ export function useSubmitAttempt() {
             })
             if (insertError) {
                 throw new Error(`Failed to create attempt: ${insertError.message}`)
+            }
+            if (args.waitForScoring === false) {
+                // runScoring never throws (every failure ends in markAttemptFailed),
+                // and it is not tied to any screen, so it keeps going after a navigation.
+                void runScoring(attemptId, args.language, args.passageText, args.durationSeconds)
+                return { attemptId, scoringFailed: false }
             }
             await runScoring(attemptId, args.language, args.passageText, args.durationSeconds)
             const { data: after } = await supabase.from('assessment_attempts').select('status').eq('id', attemptId).maybeSingle()

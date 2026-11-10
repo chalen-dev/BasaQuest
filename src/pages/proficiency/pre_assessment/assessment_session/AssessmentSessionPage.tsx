@@ -421,16 +421,24 @@ export const AssessmentSessionPage: React.FC = () => {
     // the full wiring. registerReviewSaveHandler is stable (wrapped in
     // useCallback in the layout), so this effect only re-fires when
     // reviewReady itself flips.
+    // Once the recording is saved but the scores are not in (or scoring failed),
+    // there is nothing to lose either: the reading waits in Review. Exit then
+    // registers an empty handler, which makes it leave at once instead of asking
+    // "nothing will be saved".
+    const savedAndWaiting = showInlineReview && !reviewReady
     useEffect(() => {
-        if (!reviewReady) {
-            registerReviewSaveHandler(null)
-            return
+        if (reviewReady) {
+            registerReviewSaveHandler(async () => {
+                await reviewRef.current?.saveDraftNow()
+            })
+            return () => registerReviewSaveHandler(null)
         }
-        registerReviewSaveHandler(async () => {
-            await reviewRef.current?.saveDraftNow()
-        })
-        return () => registerReviewSaveHandler(null)
-    }, [reviewReady, registerReviewSaveHandler])
+        if (savedAndWaiting) {
+            registerReviewSaveHandler(async () => {})
+            return () => registerReviewSaveHandler(null)
+        }
+        registerReviewSaveHandler(null)
+    }, [reviewReady, savedAndWaiting, registerReviewSaveHandler])
     if (!assessmentLang) {
         return <Navigate to="/reading/proficiency/assessment" replace />
     }
@@ -534,6 +542,9 @@ export const AssessmentSessionPage: React.FC = () => {
                 gradeLevel,
                 blob: rec.blob,
                 durationSeconds: rec.seconds,
+                // A teacher at the screen doesn't have to wait for the scores: the
+                // screen follows them and the teacher can leave meanwhile.
+                waitForScoring: !isAssisted,
             })
             setAttemptId(result.attemptId)
             clearStoredPassage(assessmentLang)
@@ -856,6 +867,20 @@ export const AssessmentSessionPage: React.FC = () => {
                         <section className="flex flex-col items-center gap-2 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-6 text-center shadow-sm dark:border-amber-400/25 dark:bg-amber-400/5">
                             <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.scoringTitle}</h2>
                             <p className="max-w-md text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringDesc}</p>
+                            <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+                                <button
+                                    onClick={() => navigate('/reading/proficiency/assessment')}
+                                    className="flex cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                                >
+                                    {t.leavePupilsLabel}
+                                </button>
+                                <button
+                                    onClick={() => navigate('/students/review')}
+                                    className="flex cursor-pointer items-center gap-2 rounded-full border border-gray-900/15 bg-white px-5 py-2 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/15 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
+                                >
+                                    {t.leaveReviewLabel}
+                                </button>
+                            </div>
                         </section>
                         <div role="status" aria-busy="true" className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
                             <span className="sr-only">{t.scoringTitle}</span>
