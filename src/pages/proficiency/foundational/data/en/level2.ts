@@ -1,5 +1,7 @@
 // File: src/pages/proficiency/foundational/data/en/level2.ts
-// English Level 2: first words, then short-vowel (CVC) words in WORD FAMILIES.
+// English Level 2: the five short vowels, first words, then short-vowel (CVC) words in WORD FAMILIES.
+//  - short vowels: a, e, i, o, u with a picture word each (apple, egg, ink, ox, umbrella), a quick
+//    review of the vowel sounds from Level 1 before the middle of the words matters
 //  - first words: the little words every sentence needs (a, I, is, it, in, on, and, can, see, has),
 //    learned by sight so the CVC sentences below can be read
 //  - CVC words: one short vowel at a time (a, then e, i, o, u), and inside each vowel the words
@@ -12,6 +14,13 @@ import { wordsFromRows, type FoundationalLevel, type WordRow } from '../types.ts
 const FIRST = '🔤'
 
 const ROWS: WordRow[] = [
+    // the five short vowels (their sounds come first; the word is the picture word)
+    ['apple', 'short vowels', '🍎', 'A is for apple.', ['ant', 'arm']],
+    ['egg', 'short vowels', '🥚', 'E is for egg.', ['end', 'elf']],
+    ['ink', 'short vowels', '🖋️', 'I is for ink.', ['inn', 'ill']],
+    ['ox', 'short vowels', '🐂', 'O is for ox.', ['on', 'of']],
+    ['umbrella', 'short vowels', '☂️', 'U is for umbrella.', ['umpire', 'upon']],
+
     // first words
     ['a', 'first word', FIRST, 'I see a cat.', ['at', 'an']],
     ['I', 'first word', FIRST, 'I can see a pig.', ['it', 'is']],
@@ -99,6 +108,6 @@ export const EN_LEVEL_2: FoundationalLevel = {
     level: 2,
     title: 'First Words & Short Vowels',
     subtitle: 'English · Level 2',
-    summary: 'Learn the first little words (a, I, is, it), then read short word families like cat, hat, bat and dot, pot, hot, one vowel at a time.',
+    summary: 'Hear the five short vowels, learn the first little words (a, I, is, it), then read short word families like cat, hat, bat and dot, pot, hot, one vowel at a time.',
     words: wordsFromRows('en', 2, ROWS),
 }
