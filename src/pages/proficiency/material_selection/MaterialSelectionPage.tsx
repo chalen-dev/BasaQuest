@@ -149,9 +149,7 @@ const STRINGS: Record<Lang, {
         minutes: (n) => `~${n} min`,
     },
 }
-// A sideways shelf: a title line, then a row of cards with big left/right buttons on its
-// ends, level with the cards. The row runs out to the edges of the screen and is
-// clipped only there. The first card lines up with the page content.
+// A sideways shelf: a title line, then a row of cards between two tall arrow buttons.
 const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }> = ({ title, children }) => {
     const ref = useRef<HTMLDivElement>(null)
     const { lang } = useLang()
@@ -160,25 +158,26 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
         const el = ref.current
         if (el) el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.7), behavior: 'smooth' })
     }
-    // Big round buttons that sit on the shelf itself, centred on the cards' height at each end.
+    // Tall arrow buttons on either side of the cards, as tall as the cards themselves, so
+    // nothing is ever covered. The cards scroll between them.
     const arrow =
-        'absolute top-[calc(50%-0.75rem)] z-20 flex h-16 w-16 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-2 border-gray-900/10 bg-white text-gray-800 shadow-xl transition-colors hover:bg-teal-500 hover:text-white active:scale-95 dark:border-gray-100/20 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-teal-600'
+        'flex w-14 shrink-0 cursor-pointer items-center justify-center self-stretch rounded-3xl border-2 border-gray-900/10 bg-white text-gray-800 shadow-md transition-colors hover:bg-teal-500 hover:text-white active:scale-95 dark:border-gray-100/20 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-teal-600 sm:w-16'
     return (
         <div>
             {title && <div className="mb-2 min-w-0">{title}</div>}
-            <div className="relative">
-                <button type="button" aria-label={t.scrollLeft} onClick={() => page(-1)} className={`${arrow} left-0 -translate-x-1/2`}>
-                    <ChevronLeft size={34} />
-                </button>
-                <button type="button" aria-label={t.scrollRight} onClick={() => page(1)} className={`${arrow} right-0 translate-x-1/2`}>
-                    <ChevronRight size={34} />
+            <div className="flex items-stretch gap-3 pb-6 pt-2">
+                <button type="button" aria-label={t.scrollLeft} onClick={() => page(-1)} className={arrow}>
+                    <ChevronLeft size={44} strokeWidth={3} />
                 </button>
                 <div
                     ref={ref}
-                    className="flex gap-5 overflow-x-auto scroll-smooth pb-6 pt-2 mx-[calc(50%-50vw)] px-[calc(50vw-50%)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    className="flex min-w-0 flex-1 gap-5 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                     {children}
                 </div>
+                <button type="button" aria-label={t.scrollRight} onClick={() => page(1)} className={arrow}>
+                    <ChevronRight size={44} strokeWidth={3} />
+                </button>
             </div>
         </div>
     )
