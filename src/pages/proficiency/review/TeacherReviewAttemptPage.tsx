@@ -27,7 +27,9 @@ import { Owl } from '../../../components/ui/Owl'
 import { showSaveOnLeaveConfirmation, showToast } from '../../../helpers/swalHelpers'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import {
+    SCORING_STUCK_MINUTES,
     useAttemptQuery,
+    useNow,
     useAttemptWordsQuery,
     useDiscardAttemptMutation,
     useSaveDraftMutation,
@@ -141,6 +143,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
     const { profile } = useProfile()
     const t = STRINGS[lang]
     const { data: attempt, isLoading: attemptLoading, error: attemptError, refetch: refetchAttempt } = useAttemptQuery(attemptId)
+    const now = useNow()
     const retryScoring = useRetryScoring()
     const { data: words, isLoading: wordsLoading } = useAttemptWordsQuery(attemptId, attempt?.status === 'scored')
     const { data: student } = useStudentProfileQuery(attempt?.student_id)
@@ -272,6 +275,15 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                     <OwlLoader message="…" />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.scoringTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringDesc}</p>
+                    {now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000 && (
+                        <button
+                            onClick={handleRetry}
+                            disabled={retryScoring.isPending}
+                            className="mt-1 cursor-pointer rounded-full bg-teal-500 px-6 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                        >
+                            {retryScoring.isPending ? t.retryingLabel : t.retryButton}
+                        </button>
+                    )}
                 </section>
             ) : attempt.status === 'failed' ? (
                 <section className="flex flex-col items-center gap-3 rounded-3xl border border-gray-900/5 p-8 text-center shadow-sm dark:border-gray-100/10">

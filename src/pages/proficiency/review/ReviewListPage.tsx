@@ -31,9 +31,10 @@
 // real ones below (icon chip, name+badge line, subtitle line, timestamp
 // line, trailing arrow) so the list's eventual shape is visible while
 // it's still fetching, rather than an unrelated spinner card.
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mic, ArrowRight, Clock, TimerReset } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Mic, ArrowRight, Clock, Loader2, TimerReset, TriangleAlert } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useProfile } from '../../../hooks/useProfile'
 import { Pagination } from '../../../components/ui/Pagination'
@@ -41,7 +42,7 @@ import { Skeleton } from '../../../components/ui/Skeleton'
 import { SourceBadge } from '../../../components/ui/SourceBadge'
 import { DifficultyStars } from '../../../components/ui/DifficultyStars'
 import type { Lang } from '../../../components/buttons/LangToggle'
-import { REVIEW_PAGE_SIZE, usePendingReviewAttemptsQuery } from './hooks'
+import { REVIEW_PAGE_SIZE, SCORING_STUCK_MINUTES, useNow, usePendingReviewAttemptsQuery, useScoringInProgressQuery } from './hooks'
 const STRINGS: Record<Lang, {
     title: string
     subtitle: string
@@ -60,6 +61,9 @@ const STRINGS: Record<Lang, {
     expired: string
     scoringFailed: string
     scoringInProgress: string
+    scoringSectionTitle: string
+    scoringSectionDesc: string
+    scoringStuck: string
 }> = {
     fil: {
         title: 'Naghihintay ng Review',
@@ -79,6 +83,9 @@ const STRINGS: Record<Lang, {
         expired: 'Nawala na',
         scoringFailed: 'Hindi nasuri',
         scoringInProgress: 'Sinusuri pa...',
+        scoringSectionTitle: 'Sinusuri pa',
+        scoringSectionDesc: 'Lalabas dito ang mga pagbasang ito pagkatapos masuri. Hindi mo kailangang hintayin.',
+        scoringStuck: 'Matagal na ito. Buksan para subukan muli.',
     },
     en: {
         title: 'Pending Review',
@@ -98,6 +105,9 @@ const STRINGS: Record<Lang, {
         expired: 'Recording gone',
         scoringFailed: "Couldn't score",
         scoringInProgress: 'Scoring in progress...',
+        scoringSectionTitle: 'Being scored',
+        scoringSectionDesc: "These readings join the list below as soon as they're scored. You don't need to wait.",
+        scoringStuck: 'Taking longer than usual. Open it to retry.',
     },
 }
 // Fixed to Asia/Manila regardless of the viewing device's own timezone —
@@ -147,7 +157,21 @@ export const ReviewListPage: React.FC = () => {
     const [page, setPage] = useState(0)
     const { data, isPending: isLoading, error } = usePendingReviewAttemptsQuery({ teacherId: profile?.id, page })
     const attempts = data?.attempts ?? []
-    const total = data?.total ?? 0
+    const { data: inProgressData } = useScoringInProgressQuery(profile?.id)
+    const inProgress = inProgressData ?? []
+    const now = useNow()
+    // When a reading finishes scoring it leaves the section above: refresh the list
+    // and the count so it shows up below (and in the header badge) right away.
+    const queryClient = useQueryClient()
+    const previousInProgress = useRef(0)
+    useEffect(() => {
+        if (inProgress.length < previousInProgress.current) {
+            void queryClient.invalidateQueries({ queryKey: ['pending-review-attempts'] })
+            void queryClient.invalidateQueries({ queryKey: ['pending-review-count'] })
+        }
+        previousInProgress.current = inProgress.length
+    }, [inProgress.length, queryClient])
+    const total = (data?.total ?? 0) + inProgress.length
     const pageCount = Math.max(1, Math.ceil(total / REVIEW_PAGE_SIZE))
     return (
         <>
@@ -196,13 +220,55 @@ export const ReviewListPage: React.FC = () => {
                 <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-7 text-base font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
                     {error instanceof Error ? error.message : String(error)}
                 </div>
-            ) : attempts.length === 0 ? (
+            ) : attempts.length === 0 && inProgress.length === 0 ? (
                 <div className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-12 text-center dark:border-gray-100/10 dark:bg-gray-900">
                     <p className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.emptyTitle}</p>
                     <p className="mt-1.5 text-base font-medium text-gray-500 dark:text-gray-300">{t.emptyDesc}</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-3.5">
+                    {inProgress.length > 0 && (
+                        <section aria-label={t.scoringSectionTitle} className="mb-2 flex flex-col gap-3 rounded-3xl border-2 border-dashed border-amber-500/40 bg-amber-500/5 p-4 dark:border-amber-400/30 dark:bg-amber-400/5">
+                            <div className="px-2">
+                                <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.scoringSectionTitle}</h2>
+                                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t.scoringSectionDesc}</p>
+                            </div>
+                            {inProgress.map((attempt) => {
+                                const name = attempt.student?.full_name || attempt.student?.username || t.unnamedStudent
+                                const stuck = now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
+                                return (
+                                    <button
+                                        key={attempt.id}
+                                        onClick={() => navigate(`/students/review/${attempt.id}`)}
+                                        className="group flex cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-5 text-left shadow-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-100/10 dark:bg-gray-900"
+                                    >
+                                        <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${stuck ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400' : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'}`}>
+                                            {stuck ? <TriangleAlert size={24} /> : <Loader2 size={24} className="animate-spin motion-reduce:animate-none" />}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2.5">
+                                                <span className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{name}</span>
+                                                <span className="rounded-full bg-gray-900/5 px-3 py-1 text-sm font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                                                    {attempt.language === 'fil' ? t.filipinoLabel : t.englishLabel}
+                                                </span>
+                                                <span className={`rounded-full px-3 py-1 text-sm font-bold ${stuck ? 'bg-rose-500/15 text-rose-700 dark:bg-rose-400/15 dark:text-rose-300' : 'bg-amber-500/15 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300'}`}>
+                                                    {stuck ? t.scoringStuck : t.scoringInProgress}
+                                                </span>
+                                            </div>
+                                            {attempt.passage_title && (
+                                                <div className="mt-1 truncate text-base font-semibold text-gray-500 dark:text-gray-400">{attempt.passage_title}</div>
+                                            )}
+                                            <div className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-gray-400 dark:text-gray-500">
+                                                <Clock size={13} />
+                                                {formatPHTime(attempt.created_at)}
+                                            </div>
+                                        </div>
+                                        <ArrowRight size={20} className="shrink-0 text-gray-400 dark:text-gray-500" />
+                                    </button>
+                                )
+                            })}
+                        </section>
+                    )}
                     {attempts.map((attempt) => {
                         const name = attempt.student?.full_name || attempt.student?.username || t.unnamedStudent
                         return (

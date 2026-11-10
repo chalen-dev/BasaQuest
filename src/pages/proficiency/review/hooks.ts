@@ -1,5 +1,6 @@
 // File: hooks.ts
 // File: src/pages/proficiency/review/hooks.ts
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient'
 export type AttemptStatus = 'pending' | 'processing' | 'scored' | 'failed'
@@ -98,6 +99,25 @@ export type ReviewStudentProfile = {
     grade_level: number | null
 }
 export const REVIEW_PAGE_SIZE = 8
+// A reading the teacher should see in the inbox: scored or failed, or still being
+// scored (status 'processing', or an English reading still 'pending' because the
+// scorer has not picked it up yet). A Filipino reading sits at 'pending' with no
+// scoring path at all, so it is left out rather than shown with a spinner forever.
+const SCORING_OR_DONE_FILTER = 'status.in.(scored,failed,processing),and(status.eq.pending,language.eq.en)'
+const SCORING_ONLY_FILTER = 'status.eq.processing,and(status.eq.pending,language.eq.en)'
+// Past this long, "being scored" is treated as stuck (the scorer died or the request
+// never arrived) and the teacher is offered a retry instead of a spinner.
+export const SCORING_STUCK_MINUTES = 10
+// The current time, refreshed every 30 seconds, so "is this reading stuck yet?" updates
+// while a page stays open (and Date.now() is not called during render).
+export function useNow(intervalMs = 30_000): number {
+    const [now, setNow] = useState(() => Date.now())
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(Date.now()), intervalMs)
+        return () => window.clearInterval(timer)
+    }, [intervalMs])
+    return now
+}
 const pendingReviewCountKey = (teacherId: string | undefined) => ['pending-review-count', teacherId] as const
 const pendingReviewAttemptsKey = (teacherId: string | undefined) => ['pending-review-attempts', teacherId] as const
 const reviewedAttemptsKey = (teacherId: string | undefined) => ['reviewed-attempts', teacherId] as const
@@ -111,7 +131,7 @@ export function usePendingReviewCountQuery(teacherId: string | undefined) {
                 .from('assessment_attempts')
                 .select('id', { count: 'exact', head: true })
                 .eq('teacher_id', teacherId as string)
-                .in('status', ['scored', 'failed', 'processing'])
+                .or(SCORING_OR_DONE_FILTER)
                 .is('reviewed_at', null)
             if (error) throw error
             return count ?? 0
@@ -131,7 +151,7 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
                 .from('assessment_attempts')
                 .select('id, student_id, language, passage_title, passage_text, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, purge_after', { count: 'exact' })
                 .eq('teacher_id', teacherId as string)
-                .in('status', ['scored', 'failed', 'processing'])
+                .in('status', ['scored', 'failed'])
                 .is('reviewed_at', null)
                 .order('created_at', { ascending: true })
                 .range(from, to)
@@ -154,9 +174,36 @@ export function usePendingReviewAttemptsQuery({ teacherId, page }: PendingReview
         },
         enabled: !!teacherId,
         placeholderData: (prev) => prev,
-        // A reading being re-scored sits in this list as "scoring"; keep
-        // checking until it lands as scored or failed.
-        refetchInterval: (query) => (query.state.data?.attempts.some((a) => a.status === 'processing') ? 4000 : false),
+    })
+}
+// Readings still being scored, newest first, for the section on top of the inbox.
+// Polls while any exist, so each one lands in the list below the moment it is done.
+export function useScoringInProgressQuery(teacherId: string | undefined) {
+    return useQuery({
+        queryKey: [...pendingReviewAttemptsKey(teacherId), 'in-progress'],
+        queryFn: async () => {
+            const { data: attempts, error } = await supabase
+                .from('assessment_attempts')
+                .select('id, student_id, language, passage_title, passage_text, grade_level, status, accuracy_score, fluency_score, pron_score, created_at, scored_at, purge_after')
+                .eq('teacher_id', teacherId as string)
+                .or(SCORING_ONLY_FILTER)
+                .is('reviewed_at', null)
+                .order('created_at', { ascending: false })
+            if (error) throw error
+            const studentIds = Array.from(new Set((attempts ?? []).map((a) => a.student_id)))
+            let studentsById = new Map<string, { full_name: string | null; username: string | null; grade_level: number | null }>()
+            if (studentIds.length > 0) {
+                const { data: students, error: studentsError } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, username, grade_level')
+                    .in('id', studentIds)
+                if (studentsError) throw studentsError
+                studentsById = new Map((students ?? []).map((s) => [s.id, { full_name: s.full_name, username: s.username, grade_level: s.grade_level }]))
+            }
+            return (attempts ?? []).map((a) => ({ ...a, student: studentsById.get(a.student_id) ?? null })) as PendingReviewAttempt[]
+        },
+        enabled: !!teacherId,
+        refetchInterval: (query) => ((query.state.data?.length ?? 0) > 0 ? 4000 : false),
     })
 }
 type ReviewedAttemptsArgs = { teacherId: string | undefined; page: number }
