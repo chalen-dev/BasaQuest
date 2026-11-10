@@ -261,14 +261,14 @@ export const ReviewListPage: React.FC = () => {
             ) : (
                 <div className="flex flex-col gap-3.5">
                     {failed.length > 0 && (
-                        <section role="alert" aria-label={t.failedSectionTitle} className="mb-2 flex flex-col gap-3 rounded-3xl border-2 border-rose-500/40 bg-rose-500/5 p-4 dark:border-rose-400/30 dark:bg-rose-400/5">
+                        <section role="alert" aria-label={t.failedSectionTitle} className="mb-2 flex flex-col gap-3 rounded-3xl border-2 border-rose-500/50 bg-rose-50 p-4 dark:border-rose-400/40 dark:bg-gray-950">
                             <div className="flex items-start gap-3 px-2">
                                 <TriangleAlert size={22} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
                                 <div>
                                     <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">
                                         {t.failedSectionTitle} ({failed.length})
                                     </h2>
-                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t.failedSectionDesc}</p>
+                                    <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{t.failedSectionDesc}</p>
                                 </div>
                             </div>
                             {failed.map((attempt) => {
@@ -322,10 +322,10 @@ export const ReviewListPage: React.FC = () => {
                         </section>
                     )}
                     {inProgress.length > 0 && (
-                        <section aria-label={t.scoringSectionTitle} className="mb-2 flex flex-col gap-3 rounded-3xl border-2 border-dashed border-amber-500/40 bg-amber-500/5 p-4 dark:border-amber-400/30 dark:bg-amber-400/5">
+                        <section aria-label={t.scoringSectionTitle} className="mb-2 flex flex-col gap-3 rounded-3xl border-2 border-dashed border-amber-500/50 bg-amber-50 p-4 dark:border-amber-400/40 dark:bg-gray-950">
                             <div className="px-2">
                                 <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.scoringSectionTitle}</h2>
-                                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t.scoringSectionDesc}</p>
+                                <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{t.scoringSectionDesc}</p>
                             </div>
                             {inProgress.map((attempt) => {
                                 const name = attempt.student?.full_name || attempt.student?.username || t.unnamedStudent
