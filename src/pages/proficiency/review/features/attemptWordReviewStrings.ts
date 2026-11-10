@@ -17,6 +17,8 @@ export const STRINGS: Record<Lang, {
     completenessHint: string
     prosodyHint: string
     pronunciationHint: string
+    // Added to the hint of a Filipino reading's fluency and pronunciation, which are estimates.
+    estimatedNote: string
     needsAttentionHint: string
     needsAttention: (n: number) => string
     allClear: string
@@ -81,6 +83,7 @@ export const STRINGS: Record<Lang, {
         completenessHint: 'Gaano karami sa talata ang aktuwal na nabasa. Bumababa ito kapag may nalaktawang salita.',
         prosodyHint: 'Gaano natural ang indayog, diin, at tono ng pagbasa, parang may damdamin.',
         pronunciationHint: 'Pangkalahatang kalidad ng bigkas sa buong pagbasa.',
+        estimatedNote: 'Tantiya ito ng BasaQuest mula sa modelong Filipino, at hindi maihahambing sa mga marka sa Ingles.',
         needsAttentionHint: 'Mga salitang hindi tiyak ang sistema o minarkahan mo, na kailangan mong suriin.',
         needsAttention: (n) => `${n} salitang kailangan ng pansin`,
         allClear: 'Walang naka-flag na salita',
@@ -139,6 +142,7 @@ export const STRINGS: Record<Lang, {
         completenessHint: 'How much of the passage was actually read. Skipped words lower it.',
         prosodyHint: 'How natural the rhythm, stress and tone sounded, like expressive reading.',
         pronunciationHint: 'The overall pronunciation quality across the whole reading.',
+        estimatedNote: "An estimate by BasaQuest from the Filipino model, not comparable with English scores.",
         needsAttentionHint: 'Words the system was unsure about, or that you flagged, for you to check.',
         needsAttention: (n) => `${n} word${n === 1 ? '' : 's'} flagged for attention`,
         allClear: 'No words flagged',

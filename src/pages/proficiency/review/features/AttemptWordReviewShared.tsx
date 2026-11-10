@@ -11,19 +11,34 @@
 import { Ear, MinusCircle } from 'lucide-react'
 import type { AttemptWord } from '../hooks'
 import { Tooltip } from '../../../../components/ui/Tooltip'
-export function ScorePill({ label, value, hint }: { label: string; value: number | null; hint?: string }) {
+// `estimated` marks a score we worked out ourselves (a Filipino reading's pronunciation and
+// fluency) rather than one Azure measured: shown with a ~ and an explanatory note in the hint.
+export function ScorePill({
+    label,
+    value,
+    hint,
+    estimated = false,
+    estimatedNote,
+}: {
+    label: string
+    value: number | null
+    hint?: string
+    estimated?: boolean
+    estimatedNote?: string
+}) {
     if (value == null) return null
     const pill = (
         <span
             tabIndex={hint ? 0 : undefined}
             className={`rounded-full bg-gray-900/5 px-3 py-1 text-xs font-bold text-gray-700 dark:bg-gray-100/10 dark:text-gray-300 ${hint ? 'cursor-help transition-colors duration-150 hover:bg-teal-500/20 dark:hover:bg-teal-400/20' : ''}`}
         >
-            {label}: {Math.round(value)}
+            {label}: {estimated ? '~' : ''}{Math.round(value)}
         </span>
     )
+    const fullHint = estimated && estimatedNote ? (hint ? `${hint} ${estimatedNote}` : estimatedNote) : hint
     // A short explanation of what the score measures, on hover or keyboard focus.
-    return hint ? (
-        <Tooltip label={hint} position="bottom" wide>
+    return fullHint ? (
+        <Tooltip label={fullHint} position="bottom" wide>
             {pill}
         </Tooltip>
     ) : (

@@ -73,10 +73,10 @@ export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t
                     {showScores && (
                         <>
                             <ScorePill label={t.accuracy} value={attempt.accuracy_score} hint={t.accuracyHint} />
-                            <ScorePill label={t.fluency} value={attempt.fluency_score} hint={t.fluencyHint} />
+                            <ScorePill label={t.fluency} value={attempt.fluency_score} hint={t.fluencyHint} estimated={attempt.language === 'fil'} estimatedNote={t.estimatedNote} />
                             <ScorePill label={t.completeness} value={attempt.completeness_score} hint={t.completenessHint} />
                             <ScorePill label={t.prosody} value={attempt.prosody_score} hint={t.prosodyHint} />
-                            <ScorePill label={t.pronunciation} value={attempt.pron_score} hint={t.pronunciationHint} />
+                            <ScorePill label={t.pronunciation} value={attempt.pron_score} hint={t.pronunciationHint} estimated={attempt.language === 'fil'} estimatedNote={t.estimatedNote} />
                         </>
                     )}
                     {flaggedCount > 0 ? (

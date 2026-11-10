@@ -72,10 +72,10 @@ export const AttemptInsights: React.FC<AttemptInsightsProps> = ({
                 <p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-400">{t.resultsTabSubtitle}</p>
                 <div className="mt-5 flex flex-wrap gap-3">
                     <ScorePill label={reviewT.accuracy} value={attempt.accuracy_score} hint={reviewT.accuracyHint} />
-                    <ScorePill label={reviewT.fluency} value={attempt.fluency_score} hint={reviewT.fluencyHint} />
+                    <ScorePill label={reviewT.fluency} value={attempt.fluency_score} hint={reviewT.fluencyHint} estimated={attempt.language === 'fil'} estimatedNote={reviewT.estimatedNote} />
                     <ScorePill label={reviewT.completeness} value={attempt.completeness_score} hint={reviewT.completenessHint} />
                     <ScorePill label={reviewT.prosody} value={attempt.prosody_score} hint={reviewT.prosodyHint} />
-                    <ScorePill label={reviewT.pronunciation} value={attempt.pron_score} hint={reviewT.pronunciationHint} />
+                    <ScorePill label={reviewT.pronunciation} value={attempt.pron_score} hint={reviewT.pronunciationHint} estimated={attempt.language === 'fil'} estimatedNote={reviewT.estimatedNote} />
                 </div>
                 {hasAnyInsight && (
                     <div className="mt-8 border-t border-dashed border-gray-900/10 pt-6 dark:border-gray-100/10">
