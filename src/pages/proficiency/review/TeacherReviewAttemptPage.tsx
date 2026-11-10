@@ -272,7 +272,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
             )}
             {attempt.status === 'pending' || attempt.status === 'processing' ? (
                 <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-amber-500/40 bg-white p-8 text-center shadow-md dark:border-amber-400/30 dark:bg-gray-900">
-                    <OwlLoader message="…" />
+                    <OwlLoader message="" />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.scoringTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringDesc}</p>
                     {now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000 && (
