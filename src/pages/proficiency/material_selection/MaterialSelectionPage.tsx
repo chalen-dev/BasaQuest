@@ -167,7 +167,7 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
                 </button>
                 <div
                     ref={ref}
-                    className="flex gap-5 overflow-x-auto scroll-smooth pb-6 pt-2 mx-[calc(50%-50vw)] px-[calc(50vw-50%)]"
+                    className="flex gap-5 overflow-x-auto scroll-smooth pb-6 pt-2 mx-[calc(50%-50vw)] px-[calc(50vw-50%)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                     {children}
                 </div>
