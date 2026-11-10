@@ -7,9 +7,9 @@
 // their own, which their pupils then see (see hooks.ts for how a set is chosen).
 // A card's picture is the scene's drawing for the word, else the Word Pictures library
 // image, else the emoji typed here (shown below as a preview).
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { useProfile } from '../../../hooks/useProfile.ts'
 import { normalizeImageWord, useWordImageQuery } from '../../../hooks/useWordImage.ts'
 import { useTheme } from '../../../contexts/ThemeContext.tsx'
@@ -282,17 +282,58 @@ function CardTile({
     const library = usesDrawing ? undefined : found
     // x is the one English letter taught from the END of its word (box, fox); Ñ sits inside its words (piña).
     const offLetter = word !== '' && !(letter === 'x' && language === 'en') && letter !== 'ñ' && !word.startsWith(letter)
+    const [previewing, setPreviewing] = useState(false)
+    useEffect(() => {
+        if (!previewing) return
+        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPreviewing(false)
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [previewing])
     const small = 'text-[11px] font-semibold text-gray-600 dark:text-gray-300'
     const move =
         'cursor-pointer rounded p-1 text-gray-600 hover:bg-gray-900/10 disabled:cursor-not-allowed disabled:opacity-30 dark:text-gray-300 dark:hover:bg-gray-100/10'
     return (
         <div className="flex w-36 flex-col gap-1.5 rounded-xl bg-gray-900/[0.04] p-2 dark:bg-gray-100/[0.06]">
-            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-white text-5xl dark:bg-gray-950">
-                {library ? <img src={library.url} alt="" className="h-full w-full object-contain" /> : <span aria-hidden="true">{card.emoji || '?'}</span>}
+            <div className="relative aspect-square w-full">
+                <button
+                    type="button"
+                    onClick={() => setPreviewing(true)}
+                    aria-label={`Preview ${card.word || 'picture'}`}
+                    title="Click to preview"
+                    className="flex h-full w-full cursor-zoom-in items-center justify-center overflow-hidden rounded-lg bg-white text-5xl ring-1 ring-gray-900/10"
+                >
+                    {library ? <img src={library.url} alt="" className="h-full w-full object-contain" /> : <span aria-hidden="true">{card.emoji || '?'}</span>}
+                </button>
                 {isMain && (
-                    <span className="absolute left-1 top-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">Main</span>
+                    <span className="pointer-events-none absolute left-1 top-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">Main</span>
                 )}
             </div>
+            {previewing && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Preview of ${card.word}`}
+                    onClick={() => setPreviewing(false)}
+                    className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/70 p-4"
+                >
+                    <div className="relative flex max-h-full w-full max-w-md flex-col items-center gap-3 rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            type="button"
+                            onClick={() => setPreviewing(false)}
+                            aria-label="Close preview"
+                            className="absolute right-3 top-3 cursor-pointer rounded-full p-1.5 text-gray-600 hover:bg-gray-900/10"
+                        >
+                            <X size={18} />
+                        </button>
+                        <div className="flex aspect-square w-full items-center justify-center text-[9rem] leading-none">
+                            {library ? <img src={library.url} alt={card.word} className="h-full w-full object-contain" /> : <span aria-hidden="true">{card.emoji || '?'}</span>}
+                        </div>
+                        <p className="text-2xl font-extrabold text-gray-900">{card.word || 'No word yet'}</p>
+                        {usesDrawing && <p className="text-xs font-semibold text-gray-600">Pupils see the BasaQuest drawing for this word. Preview shows the emoji.</p>}
+                        {library && library.credit && <p className="text-xs font-semibold text-gray-600">{library.credit}</p>}
+                    </div>
+                </div>
+            )}
             <input
                 className={input}
                 value={card.word}
