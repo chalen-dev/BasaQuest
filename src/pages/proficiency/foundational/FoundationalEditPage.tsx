@@ -1,15 +1,15 @@
 // File: src/pages/proficiency/foundational/FoundationalEditPage.tsx
 //
 // "Edit cards" for a Foundational level (/reading/proficiency/foundational/:levelId/edit),
-// opened from the button in the Letters & Sounds scene. Each letter has a list of cards
-// (objects): the first is the letter's main word, the rest appear when a pupil taps the
-// picture. An admin edits the shared default set; a teacher makes a copy of it and edits
+// opened from the button in the Letters & Sounds scene. Each letter is one row, and
+// each object on it is a card: the first is the letter's main word, the rest appear when a
+// pupil taps the picture. An admin edits the shared default set; a teacher makes a copy of it and edits
 // their own, which their pupils then see (see hooks.ts for how a set is chosen).
 // A card's picture is the scene's drawing for the word, else the Word Pictures library
 // image, else the emoji typed here (shown below as a preview).
 import React, { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowDown, ArrowLeft, ArrowUp, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useProfile } from '../../../hooks/useProfile.ts'
 import { normalizeImageWord, useWordImageQuery } from '../../../hooks/useWordImage.ts'
 import { useTheme } from '../../../contexts/ThemeContext.tsx'
@@ -47,7 +47,7 @@ const FoundationalEditPage: React.FC = () => {
 
     const back = () => navigate(level ? `/reading/proficiency/foundational/${level.id}` : '/reading/proficiency')
     const shell = (children: React.ReactNode) => (
-        <div className="mx-auto max-w-6xl px-4 pb-12 pt-6">
+        <div className="mx-auto max-w-7xl px-4 pb-12 pt-6">
             <button
                 onClick={back}
                 className="mb-4 flex cursor-pointer items-center gap-1.5 text-sm font-bold text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
@@ -131,27 +131,34 @@ const FoundationalEditPage: React.FC = () => {
             )}
 
             {state?.target && (
-                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {letters.map((letter) => {
-                        const rows = state.cards.filter((c) => c.letter === letter.lower).sort((a, b) => a.position - b.position)
-                        // A fresh editor whenever the saved cards change, so its draft starts from them.
-                        const signature = rows.map((r) => `${r.id}`).join(',')
-                        return (
-                            <LetterEditor
-                                key={`${letter.lower}:${signature}`}
-                                setId={state.target!.id}
-                                letter={letter}
-                                saved={rows}
-                            />
-                        )
-                    })}
-                </div>
+                <>
+                    <nav aria-label="Jump to a letter" className="mt-6 flex flex-wrap gap-1.5">
+                        {letters.map((letter) => (
+                            <button
+                                key={letter.lower}
+                                onClick={() => document.getElementById(`letter-${letter.lower}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                                className="min-w-9 cursor-pointer rounded-lg border border-gray-900/10 bg-white px-2 py-1 text-xs font-extrabold text-gray-700 hover:bg-amber-50 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+                            >
+                                {letter.upper}
+                            </button>
+                        ))}
+                    </nav>
+                    <div className="mt-4 flex flex-col gap-3">
+                        {letters.map((letter) => {
+                            const rows = state.cards.filter((c) => c.letter === letter.lower).sort((a, b) => a.position - b.position)
+                            // A fresh row whenever the saved cards change, so its draft starts from them.
+                            const signature = rows.map((r) => `${r.id}`).join(',')
+                            return <LetterRow key={`${letter.lower}:${signature}`} setId={state.target!.id} letter={letter} saved={rows} />
+                        })}
+                    </div>
+                </>
             )}
         </>,
     )
 }
 
-function LetterEditor({ setId, letter, saved }: { setId: string; letter: FoundationalLetter; saved: FoundationalCardRow[] }) {
+// One letter: a rail on the left (name, sound, save) and its object cards in a wrapping strip.
+function LetterRow({ setId, letter, saved }: { setId: string; letter: FoundationalLetter; saved: FoundationalCardRow[] }) {
     const save = useSaveLetterMutation()
     const [draft, setDraft] = useState<DraftCard[]>(saved.map((c) => ({ word: c.word, emoji: c.emoji })))
     const [message, setMessage] = useState('')
@@ -188,115 +195,132 @@ function LetterEditor({ setId, letter, saved }: { setId: string; letter: Foundat
         )
     }
 
+    const status = message || (blank ? 'Fill in or remove the empty card' : dirty ? 'Unsaved changes' : 'Saved')
+    const statusColor = dirty || blank ? 'text-amber-700 dark:text-amber-300' : 'text-gray-500 dark:text-gray-400'
+
     return (
-        <section className="flex flex-col gap-2 rounded-2xl border border-gray-900/10 bg-white p-3 shadow-sm dark:border-gray-100/10 dark:bg-gray-900">
-            <div className="flex items-baseline justify-between">
-                <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">
-                    {letter.upper}
-                    {letter.lower}
-                </h2>
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">sound /{letter.letter_sound.replace(/\//g, '')}/</span>
+        <section
+            id={`letter-${letter.lower}`}
+            className="flex scroll-mt-24 flex-col gap-3 rounded-2xl border border-gray-900/10 bg-white p-3 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 sm:flex-row"
+        >
+            <div className="flex shrink-0 items-center justify-between gap-3 sm:w-36 sm:flex-col sm:items-start sm:justify-start">
+                <div>
+                    <h2 className="text-3xl font-extrabold leading-none text-gray-900 dark:text-gray-50">
+                        {letter.upper}
+                        {letter.lower}
+                    </h2>
+                    <p className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">sound /{letter.letter_sound.replace(/\//g, '')}/</p>
+                </div>
+                <div className="flex flex-col items-end gap-1 sm:mt-auto sm:items-start">
+                    <span className={`text-xs font-bold ${statusColor}`}>{status}</span>
+                    <button className={primary} onClick={onSave} disabled={!dirty || blank || save.isPending}>
+                        {save.isPending ? 'Saving…' : 'Save'}
+                    </button>
+                </div>
             </div>
-            {draft.length === 0 && (
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                    No cards saved for this letter, so pupils see the built-in word ({letter.word}).
-                </p>
-            )}
-            {draft.map((card, index) => (
-                <CardRow
-                    key={index}
-                    letter={letter.lower}
-                    language={letter.language}
-                    card={card}
-                    isMain={index === 0}
-                    onChange={(patch) => update(index, patch)}
-                    onUp={() => move(index, -1)}
-                    onDown={() => move(index, 1)}
-                    onRemove={() => remove(index)}
-                    canUp={index > 0}
-                    canDown={index < draft.length - 1}
-                />
-            ))}
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-                <button className={secondary} onClick={add}>
-                    <span className="inline-flex items-center gap-1">
-                        <Plus size={14} /> Add object
-                    </span>
+            <div className="flex min-w-0 flex-1 flex-wrap content-start gap-3">
+                {draft.length === 0 && (
+                    <p className="self-center text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        No cards saved for this letter, so pupils see the built-in word ({letter.word}).
+                    </p>
+                )}
+                {draft.map((card, index) => (
+                    <CardTile
+                        key={index}
+                        letter={letter.lower}
+                        language={letter.language}
+                        card={card}
+                        isMain={index === 0}
+                        onChange={(patch) => update(index, patch)}
+                        onLeft={() => move(index, -1)}
+                        onRight={() => move(index, 1)}
+                        onRemove={() => remove(index)}
+                        canLeft={index > 0}
+                        canRight={index < draft.length - 1}
+                    />
+                ))}
+                <button
+                    onClick={add}
+                    className="flex min-h-40 w-36 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-900/20 text-sm font-bold text-gray-600 transition-colors hover:border-amber-500 hover:bg-amber-50 hover:text-amber-700 dark:border-gray-100/20 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                    <Plus size={22} />
+                    Add object
                 </button>
-                <button className={primary} onClick={onSave} disabled={!dirty || blank || save.isPending}>
-                    {save.isPending ? 'Saving…' : 'Save'}
-                </button>
-                {message && <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{message}</span>}
             </div>
         </section>
     )
 }
 
-function CardRow({
+// One object on a letter: picture on top, word and emoji below, and move / delete in the footer.
+function CardTile({
     letter,
     language,
     card,
     isMain,
     onChange,
-    onUp,
-    onDown,
+    onLeft,
+    onRight,
     onRemove,
-    canUp,
-    canDown,
+    canLeft,
+    canRight,
 }: {
     letter: string
     language: FoundationalLanguage
     card: DraftCard
     isMain: boolean
     onChange: (patch: Partial<DraftCard>) => void
-    onUp: () => void
-    onDown: () => void
+    onLeft: () => void
+    onRight: () => void
     onRemove: () => void
-    canUp: boolean
-    canDown: boolean
+    canLeft: boolean
+    canRight: boolean
 }) {
     const word = card.word.trim().toLowerCase()
     // Same picture choice as the scene: aliased names, and our own drawing for a few words.
     const usesDrawing = language === 'en' && PREFER_DRAWING.has(word)
     const found = useWordImageQuery(usesDrawing ? null : (language === 'en' ? PICTURE_ALIASES[normalizeImageWord(word)] : undefined) ?? (word || null), language).data
     const library = usesDrawing ? undefined : found
-    // x is the one letter taught from the END of its word (box, fox).
+    // x is the one English letter taught from the END of its word (box, fox); Ñ sits inside its words (piña).
     const offLetter = word !== '' && !(letter === 'x' && language === 'en') && letter !== 'ñ' && !word.startsWith(letter)
+    const small = 'text-[11px] font-semibold text-gray-500 dark:text-gray-400'
+    const move =
+        'cursor-pointer rounded p-1 text-gray-600 hover:bg-gray-900/10 disabled:cursor-not-allowed disabled:opacity-30 dark:text-gray-300 dark:hover:bg-gray-100/10'
     return (
-        <div className="flex items-start gap-2 rounded-xl bg-gray-900/[0.03] p-2 dark:bg-gray-100/[0.05]">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-3xl dark:bg-gray-950">
+        <div className="flex w-36 flex-col gap-1.5 rounded-xl bg-gray-900/[0.04] p-2 dark:bg-gray-100/[0.06]">
+            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-white text-5xl dark:bg-gray-950">
                 {library ? <img src={library.url} alt="" className="h-full w-full object-contain" /> : <span aria-hidden="true">{card.emoji || '?'}</span>}
-            </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <input
-                    className={input}
-                    value={card.word}
-                    maxLength={40}
-                    placeholder={isMain ? 'Main word' : 'Word'}
-                    aria-label={isMain ? 'Main word' : 'Word'}
-                    onChange={(e) => onChange({ word: e.target.value })}
-                />
-                <input
-                    className={input}
-                    value={card.emoji}
-                    maxLength={16}
-                    placeholder="Emoji (Windows: Win + .)"
-                    aria-label="Emoji"
-                    onChange={(e) => onChange({ emoji: e.target.value })}
-                />
-                {offLetter && (
-                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">Does not start with {letter.toUpperCase()}.</span>
+                {isMain && (
+                    <span className="absolute left-1 top-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">Main</span>
                 )}
-                {library && <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Using the Word Pictures image.</span>}
-                {usesDrawing && <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">Shown as a BasaQuest drawing.</span>}
             </div>
-            <div className="flex shrink-0 flex-col gap-1">
-                <button aria-label="Move up" onClick={onUp} disabled={!canUp} className="cursor-pointer rounded p-1 text-gray-600 hover:bg-gray-900/10 disabled:opacity-30 dark:text-gray-300">
-                    <ArrowUp size={14} />
-                </button>
-                <button aria-label="Move down" onClick={onDown} disabled={!canDown} className="cursor-pointer rounded p-1 text-gray-600 hover:bg-gray-900/10 disabled:opacity-30 dark:text-gray-300">
-                    <ArrowDown size={14} />
-                </button>
+            <input
+                className={input}
+                value={card.word}
+                maxLength={40}
+                placeholder={isMain ? 'Main word' : 'Word'}
+                aria-label={isMain ? 'Main word' : 'Word'}
+                onChange={(e) => onChange({ word: e.target.value })}
+            />
+            <input
+                className={input}
+                value={card.emoji}
+                maxLength={16}
+                placeholder="Emoji (Win + .)"
+                aria-label="Emoji"
+                onChange={(e) => onChange({ emoji: e.target.value })}
+            />
+            {offLetter && <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">Does not start with {letter.toUpperCase()}.</span>}
+            {library && <span className={small}>Word Pictures image</span>}
+            {usesDrawing && <span className={small}>BasaQuest drawing</span>}
+            <div className="mt-auto flex items-center justify-between">
+                <div className="flex">
+                    <button aria-label="Move left" onClick={onLeft} disabled={!canLeft} className={move}>
+                        <ArrowLeft size={14} />
+                    </button>
+                    <button aria-label="Move right" onClick={onRight} disabled={!canRight} className={move}>
+                        <ArrowRight size={14} />
+                    </button>
+                </div>
                 <button aria-label="Remove" onClick={onRemove} className="cursor-pointer rounded p-1 text-red-600 hover:bg-red-500/10 dark:text-red-400">
                     <Trash2 size={14} />
                 </button>
