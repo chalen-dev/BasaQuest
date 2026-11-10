@@ -44,6 +44,7 @@ import { DifficultyStars } from '../../../components/ui/DifficultyStars'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import { useRetryScoring } from '../pre_assessment/assessment_session/features/useSubmitAttempt'
 import { REVIEW_PAGE_SIZE, SCORING_STUCK_MINUTES, useNow, usePendingReviewAttemptsQuery, useScoringInProgressQuery } from './hooks'
+type ReviewFilter = 'all' | 'scoring' | 'notScored' | 'scored'
 const STRINGS: Record<Lang, {
     title: string
     subtitle: string
@@ -69,6 +70,11 @@ const STRINGS: Record<Lang, {
     failedSectionDesc: string
     retryButton: string
     retryingLabel: string
+    filterAll: string
+    filterScoring: string
+    filterNotScored: string
+    filterScored: string
+    filterEmpty: string
 }> = {
     fil: {
         title: 'Naghihintay ng Review',
@@ -95,6 +101,11 @@ const STRINGS: Record<Lang, {
         failedSectionDesc: 'Naka-save ang recording. Subukan muli para masuri ulit.',
         retryButton: 'Subukan muli',
         retryingLabel: 'Sinusubukan...',
+        filterAll: 'Lahat',
+        filterScoring: 'Sinusuri pa',
+        filterNotScored: 'Hindi nasuri',
+        filterScored: 'Nasuri na',
+        filterEmpty: 'Wala pa rito ngayon.',
     },
     en: {
         title: 'Pending Review',
@@ -121,6 +132,11 @@ const STRINGS: Record<Lang, {
         failedSectionDesc: 'The recording is saved. Retry to score it again.',
         retryButton: 'Retry',
         retryingLabel: 'Retrying...',
+        filterAll: 'All',
+        filterScoring: 'Being scored',
+        filterNotScored: 'Not scored',
+        filterScored: 'Scored',
+        filterEmpty: 'Nothing here right now.',
     },
 }
 // Fixed to Asia/Manila regardless of the viewing device's own timezone —
@@ -176,6 +192,27 @@ export const ReviewListPage: React.FC = () => {
     const inProgress = attention.filter((a) => a.status !== 'failed')
     const failed = attention.filter((a) => a.status === 'failed')
     const now = useNow()
+    // Filter by where a reading is: being scored (something is working on it), not
+    // scored (failed, or waiting so long that nothing is working on it) or scored.
+    const [filter, setFilter] = useState<ReviewFilter>('all')
+    const chooseFilter = (next: ReviewFilter) => {
+        setFilter(next)
+        setPage(0)
+    }
+    const isStuck = (a: { created_at: string }) => now - new Date(a.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
+    const scoringNow = inProgress.filter((a) => !isStuck(a))
+    const stuckList = inProgress.filter(isStuck)
+    const scoredTotal = data?.total ?? 0
+    const showFailed = failed.length > 0 && (filter === 'all' || filter === 'notScored')
+    const inProgressShown = filter === 'all' ? inProgress : filter === 'scoring' ? scoringNow : filter === 'notScored' ? stuckList : []
+    const showScored = filter === 'all' || filter === 'scored'
+    const filterCounts: Record<ReviewFilter, number> = {
+        all: scoredTotal + attention.length,
+        scoring: scoringNow.length,
+        notScored: failed.length + stuckList.length,
+        scored: scoredTotal,
+    }
+    const nothingToShow = !showFailed && inProgressShown.length === 0 && (!showScored || attempts.length === 0)
     // Retrying holds until scoring ends, so the row shows a spinner of its own meanwhile.
     const retryScoring = useRetryScoring()
     const [retrying, setRetrying] = useState<string[]>([])
@@ -204,8 +241,9 @@ export const ReviewListPage: React.FC = () => {
         }
         previousInProgress.current = inProgress.length
     }, [inProgress.length, queryClient])
-    const total = (data?.total ?? 0) + attention.length
-    const pageCount = Math.max(1, Math.ceil(total / REVIEW_PAGE_SIZE))
+    const total = scoredTotal + attention.length
+    // Pages hold scored readings only, which is all the query pages through.
+    const pageCount = Math.max(1, Math.ceil(scoredTotal / REVIEW_PAGE_SIZE))
     return (
         <>
             <section className="relative mb-6 overflow-hidden rounded-3xl border border-gray-900/5 p-6 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-8">
@@ -260,7 +298,46 @@ export const ReviewListPage: React.FC = () => {
                 </div>
             ) : (
                 <div className="flex flex-col gap-3.5">
-                    {failed.length > 0 && (
+                    <div role="group" aria-label="Filter" className="mb-1 flex flex-wrap items-center gap-2.5">
+                        {(
+                            [
+                                ['all', t.filterAll],
+                                ['scoring', t.filterScoring],
+                                ['notScored', t.filterNotScored],
+                                ['scored', t.filterScored],
+                            ] as const
+                        ).map(([value, label]) => {
+                            const selected = filter === value
+                            return (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => chooseFilter(value)}
+                                    aria-pressed={selected}
+                                    className={`flex cursor-pointer items-center gap-2 rounded-full border-2 px-4 py-2 text-base font-bold transition-colors duration-150 ${
+                                        selected
+                                            ? 'border-teal-500 bg-teal-500 text-white shadow-[0_3px_0_0_#0f766e] dark:border-teal-600 dark:bg-teal-600 dark:shadow-[0_3px_0_0_#115e59]'
+                                            : 'border-gray-900/10 bg-white text-gray-700 hover:bg-gray-100 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800'
+                                    }`}
+                                >
+                                    {label}
+                                    <span
+                                        className={`rounded-full px-2 py-0.5 text-sm font-extrabold ${
+                                            selected ? 'bg-white/25 text-white' : 'bg-gray-900/10 text-gray-600 dark:bg-gray-100/10 dark:text-gray-300'
+                                        }`}
+                                    >
+                                        {filterCounts[value]}
+                                    </span>
+                                </button>
+                            )
+                        })}
+                    </div>
+                    {nothingToShow && (
+                        <div className="rounded-2xl border-2 border-dashed border-gray-900/10 bg-white p-8 text-center text-base font-bold text-gray-500 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-300">
+                            {t.filterEmpty}
+                        </div>
+                    )}
+                    {showFailed && (
                         <section role="alert" aria-label={t.failedSectionTitle} className="mb-2 flex flex-col gap-3 rounded-3xl border-2 border-rose-500/50 bg-rose-50 p-4 dark:border-rose-400/40 dark:bg-gray-950">
                             <div className="flex items-start gap-3 px-2">
                                 <TriangleAlert size={22} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
@@ -321,13 +398,13 @@ export const ReviewListPage: React.FC = () => {
                             })}
                         </section>
                     )}
-                    {inProgress.length > 0 && (
+                    {inProgressShown.length > 0 && (
                         <section aria-label={t.scoringSectionTitle} className="mb-2 flex flex-col gap-3 rounded-3xl border-2 border-dashed border-amber-500/50 bg-amber-50 p-4 dark:border-amber-400/40 dark:bg-gray-950">
                             <div className="px-2">
                                 <h2 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.scoringSectionTitle}</h2>
                                 <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{t.scoringSectionDesc}</p>
                             </div>
-                            {inProgress.map((attempt) => {
+                            {inProgressShown.map((attempt) => {
                                 const name = attempt.student?.full_name || attempt.student?.username || t.unnamedStudent
                                 const stuck = now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
                                 return (
@@ -363,7 +440,7 @@ export const ReviewListPage: React.FC = () => {
                             })}
                         </section>
                     )}
-                    {attempts.map((attempt) => {
+                    {showScored && attempts.map((attempt) => {
                         const name = attempt.student?.full_name || attempt.student?.username || t.unnamedStudent
                         return (
                             <button
@@ -416,7 +493,7 @@ export const ReviewListPage: React.FC = () => {
                     })}
                 </div>
             )}
-            <Pagination page={page} pageCount={pageCount} onPageChange={setPage} className="mt-5" />
+            {showScored && <Pagination page={page} pageCount={pageCount} onPageChange={setPage} className="mt-5" />}
         </>
     )
 }
