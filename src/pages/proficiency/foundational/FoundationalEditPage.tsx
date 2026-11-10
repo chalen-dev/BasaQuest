@@ -50,7 +50,7 @@ const FoundationalEditPage: React.FC = () => {
         <div className="mx-auto max-w-7xl px-4 pb-12 pt-6">
             <button
                 onClick={back}
-                className="mb-4 flex cursor-pointer items-center gap-1.5 text-sm font-bold text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                className="mb-4 flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
             >
                 <ArrowLeft size={16} /> Back to the cards
             </button>
@@ -58,7 +58,7 @@ const FoundationalEditPage: React.FC = () => {
         </div>
     )
 
-    if (loading) return shell(<p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Loading…</p>)
+    if (loading) return shell(<p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Loading…</p>)
     if (!level?.letters) return shell(<p className="font-semibold text-gray-700 dark:text-gray-300">This level has no editable cards.</p>)
     if (profile?.role !== 'teacher' && profile?.role !== 'admin') {
         return shell(<p className="font-semibold text-gray-700 dark:text-gray-300">Only teachers and admins can edit the cards.</p>)
@@ -86,12 +86,12 @@ const FoundationalEditPage: React.FC = () => {
     return shell(
         <>
             <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">Edit cards · {level.title}</h1>
-            <p className="mt-1 max-w-3xl text-sm font-medium text-gray-600 dark:text-gray-400">
+            <p className="mt-1 max-w-3xl text-sm font-medium text-gray-700 dark:text-gray-200">
                 Each letter has a main word and any extra objects. Pupils tap the picture to see the next object. The picture is the
                 scene&rsquo;s drawing for the word if there is one, then a picture from the Word Pictures library, then the emoji you type.
             </p>
 
-            {editor.isLoading && <p className="mt-6 text-sm font-semibold text-gray-600 dark:text-gray-400">Loading the cards…</p>}
+            {editor.isLoading && <p className="mt-6 text-sm font-semibold text-gray-700 dark:text-gray-200">Loading the cards…</p>}
             {editor.error && (
                 <p className="mt-6 rounded-xl border border-red-500/30 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
                     Could not load the cards. If this is a new setup, the cards table may not have been created yet.
@@ -196,7 +196,7 @@ function LetterRow({ setId, letter, saved }: { setId: string; letter: Foundation
     }
 
     const status = message || (blank ? 'Fill in or remove the empty card' : dirty ? 'Unsaved changes' : 'Saved')
-    const statusColor = dirty || blank ? 'text-amber-700 dark:text-amber-300' : 'text-gray-500 dark:text-gray-400'
+    const statusColor = dirty || blank ? 'text-amber-700 dark:text-amber-300' : 'text-gray-600 dark:text-gray-300'
 
     return (
         <section
@@ -209,7 +209,7 @@ function LetterRow({ setId, letter, saved }: { setId: string; letter: Foundation
                         {letter.upper}
                         {letter.lower}
                     </h2>
-                    <p className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">sound /{letter.letter_sound.replace(/\//g, '')}/</p>
+                    <p className="mt-1 text-xs font-semibold text-gray-600 dark:text-gray-300">sound /{letter.letter_sound.replace(/\//g, '')}/</p>
                 </div>
                 <div className="flex flex-col items-end gap-1 sm:mt-auto sm:items-start">
                     <span className={`text-xs font-bold ${statusColor}`}>{status}</span>
@@ -220,7 +220,7 @@ function LetterRow({ setId, letter, saved }: { setId: string; letter: Foundation
             </div>
             <div className="flex min-w-0 flex-1 flex-wrap content-start gap-3">
                 {draft.length === 0 && (
-                    <p className="self-center text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    <p className="self-center text-xs font-semibold text-gray-600 dark:text-gray-300">
                         No cards saved for this letter, so pupils see the built-in word ({letter.word}).
                     </p>
                 )}
@@ -282,7 +282,7 @@ function CardTile({
     const library = usesDrawing ? undefined : found
     // x is the one English letter taught from the END of its word (box, fox); Ñ sits inside its words (piña).
     const offLetter = word !== '' && !(letter === 'x' && language === 'en') && letter !== 'ñ' && !word.startsWith(letter)
-    const small = 'text-[11px] font-semibold text-gray-500 dark:text-gray-400'
+    const small = 'text-[11px] font-semibold text-gray-600 dark:text-gray-300'
     const move =
         'cursor-pointer rounded p-1 text-gray-600 hover:bg-gray-900/10 disabled:cursor-not-allowed disabled:opacity-30 dark:text-gray-300 dark:hover:bg-gray-100/10'
     return (
