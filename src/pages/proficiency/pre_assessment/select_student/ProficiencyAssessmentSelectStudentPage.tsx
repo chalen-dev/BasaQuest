@@ -24,10 +24,9 @@
 // it opened a second isolated-session tab that could get clobbered on
 // reload since both tabs shared the same browser.
 //
-// LOADING STATE (student list): skeleton rows (see
-// components/ui/Skeleton.tsx) matching studentRow's own shape (name +
-// badge row on the left, two action-button-shaped blocks on the right)
-// instead of a centered OwlLoader spinner.
+// LOADING STATE (student list): skeleton cards (see
+// components/ui/Skeleton.tsx) matching studentCard's own shape (avatar +
+// the chips and button below it) instead of a centered OwlLoader spinner.
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, FileCheck, FileClock, Languages, Trash2, Wifi, X } from 'lucide-react'
@@ -40,7 +39,6 @@ import { SearchInput } from '../../../../components/input/SearchInput.tsx'
 import { Select } from '../../../../components/input/Select.tsx'
 import { useLang } from '../../../../contexts/LangContext.tsx'
 import { useProfile } from '../../../../hooks/useProfile.ts'
-import { useFillViewport } from '../../../../hooks/useFillViewport.ts'
 import { useTheme } from '../../../../contexts/ThemeContext.tsx'
 import { useTeacherPresence } from '../../../../hooks/useTeacherPresence.ts'
 import { showConfirmation, showToast } from '../../../../helpers/swalHelpers.ts'
@@ -220,8 +218,6 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
     const { theme } = useTheme()
     const t = STRINGS[lang]
     const isTeacher = profile?.role === 'teacher'
-    // The teacher's picker fills the window height exactly (see useFillViewport).
-    const pageRef = useFillViewport<HTMLDivElement>(isTeacher)
     const [selectedLang, setSelectedLang] = useState<Lang | null>(null)
     const [searchInput, setSearchInput] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -412,7 +408,11 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
             </div>
         </>
     )
-    const studentRow = (student: (typeof students)[number]) => {
+    // The few things that sit straight on the scene (header, filters, page
+    // buttons) get a frosted surface so their text stays readable on any
+    // background. The pupils themselves are solid cards.
+    const frosted = 'border border-white/40 bg-white/80 shadow-sm backdrop-blur-md dark:border-gray-100/10 dark:bg-gray-900/70'
+    const studentCard = (student: (typeof students)[number]) => {
         const online = onlineIdsSet.has(student.id)
         const name = student.full_name || student.username || student.id
         // A passage already generated for this pupil in the chosen language
@@ -421,67 +421,81 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
         return (
             <div
                 key={student.id}
-                className={`flex items-center justify-between gap-3 rounded-2xl border-2 p-3.5 transition-colors duration-150 ${
+                className={`flex flex-col gap-3 rounded-2xl border-2 p-4 shadow-sm transition-colors duration-150 ${
                     online
-                        ? 'border-gray-900/5 bg-gray-900/[0.02] opacity-60 dark:border-gray-100/5 dark:bg-gray-100/[0.02]'
+                        ? 'border-gray-900/5 bg-white/60 opacity-60 dark:border-gray-100/5 dark:bg-gray-900/60'
                         : 'border-gray-900/5 bg-white dark:border-gray-100/10 dark:bg-gray-900'
                 }`}
             >
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-extrabold text-gray-900 dark:text-gray-50">{name}</span>
-                        {student.grade_level != null && (
-                            <span className="shrink-0 rounded-full bg-gray-900/5 px-2.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                                {t.gradeLabel(student.grade_level)}
-                            </span>
-                        )}
-                        {student.is_non_reader && (
-                            <span className="shrink-0 rounded-full bg-orange-500/15 px-2.5 py-0.5 text-xs font-semibold text-orange-600 dark:text-orange-400">
-                                {t.nonReaderBadge}
-                            </span>
-                        )}
-                        {student.pendingAssignment && (
-                            <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
-                                {t.pendingBadge}
-                            </span>
-                        )}
-                        {savedStatus === 'needs_validation' && (
-                            <span
-                                title={t.passageUnvalidatedTip}
-                                className="flex shrink-0 items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-semibold text-violet-700 dark:text-violet-300"
-                            >
-                                <FileClock size={12} />
-                                {t.passageUnvalidatedBadge}
-                            </span>
-                        )}
-                        {savedStatus === 'approved' && (
-                            <span
-                                title={t.passageReadyTip}
-                                className="flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400"
-                            >
-                                <FileCheck size={12} />
-                                {t.passageReadyBadge}
-                            </span>
-                        )}
-                    </div>
-                    {online && (
-                        <div className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                            <Wifi size={12} />
-                            {t.onlineNote}
+                <div className="flex items-center gap-3">
+                    <span
+                        aria-hidden="true"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-500/15 text-base font-extrabold text-teal-700 dark:text-teal-300"
+                    >
+                        {name.charAt(0).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-extrabold text-gray-900 dark:text-gray-50" title={name}>
+                            {name}
                         </div>
+                        {online ? (
+                            <div className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                <Wifi size={12} />
+                                {t.onlineNote}
+                            </div>
+                        ) : student.grade_level != null ? (
+                            <div className="mt-0.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                {t.gradeLabel(student.grade_level)}
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+                <div className="flex min-h-6 flex-wrap items-center gap-1.5">
+                    {online && student.grade_level != null && (
+                        <span className="shrink-0 rounded-full bg-gray-900/5 px-2.5 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                            {t.gradeLabel(student.grade_level)}
+                        </span>
+                    )}
+                    {student.is_non_reader && (
+                        <span className="shrink-0 rounded-full bg-orange-500/15 px-2.5 py-0.5 text-xs font-semibold text-orange-600 dark:text-orange-400">
+                            {t.nonReaderBadge}
+                        </span>
+                    )}
+                    {student.pendingAssignment && (
+                        <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                            {t.pendingBadge}
+                        </span>
+                    )}
+                    {savedStatus === 'needs_validation' && (
+                        <span
+                            title={t.passageUnvalidatedTip}
+                            className="flex shrink-0 items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-semibold text-violet-700 dark:text-violet-300"
+                        >
+                            <FileClock size={12} />
+                            {t.passageUnvalidatedBadge}
+                        </span>
+                    )}
+                    {savedStatus === 'approved' && (
+                        <span
+                            title={t.passageReadyTip}
+                            className="flex shrink-0 items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400"
+                        >
+                            <FileCheck size={12} />
+                            {t.passageReadyBadge}
+                        </span>
                     )}
                 </div>
                 {student.pendingAssignment ? (
                     <button
                         onClick={() => handleCancel(student.pendingAssignment!.id)}
                         disabled={cancelMutation.isPending}
-                        className="flex shrink-0 cursor-pointer items-center gap-1 rounded-full border-2 border-rose-500/30 px-3 py-1.5 text-xs font-bold text-rose-600 transition-colors duration-150 hover:bg-rose-500/10 disabled:opacity-50 dark:border-rose-400/30 dark:text-rose-400"
+                        className="mt-auto flex w-full cursor-pointer items-center justify-center gap-1 rounded-full border-2 border-rose-500/30 px-3 py-1.5 text-xs font-bold text-rose-600 transition-colors duration-150 hover:bg-rose-500/10 disabled:opacity-50 dark:border-rose-400/30 dark:text-rose-400"
                     >
                         <X size={13} />
                         {t.cancelLabel}
                     </button>
                 ) : (
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="mt-auto flex items-center gap-2">
                         {savedStatus && (
                             <button
                                 onClick={() => handleClearPassage(student.id, name)}
@@ -494,7 +508,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                         )}
                         <button
                             onClick={() => handleOpen(student.id, name)}
-                            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-teal-500 px-4 py-1.5 text-xs font-bold text-white shadow-[0_3px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_3px_0_0_#115e59]"
+                            className="flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-teal-500 px-4 py-1.5 text-xs font-bold text-white shadow-[0_3px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_3px_0_0_#115e59]"
                         >
                             <ArrowRight size={13} />
                             {savedStatus === 'approved' ? t.openReadyLabel : savedStatus === 'needs_validation' ? t.openValidateLabel : t.openNewLabel}
@@ -504,132 +518,114 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
             </div>
         )
     }
-    // The teacher's whole screen as one panel: who/what at the top (title and
-    // language switch), the search and filters on one row, then the pupil list.
+    // The teacher's screen, straight on the scene: a frosted header (who/what and
+    // the language switch), a frosted filter bar, then the pupils as cards, nine
+    // to a page with the page buttons under them. No inner scroll box.
     const teacherPanel = (
-        <section className="relative flex flex-col overflow-hidden rounded-3xl border border-gray-900/5 p-5 shadow-sm transition-colors duration-300 dark:border-gray-100/10 sm:p-6 lg:h-full">
-            <div className="absolute inset-0 dark:hidden" style={{ background: 'linear-gradient(180deg, #fffdf8 0%, #fff3dd 100%)' }} />
-            <div className="absolute inset-0 hidden dark:block" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }} />
-            <div className="relative flex flex-1 flex-col lg:min-h-0">
-                <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3">
-                    <Owl mood={selectedLang ? 'proud' : 'confused'} variant="icon" size={84} />
-                    <div className="min-w-0 flex-1 basis-64">
-                        <h1 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.panelTitle}</h1>
-                        <p className="mt-0.5 max-w-2xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.panelDesc}</p>
+        <div className="flex flex-col gap-4">
+            <header className={`flex flex-wrap items-center gap-x-4 gap-y-3 rounded-3xl p-4 sm:px-6 ${frosted}`}>
+                <Owl mood={selectedLang ? 'proud' : 'confused'} variant="icon" size={72} />
+                <div className="min-w-0 flex-1 basis-64">
+                    <h1 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.panelTitle}</h1>
+                    <p className="mt-0.5 max-w-2xl text-sm font-medium text-gray-600 dark:text-gray-400">{t.panelDesc}</p>
+                </div>
+                <div role="group" aria-label={t.languageLabel} className="flex shrink-0 items-center gap-2.5">
+                    <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                        <Languages size={14} />
+                        {t.languageLabel}
+                    </span>
+                    <div className="flex gap-1 rounded-full border border-gray-900/10 bg-white/70 p-1 dark:border-gray-100/10 dark:bg-gray-900/60">
+                        {languageSegment('en', t.englishLabel)}
+                        {languageSegment('fil', t.filipinoLabel)}
                     </div>
-                    <div role="group" aria-label={t.languageLabel} className="flex shrink-0 items-center gap-2.5">
-                        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">
-                            <Languages size={14} />
-                            {t.languageLabel}
-                        </span>
-                        <div className="flex gap-1 rounded-full border border-gray-900/10 bg-white/70 p-1 dark:border-gray-100/10 dark:bg-gray-900/60">
-                            {languageSegment('en', t.englishLabel)}
-                            {languageSegment('fil', t.filipinoLabel)}
-                        </div>
+                </div>
+            </header>
+            {!selectedLang ? (
+                <div className={`flex items-center gap-3 rounded-2xl px-4 py-3 ${frosted}`}>
+                    <Owl mood="confused" variant="icon" size={36} />
+                    <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">{t.pickLanguageFirst}</p>
+                </div>
+            ) : (
+                <>
+                    <div className={`grid gap-3 rounded-2xl p-3 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr] ${frosted}`}>
+                        <SearchInput
+                            value={searchInput}
+                            onChange={setSearchInput}
+                            label={t.searchLabel}
+                            placeholder={t.searchPlaceholder}
+                        />
+                        <Select
+                            name="assignableGradeFilter"
+                            label={t.gradeFilterLabel}
+                            options={gradeFilterOptions}
+                            value={gradeFilter}
+                            onChange={(e) => {
+                                setGradeFilter(e.target.value)
+                                setPage(0)
+                            }}
+                            selectClassName="px-3.5 py-3 short:py-2"
+                        />
+                        <Select
+                            name="assignableReaderFilter"
+                            label={t.readerFilterLabel}
+                            options={readerFilterOptions}
+                            value={readerFilter}
+                            onChange={(e) => {
+                                setReaderFilter(e.target.value as AssignableReaderFilter)
+                                setPage(0)
+                            }}
+                            selectClassName="px-3.5 py-3 short:py-2"
+                        />
+                        <Select
+                            name="assignableOnlineFilter"
+                            label={t.onlineFilterLabel}
+                            options={onlineFilterOptions}
+                            value={onlineFilter}
+                            onChange={(e) => {
+                                setOnlineFilter(e.target.value as AssignableOnlineFilter)
+                                setPage(0)
+                            }}
+                            selectClassName="px-3.5 py-3 short:py-2"
+                        />
                     </div>
-                </header>
-                <div className="my-4 h-px shrink-0 bg-gray-900/10 dark:bg-gray-100/10" />
-                {!selectedLang ? (
-                    <div className="flex items-center gap-3 rounded-2xl border border-dashed border-gray-900/15 px-4 py-3 dark:border-gray-100/15">
-                        <Owl mood="confused" variant="icon" size={36} />
-                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t.pickLanguageFirst}</p>
-                    </div>
-                ) : (
-                    <div className="flex flex-1 flex-col gap-4 lg:min-h-0">
-                        {/* Search and filters on one row, so the list below gets the height */}
-                        <div className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
-                            <SearchInput
-                                value={searchInput}
-                                onChange={setSearchInput}
-                                label={t.searchLabel}
-                                placeholder={t.searchPlaceholder}
-                            />
-                            <Select
-                                name="assignableGradeFilter"
-                                label={t.gradeFilterLabel}
-                                options={gradeFilterOptions}
-                                value={gradeFilter}
-                                onChange={(e) => {
-                                    setGradeFilter(e.target.value)
-                                    setPage(0)
-                                }}
-                                selectClassName="px-3.5 py-3 short:py-2"
-                            />
-                            <Select
-                                name="assignableReaderFilter"
-                                label={t.readerFilterLabel}
-                                options={readerFilterOptions}
-                                value={readerFilter}
-                                onChange={(e) => {
-                                    setReaderFilter(e.target.value as AssignableReaderFilter)
-                                    setPage(0)
-                                }}
-                                selectClassName="px-3.5 py-3 short:py-2"
-                            />
-                            <Select
-                                name="assignableOnlineFilter"
-                                label={t.onlineFilterLabel}
-                                options={onlineFilterOptions}
-                                value={onlineFilter}
-                                onChange={(e) => {
-                                    setOnlineFilter(e.target.value as AssignableOnlineFilter)
-                                    setPage(0)
-                                }}
-                                selectClassName="px-3.5 py-3 short:py-2"
-                            />
-                        </div>
-                        {/* Right column — the list itself, scrollable; pagination pinned below it */}
-                        <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">
-                            <div
-                                className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1 [scrollbar-color:theme(colors.gray.400)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400/70 [&::-webkit-scrollbar-thumb:hover]:bg-gray-500 [&::-webkit-scrollbar-track]:bg-transparent dark:[&::-webkit-scrollbar-thumb]:bg-gray-500/70 dark:[&::-webkit-scrollbar-thumb:hover]:bg-gray-400"
-                            >
-                                {studentsLoading ? (
-                                    <div role="status" aria-busy="true" className="flex flex-col gap-2.5">
-                                        <span className="sr-only">Loading…</span>
-                                        {Array.from({ length: 5 }).map((_, i) => (
-                                            <div
-                                                key={i}
-                                                className="flex items-center justify-between gap-3 rounded-2xl border-2 border-gray-900/5 bg-white p-3.5 dark:border-gray-100/10 dark:bg-gray-900"
-                                            >
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <Skeleton className="h-3.5 w-28 rounded-full" />
-                                                        <Skeleton className="h-3 w-12 rounded-full" />
-                                                    </div>
-                                                </div>
-                                                <div className="flex shrink-0 items-center gap-2">
-                                                    <Skeleton className="h-7 w-16 rounded-full" />
-                                                    <Skeleton className="h-7 w-16 rounded-full" />
-                                                </div>
-                                            </div>
-                                        ))}
+                    {studentsLoading ? (
+                        <div role="status" aria-busy="true" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <span className="sr-only">Loading…</span>
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="flex flex-col gap-3 rounded-2xl border-2 border-gray-900/5 bg-white p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Skeleton className="h-11 w-11 shrink-0 rounded-full" />
+                                        <div className="flex flex-1 flex-col gap-2">
+                                            <Skeleton className="h-3.5 w-28 rounded-full" />
+                                            <Skeleton className="h-3 w-12 rounded-full" />
+                                        </div>
                                     </div>
-                                ) : students.length === 0 ? (
-                                    <p className="rounded-2xl border border-dashed border-gray-900/15 px-4 py-3 text-sm font-semibold text-gray-500 dark:border-gray-100/15 dark:text-gray-400">
-                                        {hasFilters ? t.noResults : t.noStudents}
-                                    </p>
-                                ) : (
-                                    <div className="flex flex-col gap-2.5">
-                                        {students.map(studentRow)}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="shrink-0">
-                                <Pagination page={page} pageCount={pageCount} onPageChange={setPage} className="mt-5" />
-                            </div>
+                                    <Skeleton className="h-6 w-20 rounded-full" />
+                                    <Skeleton className="h-8 w-full rounded-full" />
+                                </div>
+                            ))}
                         </div>
-                    </div>
-                )}
-            </div>
-        </section>
+                    ) : students.length === 0 ? (
+                        <p className={`rounded-2xl px-4 py-3 text-sm font-semibold text-gray-600 dark:text-gray-300 ${frosted}`}>
+                            {hasFilters ? t.noResults : t.noStudents}
+                        </p>
+                    ) : (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{students.map(studentCard)}</div>
+                    )}
+                    {pageCount > 1 && (
+                        <div className={`mx-auto w-fit max-w-full rounded-full px-3 py-1.5 ${frosted}`}>
+                            <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
     )
     return (
-        <div
-            className={`mx-auto flex flex-col px-4 pb-6 pt-2 ${isTeacher ? 'max-w-6xl' : 'max-w-3xl'} ${
-                isTeacher ? 'lg:h-[calc(100vh-7.5rem)] lg:overflow-hidden' : ''
-            }`}
-            ref={pageRef}
-        >
+        <div className={`mx-auto flex flex-col px-4 pb-10 pt-2 ${isTeacher ? 'max-w-6xl' : 'max-w-3xl'}`}>
             <div className="mb-4 flex shrink-0 flex-wrap items-center gap-3">
                 <Link
                     to="/reading/proficiency"
@@ -639,11 +635,7 @@ export const ProficiencyAssessmentSelectStudentPage: React.FC = () => {
                     {t.back}
                 </Link>
             </div>
-            {isTeacher ? (
-                <div className="lg:min-h-0 lg:flex-1">{teacherPanel}</div>
-            ) : (
-                languageSectionStudent
-            )}
+            {isTeacher ? teacherPanel : languageSectionStudent}
         </div>
     )
 }

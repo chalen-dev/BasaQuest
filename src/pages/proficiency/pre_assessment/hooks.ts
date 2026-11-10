@@ -16,7 +16,7 @@ export type AssignableStudent = {
 export type AssignableOnlineFilter = '' | 'online' | 'offline'
 export type AssignableReaderFilter = '' | 'reader' | 'non_reader'
 
-export const ASSIGNABLE_PAGE_SIZE = 10
+export const ASSIGNABLE_PAGE_SIZE = 9
 
 const assignableStudentsKey = (teacherId: string | undefined) => ['assignable-students', teacherId] as const
 
