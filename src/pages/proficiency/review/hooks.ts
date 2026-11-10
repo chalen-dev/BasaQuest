@@ -430,3 +430,103 @@ export function useStudentProfileQuery(studentId: string | null | undefined) {
         enabled: !!studentId,
     })
 }
+// ---------------------------------------------------------------------------------------
+// Words marked by hand while a reading is still being scored (or could not be scored).
+//
+// Keyed by the word's position in the passage, counting from 1 (the same number the scorer
+// stores as a word row's word_index for a passage word). When scoring ends the marks are
+// written onto the word rows as the teacher's own flags and the column is emptied.
+// ---------------------------------------------------------------------------------------
+export type ManualMarkType = 'Omission' | 'Mispronunciation'
+export type ManualMarks = Record<string, ManualMarkType>
+
+const manualMarksKey = (attemptId: string | null | undefined) => ['attempt-manual-marks', attemptId] as const
+
+function cleanMarks(raw: unknown): ManualMarks {
+    const out: ManualMarks = {}
+    if (raw && typeof raw === 'object') {
+        for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+            if (value === 'Omission' || value === 'Mispronunciation') out[key] = value
+        }
+    }
+    return out
+}
+
+// Tolerates the column not existing yet (a database that has not been migrated): that
+// reads as "no marks" instead of breaking the review page.
+export function useManualMarksQuery(attemptId: string | null | undefined) {
+    return useQuery({
+        queryKey: manualMarksKey(attemptId),
+        queryFn: async (): Promise<ManualMarks> => {
+            const { data, error } = await supabase
+                .from('assessment_attempts')
+                .select('manual_marks')
+                .eq('id', attemptId as string)
+                .single()
+            if (error) return {}
+            return cleanMarks((data as { manual_marks?: unknown } | null)?.manual_marks)
+        },
+        enabled: !!attemptId,
+        retry: false,
+    })
+}
+
+export function useSaveManualMarksMutation(attemptId: string | null | undefined) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async (marks: ManualMarks) => {
+            const { error } = await supabase
+                .from('assessment_attempts')
+                .update({ manual_marks: marks })
+                .eq('id', attemptId as string)
+            if (error) throw error
+            return marks
+        },
+        onSuccess: (marks) => {
+            queryClient.setQueryData(manualMarksKey(attemptId), marks)
+        },
+    })
+}
+
+// Writes the hand marks onto the freshly scored word rows as the teacher's own flags, then
+// empties the column. A mark whose position has no passage-word row is dropped.
+export function useApplyManualMarksMutation(teacherId: string | undefined) {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: async ({ attemptId, marks, words }: { attemptId: string; marks: ManualMarks; words: AttemptWord[] }) => {
+            if (!teacherId) throw new Error('Missing teacher id')
+            const overrides: WordReviewOverride[] = []
+            for (const word of words) {
+                const mark = marks[String(word.word_index)]
+                if (!mark || !Number.isInteger(word.word_index) || word.reference_word === null) continue
+                overrides.push({ wordId: word.id, verdict: 'miscue', manualFlag: true, errorTypeOverride: mark })
+            }
+            if (overrides.length > 0) await writeWordReviewOverrides(overrides, teacherId)
+            const { error } = await supabase.from('assessment_attempts').update({ manual_marks: {} }).eq('id', attemptId)
+            if (error) throw error
+            return { attemptId, applied: overrides.length }
+        },
+        onSuccess: ({ attemptId }) => {
+            queryClient.setQueryData(manualMarksKey(attemptId), {})
+            queryClient.invalidateQueries({ queryKey: attemptWordsKey(attemptId) })
+        },
+    })
+}
+
+// The teacher's own miscue flags on an attempt's current word rows, as hand marks. Used to
+// carry them across a re-score, which replaces every word row.
+export async function fetchTeacherMarks(attemptId: string): Promise<ManualMarks> {
+    const { data, error } = await supabase
+        .from('assessment_attempt_words')
+        .select('word_index, reference_word, error_type, teacher_verdict, teacher_manual_flag, teacher_error_type_override')
+        .eq('attempt_id', attemptId)
+    if (error) throw error
+    const marks: ManualMarks = {}
+    for (const row of data ?? []) {
+        if (!row.teacher_manual_flag || row.teacher_verdict !== 'miscue') continue
+        if (!Number.isInteger(row.word_index) || row.reference_word === null) continue
+        marks[String(row.word_index)] =
+            row.teacher_error_type_override ?? (row.error_type === 'Omission' ? 'Omission' : 'Mispronunciation')
+    }
+    return marks
+}

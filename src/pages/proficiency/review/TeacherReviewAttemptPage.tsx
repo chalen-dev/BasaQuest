@@ -14,9 +14,10 @@
 // itself is now just a plain navigate() — the blocker is what decides
 // whether a dialog is needed, so a Back click with zero actual edits no
 // longer pops up a needless "save first?" prompt the way it used to.
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, RefreshCw } from 'lucide-react'
 import { useLang } from '../../../contexts/LangContext'
 import { useTheme } from '../../../contexts/ThemeContext'
 import { useProfile } from '../../../hooks/useProfile'
@@ -24,13 +25,17 @@ import { useUnsavedChangesBlocker } from '../../../hooks/useUnsavedChangesBlocke
 import { OwlLoader } from '../../../components/ui/OwlLoader'
 import { Skeleton } from '../../../components/ui/Skeleton'
 import { Owl } from '../../../components/ui/Owl'
-import { showSaveOnLeaveConfirmation, showToast } from '../../../helpers/swalHelpers'
+import { showConfirmation, showSaveOnLeaveConfirmation, showToast } from '../../../helpers/swalHelpers'
 import type { Lang } from '../../../components/buttons/LangToggle'
 import {
     SCORING_STUCK_MINUTES,
     useAttemptQuery,
     useNow,
     useAttemptWordsQuery,
+    useApplyManualMarksMutation,
+    useManualMarksQuery,
+    useSaveManualMarksMutation,
+    fetchTeacherMarks,
     useDiscardAttemptMutation,
     useSaveDraftMutation,
     useStudentProfileQuery,
@@ -38,6 +43,7 @@ import {
     type WordReviewOverride,
 } from './hooks'
 import { AttemptWordReview, type AttemptWordReviewHandle } from './features/AttemptWordReview'
+import { ManualMarkPanel } from './features/ManualMarkPanel'
 import { useRetryScoring } from '../../proficiency/pre_assessment/assessment_session/features/useSubmitAttempt'
 const STRINGS: Record<Lang, {
     back: string
@@ -55,6 +61,12 @@ const STRINGS: Record<Lang, {
     retryButton: string
     retryingLabel: string
     retryFailedToast: string
+    rescoreButton: string
+    rescoreConfirmTitle: string
+    rescoreConfirmText: string
+    rescoreConfirmButton: string
+    marksAddedToast: (n: number) => string
+    rescoreFailedToast: string
     notFoundTitle: string
     notFoundDesc: string
     confirmedToast: string
@@ -81,6 +93,12 @@ const STRINGS: Record<Lang, {
         retryButton: 'Subukan Muli',
         retryingLabel: 'Sinusuri...',
         retryFailedToast: 'Hindi pa rin nasuri. Pakisubukang muli mamaya.',
+        rescoreButton: 'Suriin Muli',
+        rescoreConfirmTitle: 'Suriin muli ang pagbasang ito?',
+        rescoreConfirmText: 'Papalitan ng bagong pagsusuri ang mga marka ng sistema (katumpakan, at iba pa). Mananatili ang mga salitang minarkahan mo.',
+        rescoreConfirmButton: 'Suriin Muli',
+        marksAddedToast: (n) => (n === 1 ? 'Naidagdag ang 1 salitang minarkahan mo.' : `Naidagdag ang ${n} salitang minarkahan mo.`),
+        rescoreFailedToast: 'Hindi masimulan ang muling pagsusuri. Pakisubukang muli.',
         notFoundTitle: 'Hindi Nahanap',
         notFoundDesc: 'Hindi na available ang pagbasang ito.',
         confirmedToast: 'Nakumpirma ang resulta.',
@@ -107,6 +125,12 @@ const STRINGS: Record<Lang, {
         retryButton: 'Try Again',
         retryingLabel: 'Scoring...',
         retryFailedToast: "Still couldn't score it. Please try again in a bit.",
+        rescoreButton: 'Score Again',
+        rescoreConfirmTitle: 'Score this reading again?',
+        rescoreConfirmText: "A new run replaces the system's scores (accuracy and the rest). The words you marked are kept.",
+        rescoreConfirmButton: 'Score Again',
+        marksAddedToast: (n) => (n === 1 ? 'Added the 1 word you marked.' : `Added the ${n} words you marked.`),
+        rescoreFailedToast: "Couldn't start scoring again. Please try again.",
         notFoundTitle: 'Not Found',
         notFoundDesc: "This reading isn't available anymore.",
         confirmedToast: 'Results confirmed.',
@@ -159,6 +183,29 @@ export const TeacherReviewAttemptPage: React.FC = () => {
     const saveDraft = useSaveDraftMutation(profile?.id)
     const discardAttempt = useDiscardAttemptMutation(profile?.id)
     const reviewRef = useRef<AttemptWordReviewHandle>(null)
+    const queryClient = useQueryClient()
+    // Words the teacher marked by hand while the scorer was still working: laid onto the
+    // fresh word rows (as the teacher's own flags) before the review opens.
+    const { data: handMarks } = useManualMarksQuery(attemptId)
+    const applyMarks = useApplyManualMarksMutation(profile?.id)
+    const saveMarks = useSaveManualMarksMutation(attemptId)
+    const [appliedKey, setAppliedKey] = useState('')
+    const marksKey = Object.entries(handMarks ?? {}).map(([k, v]) => k + v).join(',')
+    const marksPending = attempt?.status === 'scored' && !attempt.reviewed_at && marksKey !== ''
+    const applyingMarks = marksPending && appliedKey !== marksKey
+    useEffect(() => {
+        if (!applyingMarks || !words || !attemptId || !profile?.id || applyMarks.isPending) return
+        applyMarks.mutate(
+            { attemptId, marks: handMarks ?? {}, words },
+            {
+                onSuccess: ({ applied }) => {
+                    if (applied > 0) showToast(t.marksAddedToast(applied), 'success', theme === 'dark')
+                },
+                onSettled: () => setAppliedKey(marksKey),
+            }
+        )
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [applyingMarks, words, profile?.id])
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     // Intercepts any navigation attempt (header nav links, browser
     // back/forward, closing the tab) while hasUnsavedChanges is true —
@@ -183,7 +230,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
     })
     const showingWordReview = !attemptLoading && !attemptError && !!attempt
         && attempt.status !== 'pending' && attempt.status !== 'processing' && attempt.status !== 'failed'
-        && !attempt.reviewed_at && !wordsLoading && !!words
+        && !attempt.reviewed_at && !wordsLoading && !!words && !applyingMarks
     const handleConfirm = async (overrides: WordReviewOverride[]) => {
         if (!attemptId || !attempt) return
         try {
@@ -237,17 +284,51 @@ export const TeacherReviewAttemptPage: React.FC = () => {
             if (data?.status === 'failed') showToast(t.retryFailedToast, 'error', theme === 'dark')
         }
     }
+    // Scores the saved recording again. Every word row is replaced by the new run, so the
+    // teacher's own flags are first turned into hand marks, which are laid back on afterwards.
+    const handleRescore = async () => {
+        if (!attempt || !attemptId) return
+        const ok = await showConfirmation(t.rescoreConfirmTitle, t.rescoreConfirmText, theme === 'dark', 'question', t.rescoreConfirmButton)
+        if (!ok) return
+        try {
+            await reviewRef.current?.saveDraftNow()
+            const kept = await fetchTeacherMarks(attemptId)
+            await saveMarks.mutateAsync({ ...(handMarks ?? {}), ...kept })
+            queryClient.removeQueries({ queryKey: ['attempt-words', attemptId] })
+            setHasUnsavedChanges(false)
+        } catch (err) {
+            console.error('TeacherReviewAttempt: failed to prepare a re-score', err)
+            showToast(t.rescoreFailedToast, 'error', theme === 'dark')
+            return
+        }
+        await handleRetry()
+    }
     const handleBack = () => {
         navigate('/students/review')
     }
-    const backLink = (
+    const backButton = (
         <button
             onClick={handleBack}
-            className="mb-4 flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
+            className="flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
         >
             <ArrowLeft size={16} />
             {t.back}
         </button>
+    )
+    const backLink = (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            {backButton}
+            {attempt?.status === 'scored' && !attempt.reviewed_at && attempt.audio_path && (
+                <button
+                    onClick={handleRescore}
+                    disabled={retryScoring.isPending}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-teal-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-teal-400/15"
+                >
+                    <RefreshCw size={15} className={retryScoring.isPending ? 'animate-spin' : ''} />
+                    {t.rescoreButton}
+                </button>
+            )}
+        </div>
     )
     if (attemptLoading) {
         return (
@@ -320,7 +401,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                 </section>
             ) : attempt.reviewed_at ? (
                 <Navigate to={`/students/review/${attemptId}/results`} replace />
-            ) : wordsLoading || !words ? (
+            ) : wordsLoading || !words || applyingMarks ? (
                 reviewLoadingSkeleton
             ) : (
                 <AttemptWordReview
@@ -337,6 +418,9 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                     heightBudget={{ base: 232, lg: 200 }}
                     onUnsavedChangesChange={setHasUnsavedChanges}
                 />
+            )}
+            {(attempt.status === 'pending' || attempt.status === 'processing' || attempt.status === 'failed') && (
+                <ManualMarkPanel attemptId={attempt.id} passageText={attempt.passage_text} />
             )}
         </div>
     )
