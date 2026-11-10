@@ -489,6 +489,7 @@ dialog{border:0;padding:0;background:var(--clear);color:var(--panel-ink);overflo
 [data-mic=recording] #record-word::before{content:'';width:26px;height:26px;border-radius:4px;background:white;margin:4px}
 #mic-notice[data-state=checking]::before{content:'';display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-1px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:notice-spin .8s linear infinite}
 #mic-notice[data-state=correct]{border-color:#1f9d6b;color:#0b6b46}
+[data-theme="night"] #mic-notice[data-state=correct]{border-color:#4fd69c;color:#8ff0c4}
 #mic-notice[data-state=retry]{border-color:#c8761f}
 @keyframes notice-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){#mic-notice[data-state=checking]::before{animation:none}}
