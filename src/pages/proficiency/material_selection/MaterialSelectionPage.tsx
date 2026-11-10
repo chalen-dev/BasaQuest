@@ -158,16 +158,15 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
         const el = ref.current
         if (el) el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.7), behavior: 'smooth' })
     }
-    // Tall arrow buttons on either side of the cards, as tall as the cards themselves, so
-    // nothing is ever covered. The cards scroll between them.
+    // Just a big `<` and `>` with no button around them, one on each side of the cards.
     const arrow =
-        'flex w-14 shrink-0 cursor-pointer items-center justify-center self-stretch rounded-3xl border-2 border-gray-900/10 bg-white text-gray-800 shadow-md transition-colors hover:bg-teal-500 hover:text-white active:scale-95 dark:border-gray-100/20 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-teal-600 sm:w-16'
+        'flex w-12 shrink-0 cursor-pointer items-center justify-center self-stretch rounded-2xl text-gray-700 drop-shadow-md transition-[color,transform] hover:text-teal-500 active:scale-90 dark:text-gray-100 dark:hover:text-teal-300 sm:w-20'
     return (
         <div>
             {title && <div className="mb-2 min-w-0">{title}</div>}
             <div className="flex items-stretch gap-3 pb-6 pt-2">
                 <button type="button" aria-label={t.scrollLeft} onClick={() => page(-1)} className={arrow}>
-                    <ChevronLeft size={44} strokeWidth={3} />
+                    <ChevronLeft className="h-16 w-16 sm:h-24 sm:w-24" strokeWidth={3.5} />
                 </button>
                 <div
                     ref={ref}
@@ -176,7 +175,7 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
                     {children}
                 </div>
                 <button type="button" aria-label={t.scrollRight} onClick={() => page(1)} className={arrow}>
-                    <ChevronRight size={44} strokeWidth={3} />
+                    <ChevronRight className="h-16 w-16 sm:h-24 sm:w-24" strokeWidth={3.5} />
                 </button>
             </div>
         </div>
