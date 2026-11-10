@@ -141,7 +141,7 @@ export const RemediationListPage: React.FC = () => {
                             <button
                                 key={student.student_id}
                                 onClick={() => navigate(`/students/remediation/${student.student_id}`)}
-                                className="group flex cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-6 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:border-purple-500/60 hover:shadow-lg hover:shadow-purple-500/15 active:translate-y-0 active:scale-[0.99] active:shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-purple-400/60"
+                                className="group flex cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-6 text-left shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-150 hover:-translate-y-0.5 hover:border-purple-500/60 hover:bg-purple-100 dark:hover:bg-purple-400/15 hover:shadow-lg hover:shadow-purple-500/15 active:translate-y-0 active:scale-[0.99] active:shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-purple-400/60"
                             >
                                 <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400">
                                     <Sparkles size={26} />
