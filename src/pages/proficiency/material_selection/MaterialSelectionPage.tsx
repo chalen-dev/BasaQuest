@@ -1,7 +1,7 @@
 // File: src/pages/proficiency/MaterialSelection.tsx
-import React from 'react'
+import React, { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardCheck, Star } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ClipboardCheck, Star } from 'lucide-react'
 import { Owl } from '../../../components/ui/Owl.tsx'
 import { HomeButton } from '../../../components/buttons/HomeButton.tsx'
 import { FluentReadingSubNav } from '../components/FluentReadingSubNav.tsx'
@@ -77,6 +77,11 @@ const STRINGS: Record<Lang, {
     foundationalHeading: string
     foundationalDesc: string
     materialsHeading: string
+    materialsTitle: string
+    filterLabel: string
+    filters: Record<'all' | 'fil' | 'en', string>
+    scrollLeft: string
+    scrollRight: string
     enter: string
     grade: (n: number) => string
     minutes: (n: number) => string
@@ -98,7 +103,12 @@ const STRINGS: Record<Lang, {
         teacherDesc: 'Pumili ng mag-aaral, ihanda at suriin ang talata, at ipabasa ito sa iyong device o ipadala sa device ng mag-aaral.',
         foundationalHeading: 'Batayang mga Salita at Tunog',
         foundationalDesc: 'Magsanay sa mga letra, pantig, at simpleng salita bago tumuntong sa mas mahabang talata — mabuting simula para sa bagong nagbabasa.',
-        materialsHeading: 'O piliin ang isang materyales',
+        materialsHeading: 'Mga Babasahin',
+        materialsTitle: 'Mga Materyales sa Pagbasa',
+        filterLabel: 'Salain ayon sa wika',
+        filters: { all: 'Lahat ng wika', fil: 'Filipino', en: 'English' },
+        scrollLeft: 'Pakaliwa',
+        scrollRight: 'Pakanan',
         enter: 'Magsanay',
         grade: (n) => `Baitang ${n}`,
         minutes: (n) => `~${n} minuto`,
@@ -120,18 +130,98 @@ const STRINGS: Record<Lang, {
         teacherDesc: "Pick a pupil, prepare and check their passage, then have them read it on your device or send it to theirs.",
         foundationalHeading: 'Foundational Words & Sounds',
         foundationalDesc: "Practice letters, syllables, and simple words before moving to longer passages — a good starting point for new readers.",
-        materialsHeading: 'Or pick a reading material',
+        materialsHeading: 'Passages',
+        materialsTitle: 'Reading Materials',
+        filterLabel: 'Filter by language',
+        filters: { all: 'All languages', fil: 'Filipino', en: 'English' },
+        scrollLeft: 'Scroll left',
+        scrollRight: 'Scroll right',
         enter: 'Practice',
         grade: (n) => `Grade ${n}`,
         minutes: (n) => `~${n} min`,
     },
 }
+// A sideways shelf: cards snap into place, with arrow buttons to page left and right.
+const ScrollRow: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const ref = useRef<HTMLDivElement>(null)
+    const { lang } = useLang()
+    const t = STRINGS[lang]
+    const page = (dir: -1 | 1) => {
+        const el = ref.current
+        if (el) el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.8), behavior: 'smooth' })
+    }
+    const arrow =
+        'absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-2 border-gray-900/10 bg-white text-gray-800 shadow-md transition-colors hover:bg-teal-500 hover:text-white active:scale-95 dark:border-gray-100/20 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-teal-600 sm:flex'
+    return (
+        <div className="relative">
+            <button type="button" aria-label={t.scrollLeft} onClick={() => page(-1)} className={`${arrow} -left-3`}>
+                <ChevronLeft size={22} />
+            </button>
+            <div ref={ref} className="flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth px-1 pb-4 pt-1">
+                {children}
+            </div>
+            <button type="button" aria-label={t.scrollRight} onClick={() => page(1)} className={`${arrow} -right-3`}>
+                <ChevronRight size={22} />
+            </button>
+        </div>
+    )
+}
+const TONES = {
+    amber: {
+        border: 'border-amber-500/25 dark:border-amber-400/25',
+        btn: 'bg-amber-500 shadow-[0_4px_0_0_#b45309] active:shadow-[0_1px_0_0_#b45309] dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]',
+    },
+    teal: {
+        border: 'border-gray-900/5 dark:border-gray-100/10',
+        btn: 'bg-teal-500 shadow-[0_4px_0_0_#0f766e] active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]',
+    },
+}
+const ShelfCard: React.FC<{
+    tone: keyof typeof TONES
+    scene: React.ComponentProps<typeof BookCover>['scene']
+    coverColor: string
+    title: string
+    subtitle: string
+    chips: string[]
+    cta: string
+    onOpen: () => void
+}> = ({ tone, scene, coverColor, title, subtitle, chips, cta, onOpen }) => (
+    <div
+        className={`flex w-64 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border-2 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl dark:bg-gray-900 sm:w-72 ${TONES[tone].border}`}
+    >
+        <div className="h-52">
+            <BookCover scene={scene} coverColor={coverColor} title={title} subtitle={subtitle} />
+        </div>
+        <div className="flex flex-1 flex-col gap-3 p-4">
+            <div className="flex flex-wrap gap-2">
+                {chips.map((chip) => (
+                    <span key={chip} className="rounded-full bg-gray-900/5 px-3 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
+                        {chip}
+                    </span>
+                ))}
+            </div>
+            <button
+                onClick={onOpen}
+                className={`mt-auto w-full cursor-pointer rounded-full px-5 py-2 text-sm font-bold text-white transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 ${TONES[tone].btn}`}
+            >
+                {cta}
+            </button>
+        </div>
+    </div>
+)
 export const MaterialSelectionPage: React.FC = () => {
     const navigate = useNavigate()
     const { user } = useAuth()
     const { profile } = useProfile()
     const { lang } = useLang()
     const t = STRINGS[lang]
+    const [filter, setFilter] = useState<'all' | 'fil' | 'en'>('all')
+    const wanted = (l: 'Filipino' | 'English') => filter === 'all' || (filter === 'fil' ? l === 'Filipino' : l === 'English')
+    const foundationalGroups = (['Filipino', 'English'] as const)
+        .filter(wanted)
+        .map((l) => ({ lang: l, items: FOUNDATIONALS.filter((x) => x.lang === l) }))
+        .filter((g) => g.items.length > 0)
+    const materialsShown = MATERIALS.filter((m) => wanted(m.lang))
     const username = (user?.user_metadata?.username as string | undefined) ?? user?.email?.split('@')[0] ?? 'Guest'
     const isPupil = profile?.role === 'student'
     const { data: readyLangs = [] } = useReadyPassageLangsQuery(isPupil ? profile?.id : undefined)
@@ -256,69 +346,72 @@ export const MaterialSelectionPage: React.FC = () => {
                     </button>
                 </div>
             )}
-            {/* Row 2 — foundational words/sounds: its own row of book-style
-                cards (one per language/level), same shape as the materials
-                grid below, so multiple entries can sit side by side */}
-            <h2 className="mb-1 text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.foundationalHeading}</h2>
-            <p className="mb-4 max-w-2xl text-sm font-medium text-gray-700 dark:text-gray-200">{t.foundationalDesc}</p>
-            <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {FOUNDATIONALS.map((item) => (
-                    <div
-                        key={item.id}
-                        className="flex flex-col overflow-hidden rounded-2xl border-2 border-amber-500/25 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl dark:border-amber-400/25 dark:bg-gray-900"
+            {/* Reading Materials: a language filter, a shelf of foundational sets per
+                language, then one scrolling shelf of ready-made passages. */}
+            <h2 className="mb-1 text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.materialsTitle}</h2>
+            <div className="mb-6 flex flex-wrap items-center gap-2" role="group" aria-label={t.filterLabel}>
+                {(['all', 'fil', 'en'] as const).map((key) => (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => setFilter(key)}
+                        aria-pressed={filter === key}
+                        className={`cursor-pointer rounded-full border-2 px-4 py-1.5 text-sm font-bold transition-colors ${
+                            filter === key
+                                ? 'border-teal-500 bg-teal-500 text-white dark:border-teal-600 dark:bg-teal-600'
+                                : 'border-gray-900/10 bg-white text-gray-700 hover:bg-teal-500/10 dark:border-gray-100/15 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-teal-400/15'
+                        }`}
                     >
-                        <div className="h-56">
-                            <BookCover scene={item.scene} coverColor={item.coverColor} title={item.title} subtitle={item.subtitle} />
-                        </div>
-                        <div className="flex flex-1 flex-col gap-3 p-4">
-                            <div className="flex flex-wrap gap-2">
-                                <span className="rounded-full bg-gray-900/5 px-3 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                                    {item.lang}
-                                </span>
-                            </div>
-                            <button
-                                onClick={() => navigate(`/reading/proficiency/foundational/${item.id}`)}
-                                className="w-full cursor-pointer rounded-full bg-amber-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#b45309] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#b45309] dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]"
-                            >
-                                {t.enter}
-                            </button>
-                        </div>
-                    </div>
+                        {t.filters[key]}
+                    </button>
                 ))}
             </div>
-            {/* Row 3 — ready-made materials */}
-            <h2 className="mb-4 text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.materialsHeading}</h2>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {MATERIALS.map((material) => (
-                    <div
-                        key={material.id}
-                        className="flex flex-col overflow-hidden rounded-2xl border-2 border-gray-900/5 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl dark:border-gray-100/10 dark:bg-gray-900"
-                    >
-                        <div className="h-56">
-                            <BookCover scene={material.scene} coverColor={material.coverColor} title={material.title} subtitle={material.subtitle} />
+            {foundationalGroups.length > 0 && (
+                <>
+                    <h3 className="mb-1 text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.foundationalHeading}</h3>
+                    <p className="mb-4 max-w-2xl text-sm font-medium text-gray-700 dark:text-gray-200">{t.foundationalDesc}</p>
+                    {foundationalGroups.map((group) => (
+                        <div key={group.lang} className="mb-6">
+                            <div className="mb-2 text-sm font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">{group.lang}</div>
+                            <ScrollRow>
+                                {group.items.map((item) => (
+                                    <ShelfCard
+                                        key={item.id}
+                                        tone="amber"
+                                        scene={item.scene}
+                                        coverColor={item.coverColor}
+                                        title={item.title}
+                                        subtitle={item.subtitle}
+                                        chips={[item.lang]}
+                                        cta={t.enter}
+                                        onOpen={() => navigate(`/reading/proficiency/foundational/${item.id}`)}
+                                    />
+                                ))}
+                            </ScrollRow>
                         </div>
-                        <div className="flex flex-1 flex-col gap-3 p-4">
-                            <div className="flex flex-wrap gap-2">
-                                <span className="rounded-full bg-gray-900/5 px-3 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                                    {t.grade(material.grade)}
-                                </span>
-                                <span className="rounded-full bg-gray-900/5 px-3 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                                    {material.lang}
-                                </span>
-                                <span className="rounded-full bg-gray-900/5 px-3 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-100/10 dark:text-gray-300">
-                                    {t.minutes(material.minutes)}
-                                </span>
-                            </div>
-                            <button
-                                onClick={() => navigate(`/reading/proficiency/read/${material.id}`)}
-                                className="w-full cursor-pointer rounded-full bg-teal-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
-                            >
-                                {t.enter}
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </>
+            )}
+            {materialsShown.length > 0 && (
+                <>
+                    <h3 className="mb-3 text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.materialsHeading}</h3>
+                    <ScrollRow>
+                        {materialsShown.map((material) => (
+                            <ShelfCard
+                                key={material.id}
+                                tone="teal"
+                                scene={material.scene}
+                                coverColor={material.coverColor}
+                                title={material.title}
+                                subtitle={material.subtitle}
+                                chips={[t.grade(material.grade), material.lang, t.minutes(material.minutes)]}
+                                cta={t.enter}
+                                onOpen={() => navigate(`/reading/proficiency/read/${material.id}`)}
+                            />
+                        ))}
+                    </ScrollRow>
+                </>
+            )}
         </div>
     )
 }
