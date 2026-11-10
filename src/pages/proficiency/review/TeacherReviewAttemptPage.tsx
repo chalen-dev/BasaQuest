@@ -46,6 +46,10 @@ const STRINGS: Record<Lang, {
     loading: string
     scoringTitle: string
     scoringDesc: string
+    // Shown instead of the above once a reading has waited past SCORING_STUCK_MINUTES:
+    // nothing is scoring it, so it needs a push rather than a loader.
+    stalledTitle: string
+    stalledDesc: string
     failedTitle: string
     failedDesc: string
     retryButton: string
@@ -69,7 +73,9 @@ const STRINGS: Record<Lang, {
         unnamedStudent: 'Estudyante',
         loading: 'Kinukuha ang detalye...',
         scoringTitle: 'Isinasagawa pa ang Pagsusuri',
-        scoringDesc: 'Sinusuri pa ng sistema ang pagbasang ito. Maghintay lang ng ilang segundo.',
+        scoringDesc: 'Sinusuri pa ng sistema ang pagbasang ito. Maghintay lang ng ilang segundo hanggang isang minuto.',
+        stalledTitle: 'Hindi Pa Nasuri',
+        stalledDesc: 'Walang sumusuri sa pagbasang ito ngayon; maaaring hindi ito naipadala para suriin. Nasa sistema pa ang recording, kaya puwede mo itong suriin ngayon.',
         failedTitle: 'Hindi Nasuri',
         failedDesc: 'May problema sa pagsusuri sa pagbasang ito. Maaari mo itong subukan muli; nasa sistema pa ang recording.',
         retryButton: 'Subukan Muli',
@@ -93,7 +99,9 @@ const STRINGS: Record<Lang, {
         unnamedStudent: 'Student',
         loading: 'Loading...',
         scoringTitle: 'Scoring In Progress',
-        scoringDesc: 'This reading is still being scored. This should only take a few seconds.',
+        scoringDesc: 'This reading is still being scored. This should take a few seconds, up to a minute.',
+        stalledTitle: 'Not Scored Yet',
+        stalledDesc: "Nothing is scoring this reading right now. It may never have been sent for scoring. The recording is still saved, so you can score it now.",
         failedTitle: 'Scoring Failed',
         failedDesc: "There was a problem scoring this reading. The recording is still saved, so you can try again.",
         retryButton: 'Try Again',
@@ -262,6 +270,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
         )
     }
     const studentName = student?.full_name || student?.username || t.unnamedStudent
+    const stalled = now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
     return (
         <div className={showingWordReview ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
             {backLink}
@@ -272,10 +281,16 @@ export const TeacherReviewAttemptPage: React.FC = () => {
             )}
             {attempt.status === 'pending' || attempt.status === 'processing' ? (
                 <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-amber-500/40 bg-white p-8 text-center shadow-md dark:border-amber-400/30 dark:bg-gray-900">
-                    <OwlLoader message="" />
-                    <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.scoringTitle}</h2>
-                    <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.scoringDesc}</p>
-                    {now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000 && (
+                    {/* The loader only while something really is scoring it: a reading that has waited
+                        past SCORING_STUCK_MINUTES gets a plain owl and a way to start the scoring. */}
+                    {!stalled || retryScoring.isPending ? <OwlLoader message="" /> : <Owl mood="confused" size={72} />}
+                    <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">
+                        {stalled && !retryScoring.isPending ? t.stalledTitle : t.scoringTitle}
+                    </h2>
+                    <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">
+                        {stalled && !retryScoring.isPending ? t.stalledDesc : t.scoringDesc}
+                    </p>
+                    {stalled && (
                         <button
                             onClick={handleRetry}
                             disabled={retryScoring.isPending}
