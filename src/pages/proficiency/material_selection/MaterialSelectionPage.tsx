@@ -29,9 +29,9 @@ type Material = {
     coverColor: string
 }
 const MATERIALS: Material[] = [
+    { id: 'the-kite', title: 'The Paper Kite', subtitle: 'Free Reading · English', grade: 3, lang: 'English', minutes: 4, scene: 'kite', coverColor: '#d6547e' },
     { id: 'ang-pusa', title: 'Ang Pusa at ang Buwan', subtitle: 'Isang Maikling Kuwento', grade: 3, lang: 'Filipino', minutes: 4, scene: 'moon', coverColor: '#ff7a59' },
     { id: 'palengke', title: 'Umaga sa Palengke', subtitle: 'Basahin nang Malakas', grade: 3, lang: 'Filipino', minutes: 3, scene: 'market', coverColor: '#ffc64b' },
-    { id: 'the-kite', title: 'The Paper Kite', subtitle: 'Free Reading · English', grade: 3, lang: 'English', minutes: 4, scene: 'kite', coverColor: '#d6547e' },
 ]
 // Foundational-skills levels — same card treatment as MATERIALS, just its
 // own row above them since these aren't passages, they're letter/sound
@@ -257,7 +257,7 @@ export const MaterialSelectionPage: React.FC = () => {
     const t = STRINGS[lang]
     const [filter, setFilter] = useState<'all' | 'fil' | 'en'>('all')
     const wanted = (l: 'Filipino' | 'English') => filter === 'all' || (filter === 'fil' ? l === 'Filipino' : l === 'English')
-    const foundationalGroups = (['Filipino', 'English'] as const)
+    const foundationalGroups = (['English', 'Filipino'] as const)
         .filter(wanted)
         .map((l) => ({ lang: l, items: FOUNDATIONALS.filter((x) => x.lang === l) }))
         .filter((g) => g.items.length > 0)
@@ -391,7 +391,7 @@ export const MaterialSelectionPage: React.FC = () => {
                 language, then one scrolling shelf of ready-made passages. */}
             <h2 className="mb-1 text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.materialsTitle}</h2>
             <div className="mb-6 flex flex-wrap items-center gap-2" role="group" aria-label={t.filterLabel}>
-                {(['all', 'fil', 'en'] as const).map((key) => (
+                {(['all', 'en', 'fil'] as const).map((key) => (
                     <button
                         key={key}
                         type="button"

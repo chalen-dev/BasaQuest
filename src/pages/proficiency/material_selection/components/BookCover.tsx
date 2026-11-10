@@ -182,10 +182,8 @@ function shade(hex: string, amt: number) {
 function clamp(v: number) {
     return Math.max(0, Math.min(255, Math.round(v)))
 }
-function readableInk(hex: string, alpha = 1) {
-    const n = hex.replace('#', '')
-    const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16))
-    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-    return lum > 0.62 ? `rgba(43,36,56,${alpha})` : `rgba(255,253,248,${alpha})`
+// One dark ink on every cover, so titles and subtitles look the same on all the colours.
+function readableInk(_hex: string, alpha = 1) {
+    return `rgba(43,36,56,${alpha})`
 }
 export default BookCover
