@@ -8,6 +8,8 @@
 //
 //   lettersLoad(list)     this page -> scene: the level's letters A to Z, each
 //                         {word, sound, image (emoji), imageUrl, extras: [...]}
+//   lettersTheme(night, instant)  this page -> scene: the website's day/night setting (the scene's
+//                         own switch sends letters:theme back, and this page flips the website's theme)
 //   lettersCanEdit(bool)  this page -> scene: show the "Edit cards" button
 //   lettersSpeaking(bool) this page -> scene: the voice is loading (spinner)
 //   lettersTalking(bool)  this page -> scene: the voice is playing (owl talks)
@@ -25,6 +27,7 @@ import { useNavigate } from 'react-router-dom'
 import { prefetchAudio, preloadAudio, usePronounceWord } from '../remediation/session/features/usePronounceWord.ts'
 import { OwlLoader } from '../../../components/ui/OwlLoader.tsx'
 import { useProfile } from '../../../hooks/useProfile.ts'
+import { useTheme } from '../../../contexts/ThemeContext.tsx'
 import type { FoundationalLanguage, FoundationalLetter } from './data/types.ts'
 import { buildSceneLetters, useFoundationalSetQuery, useLibraryPicturesQuery, type SceneLetter } from './hooks.ts'
 
@@ -34,6 +37,7 @@ type SceneWindow = Window & {
     lettersSpeak?: (word: string) => void
     lettersSpeaking?: (loading: boolean) => void
     lettersTalking?: (talking: boolean) => void
+    lettersTheme?: (night: boolean, instant?: boolean) => void
 }
 
 const SCENE_URL = '/letters-practice.html'
@@ -41,6 +45,7 @@ const SCENE_URL = '/letters-practice.html'
 export default function LettersScene({ levelId, language, letters }: { levelId: string; language: FoundationalLanguage; letters: FoundationalLetter[] }) {
     const navigate = useNavigate()
     const { profile, loading: profileLoading } = useProfile()
+    const { theme, toggleTheme } = useTheme()
     const { speak, stop, isLoading, isPlaying } = usePronounceWord()
     const [sceneWin, setSceneWin] = useState<SceneWindow | null>(null)
     const setQuery = useFoundationalSetQuery(levelId)
@@ -93,6 +98,20 @@ export default function LettersScene({ levelId, language, letters }: { levelId: 
         sceneWin?.lettersLoad?.(list, language)
     }, [sceneWin, list, language])
 
+    // The scene follows the website's day/night setting; its own switch flips the website's.
+    const themeRef = useRef(theme)
+    const toggleThemeRef = useRef(toggleTheme)
+    useEffect(() => {
+        themeRef.current = theme
+        toggleThemeRef.current = toggleTheme
+    }, [theme, toggleTheme])
+    const themed = useRef(false)
+    useEffect(() => {
+        if (!sceneWin) return
+        sceneWin.lettersTheme?.(theme === 'dark', !themed.current)
+        themed.current = true
+    }, [sceneWin, theme])
+
     useEffect(() => {
         sceneWin?.lettersCanEdit?.(canEdit)
     }, [sceneWin, canEdit])
@@ -110,6 +129,7 @@ export default function LettersScene({ levelId, language, letters }: { levelId: 
             if (event.origin !== window.location.origin) return
             if (event.data?.type === 'letters:exit') navigate('/reading/proficiency')
             if (event.data?.type === 'letters:stop') stopRef.current()
+            if (event.data?.type === 'letters:theme' && (event.data.night === true) !== (themeRef.current === 'dark')) toggleThemeRef.current()
             if (event.data?.type === 'letters:edit') navigate(`/reading/proficiency/foundational/${levelId}/edit`)
         }
         window.addEventListener('message', onMessage)

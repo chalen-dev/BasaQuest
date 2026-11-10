@@ -244,12 +244,23 @@ function finishLighting(){
 }
 lightRoom();
 motionPreference.addEventListener('change',()=>{if(motionPreference.matches)finishLighting()});
-themeSwitch.onclick=()=>{
-  targetLight=1-targetLight;
-  setTheme(targetLight===0);
-  try{localStorage.setItem('alphabet-classroom-theme',room.dataset.theme)}catch{}
-  if(motionPreference.matches){finishLighting();return}
+/* applyNight(night, instant): move the room to night or day (glide unless instant or reduced motion). */
+function applyNight(night,instant){
+  const target=night?0:1;
+  if(target===targetLight&&!instant)return;
+  targetLight=target;
+  setTheme(night);
+  if(instant||motionPreference.matches){finishLighting();return}
   if(!lightingFrame){previousTime=performance.now();lightingFrame=requestAnimationFrame(advanceLighting)}
+}
+/* Inside the app the website's own day/night setting is the truth: the host sends it with lettersTheme(night, instant)
+   and gets a letters:theme message back when this switch is tapped. On its own the page remembers its own choice. */
+window.lettersTheme=(night,instant)=>applyNight(!!night,!!instant);
+themeSwitch.onclick=()=>{
+  const night=targetLight!==0;
+  applyNight(night);
+  if(window.parent!==window)window.parent.postMessage({type:'letters:theme',night},location.origin);
+  else{try{localStorage.setItem('alphabet-classroom-theme',room.dataset.theme)}catch{}}
 };
 
 const letters=Array.from('abcdefghijklmnopqrstuvwxyz');
