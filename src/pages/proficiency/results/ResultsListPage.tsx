@@ -199,7 +199,7 @@ export const ResultsListPage: React.FC = () => {
                             <button
                                 key={attempt.id}
                                 onClick={() => navigate(`/students/review/${attempt.id}/results`)}
-                                className="flex cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-6 text-left shadow-sm transition-colors duration-150 hover:border-teal-500/30 dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-teal-400/30"
+                                className="group flex cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-6 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:border-teal-500/60 hover:shadow-lg hover:shadow-teal-500/15 active:translate-y-0 active:scale-[0.99] active:shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-teal-400/60"
                             >
                                 <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-green-500/15 text-green-600 dark:text-green-400">
                                     <Mic size={26} />
@@ -230,7 +230,7 @@ export const ResultsListPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <DaysLeftBadge purgeAfter={attempt.purge_after} t={t} />
-                                <ArrowRight size={22} className="shrink-0 text-gray-400 dark:text-gray-500" />
+                                <ArrowRight size={22} className="shrink-0 text-gray-400 transition-[transform,color] duration-150 group-hover:translate-x-1 group-hover:text-teal-500 dark:text-gray-500 dark:group-hover:text-teal-400" />
                             </button>
                         )
                     })}

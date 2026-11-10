@@ -141,7 +141,7 @@ export const RemediationListPage: React.FC = () => {
                             <button
                                 key={student.student_id}
                                 onClick={() => navigate(`/students/remediation/${student.student_id}`)}
-                                className="flex cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-6 text-left shadow-sm transition-colors duration-150 hover:border-purple-500/30 dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-purple-400/30"
+                                className="group flex cursor-pointer items-center gap-5 rounded-2xl border-2 border-gray-900/5 bg-white p-6 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:border-purple-500/60 hover:shadow-lg hover:shadow-purple-500/15 active:translate-y-0 active:scale-[0.99] active:shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:hover:border-purple-400/60"
                             >
                                 <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400">
                                     <Sparkles size={26} />
@@ -164,7 +164,7 @@ export const RemediationListPage: React.FC = () => {
                                 <span className="shrink-0 rounded-full bg-purple-500/15 px-5 py-2.5 text-lg font-extrabold text-purple-700 dark:text-purple-300">
                                     {t.materialsCount(student.material_count)}
                                 </span>
-                                <ArrowRight size={22} className="shrink-0 text-gray-400 dark:text-gray-500" />
+                                <ArrowRight size={22} className="shrink-0 text-gray-400 transition-[transform,color] duration-150 group-hover:translate-x-1 group-hover:text-purple-500 dark:text-gray-500 dark:group-hover:text-purple-400" />
                             </button>
                         )
                     })}

@@ -54,10 +54,10 @@ export const StudentRow: React.FC<StudentRowProps> = ({
                 if (e.key === 'Enter' || e.key === ' ') onSelect()
             }}
             style={{ borderLeftColor: accent, borderLeftWidth: 6 }}
-            className={`group flex w-full cursor-pointer items-center gap-5 rounded-2xl border-2 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-gray-900 ${
+            className={`group flex w-full cursor-pointer items-center gap-5 rounded-2xl border-2 bg-white p-5 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:scale-[0.99] active:shadow-sm dark:bg-gray-900 ${
                 isSelected
                     ? 'border-gray-900/20 ring-2 ring-teal-400/60 dark:border-gray-100/25'
-                    : 'border-gray-900/5 dark:border-gray-100/10'
+                    : 'border-gray-900/5 hover:border-teal-500/50 dark:border-gray-100/10 dark:hover:border-teal-400/50'
             } ${isDeleting ? 'opacity-50' : student.is_disabled ? 'opacity-60' : ''}`}
         >
             <span
@@ -107,7 +107,7 @@ export const StudentRow: React.FC<StudentRowProps> = ({
                         aria-label={t.forceLogoutAria}
                         disabled={isForcingLogout || student.is_disabled}
                         onClick={onForceLogout}
-                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-colors duration-200 hover:bg-violet-500/10 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-violet-500/15 dark:hover:text-violet-400"
+                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-[transform,background-color,color] duration-150 active:scale-90 hover:bg-violet-500/20 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-violet-500/15 dark:hover:text-violet-400"
                     >
                         <MonitorOff size={19} />
                     </button>
@@ -120,7 +120,7 @@ export const StudentRow: React.FC<StudentRowProps> = ({
                             e.stopPropagation()
                             onEdit()
                         }}
-                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-colors duration-200 hover:bg-gray-900/5 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-100/10 dark:hover:text-gray-50"
+                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-[transform,background-color,color] duration-150 active:scale-90 hover:bg-gray-900/10 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-100/10 dark:hover:text-gray-50"
                     >
                         <Pencil size={19} />
                     </button>
@@ -131,7 +131,7 @@ export const StudentRow: React.FC<StudentRowProps> = ({
                         aria-label={student.is_disabled ? t.enableAria : t.disableAria}
                         disabled={isTogglingStatus}
                         onClick={onToggleStatus}
-                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-colors duration-200 hover:bg-amber-500/10 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-amber-500/15 dark:hover:text-amber-400"
+                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-[transform,background-color,color] duration-150 active:scale-90 hover:bg-amber-500/20 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-amber-500/15 dark:hover:text-amber-400"
                     >
                         {student.is_disabled ? <ShieldCheck size={19} /> : <Ban size={19} />}
                     </button>
@@ -142,7 +142,7 @@ export const StudentRow: React.FC<StudentRowProps> = ({
                         aria-label={t.deleteAria}
                         disabled={isDeleting}
                         onClick={onDelete}
-                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-colors duration-200 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-gray-500 transition-[transform,background-color,color] duration-150 active:scale-90 hover:bg-red-500/20 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:hover:bg-red-500/15 dark:hover:text-red-400"
                     >
                         <Trash2 size={19} />
                     </button>

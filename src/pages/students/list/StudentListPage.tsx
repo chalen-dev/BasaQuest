@@ -511,7 +511,7 @@ export const StudentListPage: React.FC = () => {
                         </div>
                         <button
                             onClick={openCreateForm}
-                            className="flex w-fit cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-6 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 active:translate-y-1 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                            className="flex w-fit cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-6 py-3 text-base font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow,filter] duration-150 hover:-translate-y-0.5 hover:brightness-110 active:translate-y-1 active:shadow-[0_1px_0_0_#0f766e] dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
                         >
                             <Plus size={19} />
                             {t.addButton}
