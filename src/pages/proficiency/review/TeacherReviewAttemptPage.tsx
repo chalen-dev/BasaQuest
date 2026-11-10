@@ -43,7 +43,6 @@ import {
     type WordReviewOverride,
 } from './hooks'
 import { AttemptWordReview, type AttemptWordReviewHandle } from './features/AttemptWordReview'
-import { ManualMarkPanel } from './features/ManualMarkPanel'
 import { useRetryScoring } from '../../proficiency/pre_assessment/assessment_session/features/useSubmitAttempt'
 const STRINGS: Record<Lang, {
     back: string
@@ -62,6 +61,7 @@ const STRINGS: Record<Lang, {
     retryingLabel: string
     retryFailedToast: string
     rescoreButton: string
+    markManuallyButton: string
     rescoreConfirmTitle: string
     rescoreConfirmText: string
     rescoreConfirmButton: string
@@ -94,6 +94,7 @@ const STRINGS: Record<Lang, {
         retryingLabel: 'Sinusuri...',
         retryFailedToast: 'Hindi pa rin nasuri. Pakisubukang muli mamaya.',
         rescoreButton: 'Suriin Muli',
+        markManuallyButton: 'Markahan ang mga Salita',
         rescoreConfirmTitle: 'Suriin muli ang pagbasang ito?',
         rescoreConfirmText: 'Papalitan ng bagong pagsusuri ang mga marka ng sistema (katumpakan, at iba pa). Mananatili ang mga salitang minarkahan mo.',
         rescoreConfirmButton: 'Suriin Muli',
@@ -126,6 +127,7 @@ const STRINGS: Record<Lang, {
         retryingLabel: 'Scoring...',
         retryFailedToast: "Still couldn't score it. Please try again in a bit.",
         rescoreButton: 'Score Again',
+        markManuallyButton: 'Mark Words Manually',
         rescoreConfirmTitle: 'Score this reading again?',
         rescoreConfirmText: "A new run replaces the system's scores (accuracy and the rest). The words you marked are kept.",
         rescoreConfirmButton: 'Score Again',
@@ -342,7 +344,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
                 {backLink}
-                <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
+                <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
                     <Owl mood="neutral" size={64} />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.notFoundTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.notFoundDesc}</p>
@@ -350,21 +352,20 @@ export const TeacherReviewAttemptPage: React.FC = () => {
             </div>
         )
     }
-    const marking = attempt.status === 'pending' || attempt.status === 'processing' || attempt.status === 'failed'
     const studentName = student?.full_name || student?.username || t.unnamedStudent
     // Stalled = still 'pending' long after it was submitted. A reading the scoring service is
     // working on has status 'processing', however old the reading is (a retried one included).
     const stalled = attempt.status === 'pending' && now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
     return (
-        <div className={showingWordReview || marking ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
+        <div className={showingWordReview ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
             {backLink}
             {!showingWordReview && (
-                <p className={`mb-4 text-sm font-bold text-teal-700 dark:text-teal-300 ${marking ? 'mx-auto max-w-3xl' : ''}`}>
+                <p className="mb-4 text-sm font-bold text-teal-700 dark:text-teal-300">
                     {t.for} {studentName}
                 </p>
             )}
             {attempt.status === 'pending' || attempt.status === 'processing' ? (
-                <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 rounded-3xl border-2 border-amber-500/40 bg-white p-8 text-center shadow-md dark:border-amber-400/30 dark:bg-gray-900">
+                <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-amber-500/40 bg-white p-8 text-center shadow-md dark:border-amber-400/30 dark:bg-gray-900">
                     {/* The loader only while something really is scoring it: a reading that has waited
                         past SCORING_STUCK_MINUTES gets a plain owl and a way to start the scoring. */}
                     {!stalled || retryScoring.isPending ? <OwlLoader message="" /> : <Owl mood="confused" size={72} />}
@@ -383,9 +384,15 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                             {retryScoring.isPending ? t.retryingLabel : t.retryButton}
                         </button>
                     )}
+                    <button
+                        onClick={() => navigate(`/students/review/${attempt.id}/mark`)}
+                        className="cursor-pointer rounded-full border-2 border-teal-500/40 px-6 py-2 text-sm font-bold text-teal-700 transition-colors duration-150 hover:bg-teal-500/10 dark:border-teal-400/30 dark:text-teal-300 dark:hover:bg-teal-400/10"
+                    >
+                        {t.markManuallyButton}
+                    </button>
                 </section>
             ) : attempt.status === 'failed' ? (
-                <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
+                <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
                     <Owl mood="neutral" size={64} />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.failedTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.failedDesc}</p>
@@ -398,6 +405,12 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                         className="mt-1 cursor-pointer rounded-full bg-teal-500 px-6 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
                     >
                         {retryScoring.isPending ? t.retryingLabel : t.retryButton}
+                    </button>
+                    <button
+                        onClick={() => navigate(`/students/review/${attempt.id}/mark`)}
+                        className="cursor-pointer rounded-full border-2 border-teal-500/40 px-6 py-2 text-sm font-bold text-teal-700 transition-colors duration-150 hover:bg-teal-500/10 dark:border-teal-400/30 dark:text-teal-300 dark:hover:bg-teal-400/10"
+                    >
+                        {t.markManuallyButton}
                     </button>
                 </section>
             ) : attempt.reviewed_at ? (
@@ -419,9 +432,6 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                     heightBudget={{ base: 232, lg: 200 }}
                     onUnsavedChangesChange={setHasUnsavedChanges}
                 />
-            )}
-            {(attempt.status === 'pending' || attempt.status === 'processing' || attempt.status === 'failed') && (
-                <ManualMarkPanel attemptId={attempt.id} passageText={attempt.passage_text} />
             )}
         </div>
     )
