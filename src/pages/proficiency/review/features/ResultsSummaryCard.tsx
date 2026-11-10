@@ -19,6 +19,7 @@ import { Check, CircleAlert, UserRound } from 'lucide-react'
 import type { AttemptDetail, AttemptWord } from '../hooks'
 import type { AttemptWordReviewStrings } from './attemptWordReviewStrings'
 import { ScorePill } from './AttemptWordReviewShared'
+import { Tooltip } from '../../../../components/ui/Tooltip.tsx'
 import { AudioPlayer } from '../../../../components/ui/AudioPlayer.tsx'
 import { DifficultyStars } from '../../../../components/ui/DifficultyStars.tsx'
 
@@ -68,21 +69,26 @@ export function ResultsSummaryCard({ attempt, studentName, words, manualFlags, t
                     )}
                 </div>
                 <div className="flex flex-wrap items-center justify-start gap-2 border-t border-dashed border-gray-900/10 pt-3 dark:border-gray-100/10">
-                    <DifficultyStars text={attempt.passage_text} language={attempt.language} size={14} />
+                    <DifficultyStars text={attempt.passage_text} language={attempt.language} size={14} hint={t.difficultyHint} />
                     {showScores && (
                         <>
-                            <ScorePill label={t.accuracy} value={attempt.accuracy_score} />
-                            <ScorePill label={t.fluency} value={attempt.fluency_score} />
-                            <ScorePill label={t.completeness} value={attempt.completeness_score} />
-                            <ScorePill label={t.prosody} value={attempt.prosody_score} />
-                            <ScorePill label={t.pronunciation} value={attempt.pron_score} />
+                            <ScorePill label={t.accuracy} value={attempt.accuracy_score} hint={t.accuracyHint} />
+                            <ScorePill label={t.fluency} value={attempt.fluency_score} hint={t.fluencyHint} />
+                            <ScorePill label={t.completeness} value={attempt.completeness_score} hint={t.completenessHint} />
+                            <ScorePill label={t.prosody} value={attempt.prosody_score} hint={t.prosodyHint} />
+                            <ScorePill label={t.pronunciation} value={attempt.pron_score} hint={t.pronunciationHint} />
                         </>
                     )}
                     {flaggedCount > 0 ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
-                            <CircleAlert size={13} />
-                            {t.needsAttention(flaggedCount)}
-                        </span>
+                        <Tooltip label={t.needsAttentionHint} position="bottom" wide>
+                            <span
+                                tabIndex={0}
+                                className="inline-flex cursor-help items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-700 transition-colors duration-150 hover:bg-amber-500/30 dark:bg-amber-400/15 dark:text-amber-300 dark:hover:bg-amber-400/30"
+                            >
+                                <CircleAlert size={13} />
+                                {t.needsAttention(flaggedCount)}
+                            </span>
+                        </Tooltip>
                     ) : (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/15 px-3 py-1 text-xs font-bold text-green-600 dark:text-green-400">
                             <Check size={13} />

@@ -6,6 +6,7 @@
 import { useLang } from '../../contexts/LangContext.tsx'
 import { rateDifficulty } from '../../lib/passageDifficulty.ts'
 import { StarRating } from './StarRating.tsx'
+import { Tooltip } from './Tooltip.tsx'
 
 const LABEL = { fil: 'Hirap ng talata', en: 'Passage difficulty' } as const
 
@@ -14,22 +15,33 @@ export function DifficultyStars({
     language,
     size = 15,
     className = '',
+    hint,
 }: {
     text: string | null | undefined
     language: 'en' | 'fil'
     size?: number
     className?: string
+    /** An explanation of the rating, shown on hover; the star count still comes first. */
+    hint?: string
 }) {
     const { lang } = useLang()
     if (!text || !text.trim()) return null
     const stars = rateDifficulty(text, language)
     const label = `${LABEL[lang]}: ${stars} / 5`
-    return (
+    const pill = (
         <span
-            title={label}
-            className={`inline-flex items-center rounded-full bg-gray-900/5 px-3 py-1 dark:bg-gray-100/10 ${className}`}
+            title={hint ? undefined : label}
+            tabIndex={hint ? 0 : undefined}
+            className={`inline-flex items-center rounded-full bg-gray-900/5 px-3 py-1 dark:bg-gray-100/10 ${hint ? 'cursor-help transition-colors duration-150 hover:bg-amber-500/20 dark:hover:bg-amber-400/20' : ''} ${className}`}
         >
             <StarRating value={stars} label={label} size={size} />
         </span>
+    )
+    return hint ? (
+        <Tooltip label={`${label}. ${hint}`} position="bottom" wide>
+            {pill}
+        </Tooltip>
+    ) : (
+        pill
     )
 }

@@ -11,6 +11,13 @@ export const STRINGS: Record<Lang, {
     completeness: string
     prosody: string
     pronunciation: string
+    difficultyHint: string
+    accuracyHint: string
+    fluencyHint: string
+    completenessHint: string
+    prosodyHint: string
+    pronunciationHint: string
+    needsAttentionHint: string
     needsAttention: (n: number) => string
     allClear: string
     tapHint: string
@@ -68,6 +75,13 @@ export const STRINGS: Record<Lang, {
         completeness: 'Pagkakumpleto',
         prosody: 'Ritmo',
         pronunciation: 'Bigkas',
+        difficultyHint: 'Gaano kahirap basahin ang talata, mula 1 hanggang 5 bituin. Batay ito sa mismong teksto (haba ng salita at pangungusap).',
+        accuracyHint: 'Gaano kalapit ang mga tunog ng binigkas sa mga salita sa talata. Mas mataas, mas mabuti (0-100).',
+        fluencyHint: 'Gaano kakinis at tuloy-tuloy ang pagbasa: may natural na paghinto at walang pag-aalinlangan.',
+        completenessHint: 'Gaano karami sa talata ang aktuwal na nabasa. Bumababa ito kapag may nalaktawang salita.',
+        prosodyHint: 'Gaano natural ang indayog, diin, at tono ng pagbasa, parang may damdamin.',
+        pronunciationHint: 'Pangkalahatang kalidad ng bigkas sa buong pagbasa.',
+        needsAttentionHint: 'Mga salitang hindi tiyak ang sistema o minarkahan mo, na kailangan mong suriin.',
         needsAttention: (n) => `${n} salitang kailangan ng pansin`,
         allClear: 'Walang naka-flag na salita',
         tapHint: 'Pindutin ang salita sa talata para idagdag ito dito.',
@@ -119,6 +133,13 @@ export const STRINGS: Record<Lang, {
         completeness: 'Completeness',
         prosody: 'Prosody',
         pronunciation: 'Pronunciation',
+        difficultyHint: 'How hard the passage is to read, from 1 to 5 stars. Rated from the text itself (word and sentence length).',
+        accuracyHint: 'How closely the sounds the pupil made match the words in the passage. Higher is better (0-100).',
+        fluencyHint: 'How smooth and steady the reading was, with natural pauses and no hesitations.',
+        completenessHint: 'How much of the passage was actually read. Skipped words lower it.',
+        prosodyHint: 'How natural the rhythm, stress and tone sounded, like expressive reading.',
+        pronunciationHint: 'The overall pronunciation quality across the whole reading.',
+        needsAttentionHint: 'Words the system was unsure about, or that you flagged, for you to check.',
         needsAttention: (n) => `${n} word${n === 1 ? '' : 's'} flagged for attention`,
         allClear: 'No words flagged',
         tapHint: 'Tap a word in the passage to add it here.',

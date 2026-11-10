@@ -10,12 +10,24 @@
 // (react-refresh/only-export-components).
 import { Ear, MinusCircle } from 'lucide-react'
 import type { AttemptWord } from '../hooks'
-export function ScorePill({ label, value }: { label: string; value: number | null }) {
+import { Tooltip } from '../../../../components/ui/Tooltip'
+export function ScorePill({ label, value, hint }: { label: string; value: number | null; hint?: string }) {
     if (value == null) return null
-    return (
-        <span className="rounded-full bg-gray-900/5 px-3 py-1 text-xs font-bold text-gray-700 dark:bg-gray-100/10 dark:text-gray-300">
+    const pill = (
+        <span
+            tabIndex={hint ? 0 : undefined}
+            className={`rounded-full bg-gray-900/5 px-3 py-1 text-xs font-bold text-gray-700 dark:bg-gray-100/10 dark:text-gray-300 ${hint ? 'cursor-help transition-colors duration-150 hover:bg-teal-500/20 dark:hover:bg-teal-400/20' : ''}`}
+        >
             {label}: {Math.round(value)}
         </span>
+    )
+    // A short explanation of what the score measures, on hover or keyboard focus.
+    return hint ? (
+        <Tooltip label={hint} position="bottom" wide>
+            {pill}
+        </Tooltip>
+    ) : (
+        pill
     )
 }
 export function LegendSwatch({ colorClass, label }: { colorClass: string; label: string }) {

@@ -5,6 +5,8 @@ interface TooltipProps {
     label: string
     children: React.ReactNode
     position?: 'top' | 'bottom'
+    /** Longer explanations: a fixed-width box with wrapping text instead of one line. */
+    wide?: boolean
 }
 // Small, dependency-free tooltip — shows a dark pill above (or below,
 // via `position`) whatever it wraps on hover/focus. Built for icon-only
@@ -21,7 +23,7 @@ interface TooltipProps {
 // app's sticky header, which sits at z-40). z-50 is deliberately higher
 // than every other z-index currently used in this app, so a tooltip
 // always wins regardless of what it's layered over.
-export const Tooltip: React.FC<TooltipProps> = ({ label, children, position = 'top' }) => {
+export const Tooltip: React.FC<TooltipProps> = ({ label, children, position = 'top', wide = false }) => {
     const [visible, setVisible] = useState(false)
     return (
         <span
@@ -34,9 +36,9 @@ export const Tooltip: React.FC<TooltipProps> = ({ label, children, position = 't
             {children}
             <span
                 role="tooltip"
-                className={`pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-gray-900 px-2.5 py-1 text-xs font-bold text-white shadow-lg transition-opacity duration-150 dark:bg-gray-700 ${
-                    position === 'bottom' ? 'top-full mt-2' : '-top-9'
-                } ${visible ? 'opacity-100' : 'opacity-0'}`}
+                className={`pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 rounded-lg bg-gray-900 px-2.5 py-1 text-xs font-bold text-white shadow-lg transition-opacity duration-150 dark:bg-gray-700 ${
+                    wide ? 'w-60 whitespace-normal py-2 text-left font-semibold leading-snug' : 'whitespace-nowrap'
+                } ${position === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'} ${visible ? 'opacity-100' : 'opacity-0'}`}
             >
                 {label}
             </span>

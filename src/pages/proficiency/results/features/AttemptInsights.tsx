@@ -71,11 +71,11 @@ export const AttemptInsights: React.FC<AttemptInsightsProps> = ({
                 <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{t.resultsTabTitle}</h2>
                 <p className="mt-1 text-sm font-medium text-gray-600 dark:text-gray-400">{t.resultsTabSubtitle}</p>
                 <div className="mt-5 flex flex-wrap gap-3">
-                    <ScorePill label={reviewT.accuracy} value={attempt.accuracy_score} />
-                    <ScorePill label={reviewT.fluency} value={attempt.fluency_score} />
-                    <ScorePill label={reviewT.completeness} value={attempt.completeness_score} />
-                    <ScorePill label={reviewT.prosody} value={attempt.prosody_score} />
-                    <ScorePill label={reviewT.pronunciation} value={attempt.pron_score} />
+                    <ScorePill label={reviewT.accuracy} value={attempt.accuracy_score} hint={reviewT.accuracyHint} />
+                    <ScorePill label={reviewT.fluency} value={attempt.fluency_score} hint={reviewT.fluencyHint} />
+                    <ScorePill label={reviewT.completeness} value={attempt.completeness_score} hint={reviewT.completenessHint} />
+                    <ScorePill label={reviewT.prosody} value={attempt.prosody_score} hint={reviewT.prosodyHint} />
+                    <ScorePill label={reviewT.pronunciation} value={attempt.pron_score} hint={reviewT.pronunciationHint} />
                 </div>
                 {hasAnyInsight && (
                     <div className="mt-8 border-t border-dashed border-gray-900/10 pt-6 dark:border-gray-100/10">
