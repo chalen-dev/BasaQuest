@@ -12,11 +12,29 @@ import { Skeleton } from '../../../components/ui/Skeleton'
 import { usePendingReviewCountQuery } from '../../proficiency/review/hooks'
 import { useDashboardStatsQuery, useRecentAttemptsQuery } from './hooks'
 type StatColor = 'teal' | 'orange' | 'sky' | 'slate'
-const STAT_COLOR_CLASSES: Record<StatColor, { bg: string; icon: string }> = {
-    teal: { bg: 'bg-teal-500/15', icon: 'text-teal-600 dark:text-teal-400' },
-    orange: { bg: 'bg-orange-500/15', icon: 'text-orange-600 dark:text-orange-400' },
-    sky: { bg: 'bg-sky-500/15', icon: 'text-sky-600 dark:text-sky-400' },
-    slate: { bg: 'bg-slate-500/15', icon: 'text-slate-600 dark:text-slate-300' },
+// `hover` is the card's hover look, in the icon's own colour and solid (never
+// see-through) so the numbers stay readable. Written out in full so Tailwind sees them.
+const STAT_COLOR_CLASSES: Record<StatColor, { bg: string; icon: string; hover: string }> = {
+    teal: {
+        bg: 'bg-teal-500/15',
+        icon: 'text-teal-600 dark:text-teal-400',
+        hover: 'hover:border-teal-500/60 hover:bg-teal-100 hover:shadow-teal-500/15 dark:hover:border-teal-400/60 dark:hover:bg-teal-950',
+    },
+    orange: {
+        bg: 'bg-orange-500/15',
+        icon: 'text-orange-600 dark:text-orange-400',
+        hover: 'hover:border-orange-500/60 hover:bg-orange-100 hover:shadow-orange-500/15 dark:hover:border-orange-400/60 dark:hover:bg-orange-950',
+    },
+    sky: {
+        bg: 'bg-sky-500/15',
+        icon: 'text-sky-600 dark:text-sky-400',
+        hover: 'hover:border-sky-500/60 hover:bg-sky-100 hover:shadow-sky-500/15 dark:hover:border-sky-400/60 dark:hover:bg-sky-950',
+    },
+    slate: {
+        bg: 'bg-slate-500/15',
+        icon: 'text-slate-600 dark:text-slate-300',
+        hover: 'hover:border-slate-500/60 hover:bg-slate-200 hover:shadow-slate-500/15 dark:hover:border-slate-400/60 dark:hover:bg-slate-800',
+    },
 }
 const STRINGS: Record<Lang, {
     title: string
@@ -128,11 +146,12 @@ export const StudentsDashboardPage: React.FC = () => {
         { key: 'done', label: t.filterDone, count: doneAttempts.length },
     ]
     const statsLoadingCombined = statsLoading || pendingLoading
-    const stats: { label: string; value: string; icon: typeof Users; color: StatColor }[] = [
-        { label: t.statTotal, value: dashboardStats ? String(dashboardStats.totalStudents) : '—', icon: Users, color: 'teal' },
-        { label: t.statPending, value: pendingCount != null ? String(pendingCount) : '—', icon: Clock, color: 'orange' },
-        { label: t.statAccuracy, value: dashboardStats?.avgAccuracy != null ? `${Math.round(dashboardStats.avgAccuracy)}%` : '—', icon: Percent, color: 'sky' },
-        { label: t.statWpm, value: dashboardStats?.avgWpm != null ? String(Math.round(dashboardStats.avgWpm)) : '—', icon: Gauge, color: 'slate' },
+    // Each card opens the page that holds the numbers behind it.
+    const stats: { label: string; value: string; icon: typeof Users; color: StatColor; to: string }[] = [
+        { label: t.statTotal, value: dashboardStats ? String(dashboardStats.totalStudents) : '—', icon: Users, color: 'teal', to: '/students' },
+        { label: t.statPending, value: pendingCount != null ? String(pendingCount) : '—', icon: Clock, color: 'orange', to: '/students/review' },
+        { label: t.statAccuracy, value: dashboardStats?.avgAccuracy != null ? `${Math.round(dashboardStats.avgAccuracy)}%` : '—', icon: Percent, color: 'sky', to: '/students/progress' },
+        { label: t.statWpm, value: dashboardStats?.avgWpm != null ? String(Math.round(dashboardStats.avgWpm)) : '—', icon: Gauge, color: 'slate', to: '/students/progress' },
     ]
     return (
         <>
@@ -180,16 +199,18 @@ export const StudentsDashboardPage: React.FC = () => {
                         const Icon = stat.icon
                         const colors = STAT_COLOR_CLASSES[stat.color]
                         return (
-                            <div
+                            <button
                                 key={stat.label}
-                                className="rounded-2xl border-2 border-gray-900/5 bg-white p-4 shadow-sm dark:border-gray-100/10 dark:bg-gray-900"
+                                type="button"
+                                onClick={() => navigate(stat.to)}
+                                className={`cursor-pointer rounded-2xl border-2 border-gray-900/5 bg-white p-4 text-left shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-150 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:scale-[0.99] active:shadow-sm dark:border-gray-100/10 dark:bg-gray-900 ${colors.hover}`}
                             >
                                 <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors.bg} ${colors.icon}`}>
                                     <Icon size={22} />
                                 </span>
                                 <div className="mt-3 text-3xl font-extrabold text-gray-900 dark:text-gray-50">{stat.value}</div>
                                 <div className="text-sm font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{stat.label}</div>
-                            </div>
+                            </button>
                         )
                     })
                 )}
