@@ -11,6 +11,7 @@ import { StudentListPage } from "./pages/students/list/StudentListPage.tsx";
 import ReviewListPage from "./pages/proficiency/review/ReviewListPage.tsx";
 import TeacherReviewAttemptPage from "./pages/proficiency/review/TeacherReviewAttemptPage.tsx";
 import ManualMarkPage from "./pages/proficiency/review/ManualMarkPage.tsx";
+import StoryBuilderPage from "./pages/story_builder/StoryBuilderPage.tsx";
 import AttemptResultsPage from "./pages/proficiency/results/AttemptResultsPage.tsx";
 import RemediationPassagePreviewPage from "./pages/proficiency/results/RemediationPassagePreviewPage.tsx";
 import ResultsListPage from "./pages/proficiency/results/ResultsListPage.tsx";
@@ -125,6 +126,7 @@ const router = createBrowserRouter(
                         StudentsSubNav (they have their own back button). */}
                         <Route path="/students/review/:attemptId" element={<TeacherReviewAttemptPage />} />
                         <Route path="/students/review/:attemptId/mark" element={<ManualMarkPage />} />
+                        <Route path="/story-builder" element={<StoryBuilderPage />} />
                         <Route path="/students/review/:attemptId/results" element={<AttemptResultsPage />} />
                         {/* Generation-preview step between "Generate
                         Remediation Material" and an actual saved row —
