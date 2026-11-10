@@ -335,7 +335,7 @@ export const StudentRemediationDetailPage: React.FC = () => {
                 <button
                     type="button"
                     onClick={() => navigate('/students/remediation')}
-                    className="mb-6 flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200"
+                    className="cursor-pointer mb-6 flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200"
                 >
                     <ArrowLeft size={16} />
                     {t.back}
@@ -362,7 +362,7 @@ export const StudentRemediationDetailPage: React.FC = () => {
                 <button
                     type="button"
                     onClick={() => navigate('/students/remediation')}
-                    className="mb-6 flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200"
+                    className="cursor-pointer mb-6 flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200"
                 >
                     <ArrowLeft size={16} />
                     {t.back}
@@ -383,7 +383,7 @@ export const StudentRemediationDetailPage: React.FC = () => {
             <button
                 type="button"
                 onClick={() => navigate('/students/remediation')}
-                className="mb-4 flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
+                className="cursor-pointer mb-4 flex items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
             >
                 <ArrowLeft size={16} />
                 {t.back}
