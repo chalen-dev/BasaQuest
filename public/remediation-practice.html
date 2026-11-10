@@ -434,6 +434,8 @@ dialog{border:0;padding:0;background:var(--clear);color:var(--panel-ink);overflo
 .card-type{padding:8px 20px;border-radius:24px;font-size:clamp(14px,2cqw,19px);font-weight:600}
 .card-type.mispronunciation{background:var(--error-orange-bg);color:var(--error-orange)}
 .card-type.omission{background:var(--error-pink-bg);color:var(--error-pink)}
+.card-word[data-verdict=correct]{color:#15803d}.card-word[data-verdict=wrong]{color:#dc2626}
+[data-theme="night"] .card-word[data-verdict=correct]{color:#4ade80}[data-theme="night"] .card-word[data-verdict=wrong]{color:#fb7185}
 .card-word{margin:0;max-width:100%;font-size:clamp(28px,var(--word-size),100px);line-height:1.15;letter-spacing:-.025em;font-family:ui-rounded,'Trebuchet MS',sans-serif;text-align:center;overflow-wrap:anywhere}
 .practice-card .card-audio,#hear-it{position:static;transform:none;opacity:1;visibility:visible;display:inline-flex;align-items:center;gap:9px;padding:10px 20px;font-size:18px;min-height:46px;border:2px solid var(--ring);background:var(--disc);color:var(--story-ink)}
 .card-audio svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2}
@@ -1165,7 +1167,7 @@ async function finishSession(){if(practiceNavigation.busy())return;await stopCap
   el.querySelector('.card-counter').textContent=`Word ${index+1} of ${words.length}`;
   el.querySelector('.card-progress').textContent=`${words.filter(w=>w.practiced).length}/${words.length} practiced`;
   const badge=el.querySelector('.card-type');badge.classList.add(entry.type.toLowerCase());badge.textContent=(entry.type==='Omission'?'⊖ ':'👂 ')+entry.type;
-  el.querySelector('.card-word').textContent=entry.word;el.style.setProperty('--word-size',Math.min(13,140/entry.word.length)+'cqw');
+  el.querySelector('.card-word').textContent=entry.word;if(entry.verdict)el.querySelector('.card-word').dataset.verdict=entry.verdict;el.style.setProperty('--word-size',Math.min(13,140/entry.word.length)+'cqw');
   el.querySelector('.card-occurrence').textContent=entry.count>1?`Appeared ${entry.count}x in the reading`:'';
   el.querySelector('.card-check').textContent=entry.practiced?'✓':'';
   el.querySelector('button').onclick=()=>{if(busy||micState!=='idle'||hearLoading)return;stopPlayback();if(window.wordPracticeSpeak){window.wordPracticeSpeak(entry.word)}else if('speechSynthesis' in window){speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(entry.word);utterance.lang='fil-PH';utterance.onstart=()=>window.wordPracticeTalking(true);utterance.onend=utterance.onerror=()=>window.wordPracticeTalking(false);speechSynthesis.speak(utterance)}if(!reduced.matches)el.querySelector('button').animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:360})};
@@ -1413,8 +1415,8 @@ const leftMeter=meter(),rightMeter=meter();
 routine.replaceChildren($('mobile-previous'),leftMeter,mic,rightMeter,$('mobile-next'));
 bar.append($('notebook-closed'),routine,practiced,$('end-early'));practiceSpot.append(bar);
 const notice=document.createElement('div');notice.id='mic-notice';notice.setAttribute('role','status');bar.append(notice);
-const listen=document.createElement('button');listen.id='listen-take';listen.textContent='Play my recording';listen.hidden=true;routine.prepend(listen);
-listen.onclick=()=>{stopPlayback();window.speechSynthesis?.cancel();playback=new Audio(takes.get(practiceNavigation.current()));playback.play().catch(()=>message('This recording could not be played.'))};
+/* Recordings are never kept: a take goes to the scorer once and is dropped. No playback button. */
+const listen=document.createElement('button');listen.hidden=true;
 function stopPlayback(){if(playback){playback.pause();playback=null}}
 var noticeFor=null,verifyToken=0;
 function message(text,state,index){notice.textContent=text;if(state)notice.dataset.state=state;else delete notice.dataset.state;noticeFor=text&&index!=null?index:null}
@@ -1436,13 +1438,19 @@ async function verifyTake(index,blob){
  try{verdict=await window.wordPracticeVerify(entry.word,blob)}catch(_){verdict='error'}
  if(token!==verifyToken)return;
  if(verdict==='correct'){
+  paintVerdict(index,'correct');
   message('Well done — that sounded right!','correct',index);
   if(!entry.practiced){entry.practiced=true;practiceNavigation.refresh();syncPractice(practiceNavigation.current(),false);notifyProgress();const all=words.every(w=>w.practiced);owlReact(all?'celebrating':'happy',all?2800:1800)}else owlReact('happy',1800);
- }else if(verdict==='mispronounced'){message('Close! Tap Hear it, then try saying it again.','retry',index);owlReact('encouraging',2200)}
- else if(verdict==='omitted'||verdict==='silent'){message("We couldn't hear the word. Move closer and try again.",'retry',index);owlReact('confused',2200)}
+ }else if(verdict==='mispronounced'){paintVerdict(index,'wrong');message('Close! Tap Hear it, then try saying it again.','retry',index);owlReact('encouraging',2200)}
+ else if(verdict==='omitted'||verdict==='silent'){paintVerdict(index,verdict==='omitted'?'wrong':null);message("We couldn't hear the word. Move closer and try again.",'retry',index);owlReact('confused',2200)}
  else{message("Couldn't check it just now. You can still mark it yourself.",'retry',index)}
 }
-function release(session){
+/* Colour the word on its card(s): 'correct' green, 'wrong' red, null back to normal. */
+function paintVerdict(index,verdict){
+ if(words[index])words[index].verdict=verdict||undefined;
+ document.querySelectorAll('.practice-card[data-index="'+index+'"] .card-word').forEach(el=>{if(verdict)el.dataset.verdict=verdict;else delete el.dataset.verdict});
+}
+function release(session){clearTimeout(session.limit);
  cancelAnimationFrame(session.frame);
  session.stream?.getTracks().forEach(track=>track.stop());
  if(session.context&&session.context.state!=='closed')session.context.close().catch(()=>{});
@@ -1464,7 +1472,7 @@ async function stopCapture(){
 }
 async function startCapture(){
  if(capture||practiceNavigation.busy()||notebookView||cameraBusy)return;
- stopPlayback();window.speechSynthesis?.cancel();verifyToken++;message('');
+ stopPlayback();window.speechSynthesis?.cancel();verifyToken++;message('');paintVerdict(practiceNavigation.current(),null);
  const session={index:practiceNavigation.current(),chunks:[]};
  session.finished=new Promise(resolve=>session.resolve=resolve);
  capture=session;showMic('starting');
@@ -1477,15 +1485,13 @@ async function startCapture(){
   session.source=context.createMediaStreamSource(session.stream);session.source.connect(analyser);
   const silent=context.createGain();silent.gain.value=0;analyser.connect(silent);silent.connect(context.destination);
   await context.resume();if(capture!==session)return;
-  const recorder=session.recorder=new MediaRecorder(session.stream);
+  const recorder=session.recorder=new MediaRecorder(session.stream,{audioBitsPerSecond:32000});
   recorder.ondataavailable=e=>{if(e.data.size)session.chunks.push(e.data)};
   recorder.onerror=()=>{session.failed=true;message('Recording failed. Please try again.');complete(session)};
   recorder.onstop=()=>{
    if(capture!==session)return;
    if(!session.failed&&session.chunks.length){
-    const old=takes.get(session.index);if(old)URL.revokeObjectURL(old);
     const blob=new Blob(session.chunks,{type:recorder.mimeType});
-    takes.set(session.index,URL.createObjectURL(blob));
     verifyTake(session.index,blob);
    }
    complete(session);
@@ -1504,7 +1510,7 @@ async function startCapture(){
    }
    session.frame=requestAnimationFrame(draw);
   }
-  recorder.onstart=()=>{if(capture!==session)return;showMic('recording');draw(performance.now())};
+  recorder.onstart=()=>{if(capture!==session)return;showMic('recording');draw(performance.now());session.limit=setTimeout(()=>{if(capture===session&&micState==='recording')stopCapture()},6000)};
   recorder.start();
  }catch(error){
   if(capture!==session)return;
