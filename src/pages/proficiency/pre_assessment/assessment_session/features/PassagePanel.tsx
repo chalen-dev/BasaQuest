@@ -162,7 +162,8 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage, hintsBloc
             <h2 className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-gray-50 sm:text-4xl short:text-3xl">{passage.title}</h2>
             <div className="relative mt-4 flex min-h-0 flex-1 flex-col">
                 <div ref={wrapRef} onScroll={updateScroll} className="min-h-0 flex-1 overflow-y-auto pr-2 max-lg:max-h-[50vh]">
-                    <p ref={textRef} className="whitespace-pre-line font-medium text-gray-800 dark:text-gray-200" style={{ lineHeight: 1.7 }}>
+                    {/* Each word has its own short line under it (the gaps between words stay clear), a guide for the eye while reading aloud. */}
+                    <p ref={textRef} className="whitespace-pre-line font-medium text-gray-800 dark:text-gray-200" style={{ lineHeight: 1.85 }}>
                         {tokens.map((token, index) => {
                             if (token === '' || /^\s+$/.test(token)) {
                                 return token
@@ -172,7 +173,7 @@ export function PassagePanel({ t, gradeLevel, assessmentLang, passage, hintsBloc
                                 <span
                                     key={index}
                                     onClick={() => toggleWord(index)}
-                                    className="cursor-pointer rounded-[3px] px-0.5 transition-colors duration-150 hover:shadow-[inset_0_0_0_999px_rgba(250,204,21,0.35)]"
+                                    className="cursor-pointer rounded-[3px] px-0.5 underline decoration-gray-900/25 decoration-2 underline-offset-[6px] transition-colors duration-150 [text-decoration-skip-ink:none] hover:shadow-[inset_0_0_0_999px_rgba(250,204,21,0.35)] dark:decoration-gray-100/30"
                                     style={bg ? { backgroundColor: bg, color: '#111827' } : undefined}
                                 >
                                     {token}
