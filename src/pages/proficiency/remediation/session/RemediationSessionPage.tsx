@@ -29,13 +29,16 @@
 // /score-passage call the Reading Coach uses, with a one-word "passage"). A
 // correct reading marks the word practiced in the scene; nothing is stored.
 //
-// NOT WIRED YET: the scene's own Day/Night toggle (separate from the app theme)
-// and the owl's "Appeared Nx" count source beyond `count`.
+// THEME: the scene follows the website's day/night setting (wordPracticeTheme),
+// and its own switch flips the website's (word-practice:theme message).
+//
+// NOT WIRED YET: the owl's "Appeared Nx" count source beyond `count`.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Owl } from '../../../../components/ui/Owl'
 import { OwlLoader } from '../../../../components/ui/OwlLoader'
 import { useLang } from '../../../../contexts/LangContext'
+import { useTheme } from '../../../../contexts/ThemeContext'
 import {
     readPracticed,
     useRemediationMaterialQuery,
@@ -53,6 +56,7 @@ type SceneWindow = Window & {
     wordPracticeSpeak?: (word: string) => void
     wordPracticeSpeaking?: (loading: boolean) => void
     wordPracticeTalking?: (talking: boolean) => void
+    wordPracticeTheme?: (night: boolean) => void
     wordPracticeVerify?: (word: string, blob: Blob) => Promise<'correct' | 'mispronounced' | 'omitted' | 'silent'>
 }
 type SceneWord = { word: string; type: string; count: number; tip: string; practiced: boolean }
@@ -149,6 +153,18 @@ export default function RemediationSessionPage() {
         sceneWin?.wordPracticeSpeaking?.(voiceLoading)
     }, [sceneWin, voiceLoading])
 
+    // The scene follows the website's day/night setting; its own switch flips the website's.
+    const { theme, toggleTheme } = useTheme()
+    const themeRef = useRef(theme)
+    const toggleThemeRef = useRef(toggleTheme)
+    useEffect(() => {
+        themeRef.current = theme
+        toggleThemeRef.current = toggleTheme
+    }, [theme, toggleTheme])
+    useEffect(() => {
+        sceneWin?.wordPracticeTheme?.(theme === 'dark')
+    }, [sceneWin, theme])
+
     // The owl talks while the voice plays.
     useEffect(() => {
         sceneWin?.wordPracticeTalking?.(voicePlaying)
@@ -188,6 +204,7 @@ export default function RemediationSessionPage() {
         const onMessage = (event: MessageEvent) => {
             if (event.origin !== window.location.origin) return
             if (event.data?.type === 'word-practice:exit') goBack()
+            if (event.data?.type === 'word-practice:theme' && (event.data.night === true) !== (themeRef.current === 'dark')) toggleThemeRef.current()
         }
         window.addEventListener('message', onMessage)
         return () => window.removeEventListener('message', onMessage)

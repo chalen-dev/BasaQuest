@@ -479,7 +479,7 @@ dialog{border:0;padding:0;background:var(--clear);color:var(--panel-ink);overflo
 
 #bottom-bar{grid-template-columns:minmax(max-content,1fr) auto auto minmax(max-content,1fr);gap:clamp(8px,1.3vw,22px)}
 #bottom-bar .routine{gap:4px}
-#bottom-bar #record-word{width:88px;height:88px;border-radius:50%;border:2px solid var(--bubble-edge);background:#08796d;color:white;flex-shrink:0;flex-direction:column;gap:2px;padding:4px;box-shadow:0 4px 0 #124b46}
+#bottom-bar #record-word{margin:-12px 0;width:88px;height:88px;border-radius:50%;border:2px solid var(--bubble-edge);background:#08796d;color:white;flex-shrink:0;flex-direction:column;gap:2px;padding:4px;box-shadow:0 4px 0 #124b46}
 #record-word svg{width:34px;height:34px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
 #record-word span{font-size:13px;font-weight:700}
 #bottom-bar[data-mic=recording] #record-word{background:#a82f48}
@@ -1202,7 +1202,11 @@ async function finishSession(){if(practiceNavigation.busy())return;await stopCap
  install(card(current));
  window.practiceNavigation={go,select:index=>go(index,true),finish:()=>animations.forEach(a=>a.finish()),current:()=>current,busy:()=>busy,refresh};
  window.bookNavigation={next:()=>go(current+1),previous:()=>go(current-1)};
- $('theme-toggle').onclick=()=>{const root=document.documentElement;root.dataset.theme=root.dataset.theme==='night'?'day':'night';$('theme-toggle').setAttribute('aria-pressed',String(root.dataset.theme==='night'));try{localStorage.setItem('book-tabletop-theme',root.dataset.theme)}catch(_){}};
+ /* Inside the app the website's own day/night setting is the truth: the host sends it with wordPracticeTheme(night) and gets a
+    word-practice:theme message back when this switch is tapped. On its own the page remembers its own choice. */
+ const applyNight=night=>{const root=document.documentElement;root.dataset.theme=night?'night':'day';$('theme-toggle').setAttribute('aria-pressed',String(night))};
+ window.wordPracticeTheme=night=>applyNight(!!night);
+ $('theme-toggle').onclick=()=>{const night=document.documentElement.dataset.theme!=='night';applyNight(night);if(window.parent!==window)window.parent.postMessage({type:'word-practice:theme',night},location.origin);else{try{localStorage.setItem('book-tabletop-theme',document.documentElement.dataset.theme)}catch(_){}}};
  $('theme-toggle').setAttribute('aria-pressed',String(document.documentElement.dataset.theme==='night'));
  syncPractice(current,false);document.documentElement.classList.add('ready');
 })();
