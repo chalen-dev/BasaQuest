@@ -199,7 +199,11 @@ export const ReviewListPage: React.FC = () => {
         setFilter(next)
         setPage(0)
     }
-    const isStuck = (a: { created_at: string }) => now - new Date(a.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
+    // Not scored = still 'pending' long after it was submitted: nothing ever picked it up. A reading the
+    // scoring service is working on has status 'processing' (the service sets that itself), which
+    // counts as being scored however old the reading is, so a retried old reading shows up there.
+    const isStuck = (a: { created_at: string; status: string }) =>
+        a.status === 'pending' && now - new Date(a.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
     const scoringNow = inProgress.filter((a) => !isStuck(a))
     const stuckList = inProgress.filter(isStuck)
     const scoredTotal = data?.total ?? 0
@@ -406,7 +410,7 @@ export const ReviewListPage: React.FC = () => {
                             </div>
                             {inProgressShown.map((attempt) => {
                                 const name = attempt.student?.full_name || attempt.student?.username || t.unnamedStudent
-                                const stuck = now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
+                                const stuck = isStuck(attempt)
                                 return (
                                     <button
                                         key={attempt.id}

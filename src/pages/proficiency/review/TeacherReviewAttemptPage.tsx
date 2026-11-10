@@ -270,7 +270,9 @@ export const TeacherReviewAttemptPage: React.FC = () => {
         )
     }
     const studentName = student?.full_name || student?.username || t.unnamedStudent
-    const stalled = now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
+    // Stalled = still 'pending' long after it was submitted. A reading the scoring service is
+    // working on has status 'processing', however old the reading is (a retried one included).
+    const stalled = attempt.status === 'pending' && now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
     return (
         <div className={showingWordReview ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
             {backLink}
