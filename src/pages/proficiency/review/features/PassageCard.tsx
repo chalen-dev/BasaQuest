@@ -28,6 +28,8 @@ type PassageCardProps = {
     selectedWordIds?: string[]
     t: AttemptWordReviewStrings
     onWordClick: (wordId: string) => void
+    // Hand-marking mode: the legend shows only fine / said differently / skipped.
+    markLabels?: { correct: string; said: string; skipped: string }
 }
 export function PassageCard({
                                 words,
@@ -37,6 +39,7 @@ export function PassageCard({
                                 selectedWordIds = [],
                                 t,
                                 onWordClick,
+                                markLabels,
                             }: PassageCardProps) {
     const isFlagged = (w: AttemptWord) => w.confidence === 'low' || !!manualFlags[w.id]
     return (
@@ -54,9 +57,21 @@ export function PassageCard({
                 <>
                     <div className="relative shrink-0 px-6 pt-6 sm:px-8 sm:pt-8">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-dashed border-gray-900/10 pb-4 dark:border-gray-100/10">
-                            <LegendSwatch colorClass="bg-green-500" label={t.legendCorrect} />
-                            <LegendSwatch colorClass="bg-rose-500" label={t.legendMiscue} />
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                            <LegendSwatch colorClass="bg-green-500" label={markLabels ? markLabels.correct : t.legendCorrect} />
+                            {!markLabels && <LegendSwatch colorClass="bg-rose-500" label={t.legendMiscue} />}
+                            {markLabels && (
+                                <>
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                        <ErrorTypeIcon errorType="Mispronunciation" />
+                                        {markLabels.said}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                        <ErrorTypeIcon errorType="Omission" />
+                                        {markLabels.skipped}
+                                    </span>
+                                </>
+                            )}
+                            {!markLabels && <><span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
                                 <span className="inline-block h-3 w-5 rounded-full border-2 border-dashed border-amber-500 dark:border-amber-400" />
                                 {t.legendInserted}
                             </span>
@@ -71,7 +86,7 @@ export function PassageCard({
                             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">
                                 <ErrorTypeIcon errorType="Mispronunciation" />
                                 Mispronunciation
-                            </span>
+                            </span></>}
                         </div>
                     </div>
                     <div className="review-scroll relative px-6 pb-6 pt-4 sm:px-8 sm:pb-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-4">

@@ -145,6 +145,9 @@ type SelectedWordsCardProps = {
     // nothing here can actually be edited. Defaults to false so the
     // editable AttemptWordReview.tsx flow needs no changes.
     readOnly?: boolean
+    // Hand-marking mode: each word shows just two buttons, said differently / skipped,
+    // instead of the verdict, flag and type controls.
+    markLabels?: { said: string; skipped: string }
 }
 function wordDisplayText(w: AttemptWord): string {
     return (w.error_type === 'Insertion' ? w.recognized_word : w.reference_word) ?? ''
@@ -177,6 +180,7 @@ export function SelectedWordsCard({
                                       onClearAll,
                                       onWordClick,
                                       readOnly = false,
+                                      markLabels,
                                   }: SelectedWordsCardProps) {
     const [searchTerm, setSearchTerm] = useState('')
     // Suggestions dismissed via the search result's own X — scoped to
@@ -342,7 +346,7 @@ export function SelectedWordsCard({
                                         </span>
                                         <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold ${ERROR_TYPE_COLOR[errorType]}`}>
                                             <ErrorTypeIcon errorType={errorType} />
-                                            {errorType}
+                                            {markLabels ? (errorType === 'Omission' ? markLabels.skipped : markLabels.said) : errorType}
                                         </span>
                                         {w.accuracy_score != null && (
                                             <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
@@ -370,7 +374,7 @@ export function SelectedWordsCard({
                                         <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.inserted}</div>
                                     )}
                                 </div>
-                                {!readOnly && (
+                                {!readOnly && !markLabels && (
                                     <div className="flex flex-wrap items-center gap-2">
                                         <button
                                             onClick={() => onSetVerdict?.(w.id, 'correct')}
@@ -408,7 +412,26 @@ export function SelectedWordsCard({
                                         </button>
                                     </div>
                                 )}
-                                {showTypePicker && (
+                                {markLabels && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {(['Mispronunciation', 'Omission'] as const).map((type) => (
+                                            <button
+                                                key={type}
+                                                onClick={() => onSetErrorType?.(w.id, type)}
+                                                className={`cursor-pointer rounded-full px-4 py-2 text-sm font-bold transition-colors duration-150 ${
+                                                    errorType === type
+                                                        ? type === 'Omission'
+                                                            ? 'bg-rose-500 text-white dark:bg-rose-600'
+                                                            : 'bg-orange-500 text-white dark:bg-orange-600'
+                                                        : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
+                                                }`}
+                                            >
+                                                {type === 'Omission' ? markLabels.skipped : markLabels.said}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {showTypePicker && !markLabels && (
                                     <div className="flex flex-wrap items-center gap-2 border-t border-dashed border-gray-900/10 pt-3 dark:border-gray-100/10">
                                         <span className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             {t.typeLabel}

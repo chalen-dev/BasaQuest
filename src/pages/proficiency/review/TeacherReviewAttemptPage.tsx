@@ -342,7 +342,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-2">
                 {backLink}
-                <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
+                <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
                     <Owl mood="neutral" size={64} />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.notFoundTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.notFoundDesc}</p>
@@ -350,20 +350,21 @@ export const TeacherReviewAttemptPage: React.FC = () => {
             </div>
         )
     }
+    const marking = attempt.status === 'pending' || attempt.status === 'processing' || attempt.status === 'failed'
     const studentName = student?.full_name || student?.username || t.unnamedStudent
     // Stalled = still 'pending' long after it was submitted. A reading the scoring service is
     // working on has status 'processing', however old the reading is (a retried one included).
     const stalled = attempt.status === 'pending' && now - new Date(attempt.created_at).getTime() > SCORING_STUCK_MINUTES * 60_000
     return (
-        <div className={showingWordReview ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
+        <div className={showingWordReview || marking ? 'mx-auto w-full max-w-[1350px] px-6 pb-12 pt-2 sm:px-10' : 'mx-auto max-w-3xl px-4 pb-12 pt-2'}>
             {backLink}
             {!showingWordReview && (
-                <p className="mb-4 text-sm font-bold text-teal-700 dark:text-teal-300">
+                <p className={`mb-4 text-sm font-bold text-teal-700 dark:text-teal-300 ${marking ? 'mx-auto max-w-3xl' : ''}`}>
                     {t.for} {studentName}
                 </p>
             )}
             {attempt.status === 'pending' || attempt.status === 'processing' ? (
-                <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-amber-500/40 bg-white p-8 text-center shadow-md dark:border-amber-400/30 dark:bg-gray-900">
+                <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 rounded-3xl border-2 border-amber-500/40 bg-white p-8 text-center shadow-md dark:border-amber-400/30 dark:bg-gray-900">
                     {/* The loader only while something really is scoring it: a reading that has waited
                         past SCORING_STUCK_MINUTES gets a plain owl and a way to start the scoring. */}
                     {!stalled || retryScoring.isPending ? <OwlLoader message="" /> : <Owl mood="confused" size={72} />}
@@ -384,7 +385,7 @@ export const TeacherReviewAttemptPage: React.FC = () => {
                     )}
                 </section>
             ) : attempt.status === 'failed' ? (
-                <section className="flex flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
+                <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3 rounded-3xl border-2 border-gray-900/5 bg-white p-8 text-center shadow-md dark:border-gray-100/10 dark:bg-gray-900">
                     <Owl mood="neutral" size={64} />
                     <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-50">{t.failedTitle}</h2>
                     <p className="max-w-sm text-sm font-medium text-gray-600 dark:text-gray-400">{t.failedDesc}</p>
