@@ -102,12 +102,12 @@ export type ReviewStudentProfile = {
 }
 export const REVIEW_PAGE_SIZE = 8
 // A reading the teacher should see in the inbox: scored or failed, or still being
-// scored (status 'processing', or an English reading still 'pending' because the
-// scorer has not picked it up yet). A Filipino reading sits at 'pending' with no
-// scoring path at all, so it is left out rather than shown with a spinner forever.
-const SCORING_OR_DONE_FILTER = 'status.in.(scored,failed,processing),and(status.eq.pending,language.eq.en)'
+// scored (status 'processing', or still 'pending' because the scorer has not picked
+// it up yet). English and Filipino are both scored; a reading that never gets picked
+// up is flagged as stuck after SCORING_STUCK_MINUTES and can be retried.
+const SCORING_OR_DONE_FILTER = 'status.in.(scored,failed,processing,pending)'
 // The rows shown above the list: still being scored, or failed and waiting for a retry.
-const NEEDS_ATTENTION_FILTER = 'status.in.(processing,failed),and(status.eq.pending,language.eq.en)'
+const NEEDS_ATTENTION_FILTER = 'status.in.(processing,failed,pending)'
 // Past this long, "being scored" is treated as stuck (the scorer died or the request
 // never arrived) and the teacher is offered a retry instead of a spinner.
 export const SCORING_STUCK_MINUTES = 10

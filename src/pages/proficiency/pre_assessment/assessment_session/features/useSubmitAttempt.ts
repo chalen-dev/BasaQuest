@@ -117,19 +117,17 @@ async function markAttemptFailed(attemptId: string, message: string) {
 // doesn't track the original take's length) — harmless either way since the
 // backend re-measures the actual audio's duration itself regardless of what
 // this client-side estimate assumes.
-function scoringFetchTimeoutMs(durationSeconds: number | undefined): number {
-    return Math.max(30_000, (durationSeconds ?? 60) * 3000) + 30_000
+// A Filipino reading runs on a CPU model service that can also be waking up from
+// sleep (a minute or two), and the scoring service waits up to 240 s for it, so
+// this waits a little longer than that.
+function scoringFetchTimeoutMs(durationSeconds: number | undefined, language: Lang): number {
+    const base = Math.max(30_000, (durationSeconds ?? 60) * 3000) + 30_000
+    return language === 'fil' ? Math.max(base, 270_000) : base
 }
 async function runScoring(attemptId: string, language: Lang, passageText: string, durationSeconds?: number): Promise<void> {
-    // Only English has a scoring pipeline wired up (Azure Pronunciation
-    // Assessment via basaquest-scoring) — the service itself also
-    // rejects non-English attempts, but skipping the call entirely here
-    // avoids a guaranteed 400 and a pointless round trip. The row stays
-    // 'pending'; there's no Filipino scoring path yet (planned
-    // separately, once the Filipino miscue-detection model is trained).
-    if (language !== 'en') {
-        return
-    }
+    // English is scored by Azure Pronunciation Assessment and Filipino by the
+    // Filipino model service, both through basaquest-scoring's /score/:attemptId.
+    // (The placeholder scorer below is English-flavoured fake data, used for either.)
     if (USE_PLACEHOLDER_SCORING) {
         try {
             await applyPlaceholderScoring(attemptId, passageText)
@@ -159,7 +157,7 @@ async function runScoring(attemptId: string, language: Lang, passageText: string
     // That's why the pupil-facing submit flow can take a while for a long
     // recording; see scoringFetchTimeoutMs's comment for how that's now
     // bounded instead of able to hang indefinitely.
-    const timeoutMs = scoringFetchTimeoutMs(durationSeconds)
+    const timeoutMs = scoringFetchTimeoutMs(durationSeconds, language)
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
     try {

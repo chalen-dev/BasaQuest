@@ -308,16 +308,14 @@ export const ReviewListPage: React.FC = () => {
                                                 </span>
                                             </span>
                                         </button>
-                                        {attempt.language === 'en' && (
-                                            <button
-                                                onClick={() => void handleRetry(attempt)}
-                                                disabled={isRetrying}
-                                                className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
-                                            >
-                                                {isRetrying ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" /> : <RotateCcw size={16} />}
-                                                {isRetrying ? t.retryingLabel : t.retryButton}
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => void handleRetry(attempt)}
+                                            disabled={isRetrying}
+                                            className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_0_#0f766e] transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-600 dark:shadow-[0_4px_0_0_#115e59]"
+                                        >
+                                            {isRetrying ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" /> : <RotateCcw size={16} />}
+                                            {isRetrying ? t.retryingLabel : t.retryButton}
+                                        </button>
                                     </div>
                                 )
                             })}
