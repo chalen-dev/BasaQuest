@@ -54,7 +54,7 @@ export const StudentRow: React.FC<StudentRowProps> = ({
                 if (e.key === 'Enter' || e.key === ' ') onSelect()
             }}
             style={{ borderLeftColor: accent, borderLeftWidth: 6 }}
-            className={`group flex w-full cursor-pointer items-center gap-5 rounded-2xl border-2 bg-white p-5 text-left shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-150 hover:-translate-y-0.5 hover:bg-teal-100 hover:shadow-lg dark:hover:bg-teal-400/15 active:translate-y-0 active:scale-[0.99] active:shadow-sm dark:bg-gray-900 ${
+            className={`group flex w-full cursor-pointer items-center gap-5 rounded-2xl border-2 bg-white p-5 text-left shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-150 hover:-translate-y-0.5 hover:bg-teal-100 hover:shadow-lg dark:hover:bg-teal-950 active:translate-y-0 active:scale-[0.99] active:shadow-sm dark:bg-gray-900 ${
                 isSelected
                     ? 'border-gray-900/20 ring-2 ring-teal-400/60 dark:border-gray-100/25'
                     : 'border-gray-900/5 hover:border-teal-500/50 dark:border-gray-100/10 dark:hover:border-teal-400/50'
