@@ -52,7 +52,10 @@ export type OwlRigOptions = {
     talking: boolean
     /** Portrait only: drop the small decorations (stars, z's) at tiny sizes. */
     small: boolean
+    /** Which way the owl faces. 'auto' (default) faces front, and turns to run when loading. */
+    direction?: OwlDirection
 }
+export type OwlDirection = 'auto' | 'front' | 'front-right' | 'right' | 'back-right' | 'back' | 'back-left' | 'left' | 'front-left'
 
 export type OwlRig = {
     setEmotion: (name: OwlEmotion) => void
@@ -136,7 +139,7 @@ const POSES: Record<OwlEmotion, Pose> = {
     proud: pose({ left: 0.2, right: 0.2, lidL: 0.37, lidR: 0.37, brow: 1, browL: 12, browR: -12, lift: 9, spark: 1, proud: 1 }),
     celebrating: pose({ happy: 1, left: 1, right: 1, tilt: -6, open: 1, lift: 0, spark: 1, lean: -3 }),
     encouraging: pose({ left: 0.85, right: 0.3, tilt: 7, open: 0.65, brow: 1, browL: -8, browR: 8, front: 1 }),
-    loading: pose({ left: 0.65, right: 0.65, lift: 42, flap: 1 }),
+    loading: pose({ left: 0.15, right: 0.15, tilt: -3, lean: 5, gazeX: 10, lift: 0, flap: 1 }),
     listening: pose({ right: 1, tilt: 12, gazeX: 22, gazeY: -5, open: 0.2, brow: 1, listen: 1 }),
     confused: pose({ left: 0.2, right: 0.7, tilt: 12, gazeX: -10, gazeY: -8, open: 0.65, brow: 1, browL: -15, browR: 15, lidR: 0.3, question: 1, front: 0 }),
     sleepy: pose({ tilt: 8, lidL: 0.59, lidR: 0.64, brow: 1, browL: -5, browR: 5, squat: 0, sleep: 1, pupil: 1 }),
@@ -208,6 +211,121 @@ export function createOwlRig(root: Element, initial: OwlRigOptions, firstEmotion
         return rest + speechWeight * (opening - rest)
     }
 
+    // The turned views of the owl (front-right and the other directions) and the jog
+    // used while loading, ported from the prototype's renderDirection().
+     function renderDirection(c: Pose, reduced: boolean, idle: boolean, stride: number, runBounce: number, jawOpening: number, blinking: number) {
+          const direction = (opts.direction ?? 'auto') === 'auto' ? (state === 'loading' ? 'front-right' : 'front') : opts.direction ?? 'auto';
+          const active = direction !== 'front';
+          const mirrored = direction.endsWith('left') || direction === 'left';
+          const quarter = direction.startsWith('front-');
+          const rearQuarter = direction.startsWith('back-');
+          const rear = direction === 'back';
+          const showFace = !rear && !rearQuarter;
+          attr('character', 'opacity', active ? 0 : 1);
+          attr('directionalCharacter', 'opacity', active ? 1 : 0);
+          attr('directionalEffects', 'opacity', active ? 1 : 0);
+          attr('directionalFacing', 'transform', mirrored ? 'translate(1240 0) scale(-1 1)' : 'translate(0 0)');
+          const bob = runBounce + (idle ? Math.sin(clock * 1.8) * 3 : 0);
+          attr('directionalMotion', 'transform', `translate(0 ${-bob + c.sleep * 65}) rotate(${c.flap * 7} 620 1040)`);
+          attr('directionalBody', 'transform', `translate(620 1000) scale(${rear ? 1.12 : 1} ${1 - c.sleep * .12}) translate(-620 -1000)`);
+          attr('directionalHead', 'transform', `rotate(${c.tilt * .6} 620 640)`);
+          attr('directionalHeadOutline', 'd', rear
+            ? 'M453 194 C516 155 573 150 622 174 C682 146 748 161 797 202 C865 258 894 359 878 459 C864 568 808 652 726 676 C654 699 557 694 482 660 C392 618 354 524 362 418 C368 310 396 236 453 194 Z'
+            : 'M504 178 C567 136 663 132 748 177 C852 230 891 336 881 451 C874 561 829 646 751 671 C666 705 554 690 468 643 C363 586 344 470 371 358 C391 274 439 220 504 178 Z');
+          attr('directionalNearEar', 'd', rear
+            ? 'M466 233 Q415 214 412 182 L437 186 Q398 132 416 91 Q428 72 450 86 Q511 117 541 175 L556 224 Z'
+            : 'M466 233 Q424 208 428 177 Q447 175 467 186 Q409 133 445 74 Q459 56 487 76 Q555 118 573 178 Q609 143 635 153 Q662 171 641 202 Q601 239 559 243 Z');
+          attr('directionalFarEar', 'd', rear
+            ? 'M774 233 Q825 214 828 182 L803 186 Q842 132 824 91 Q812 72 790 86 Q729 117 699 175 L684 224 Z'
+            : 'M649 192 Q661 82 722 95 Q771 133 746 213 Z');
+          attr('directionalEarShade', 'opacity', rear ? 0 : 1);
+          attr('directionalTail', 'transform', rear ? 'translate(180 85)' : 'translate(0 0)');
+
+          attr('directionalBelly', 'opacity', rear || rearQuarter ? 0 : 1);
+          attr('directionalBelly', 'transform', quarter ? 'translate(-210 0) translate(745 834) scale(1.8 1) translate(-745 -834)' : 'translate(0 0)');
+          attr('directionalMask', 'd', quarter
+            ? 'M705 300 C662 232 587 219 536 260 C475 306 474 437 508 505 C542 575 630 597 703 565 C762 591 831 566 858 513 C885 459 880 333 848 282 C811 227 748 239 705 300 Z'
+            : 'M791 229 C731 222 681 291 676 387 C670 472 697 562 750 579 C803 600 851 551 866 478 C887 387 862 261 817 238 Z');
+          attr('directionalMask', 'opacity', showFace ? 1 : 0);
+          attr('directionalEye', 'opacity', showFace ? 1 : 0);
+          attr('directionalEye', 'transform', quarter ? 'translate(-156 0) translate(779 382) scale(1.18 1) translate(-779 -382)' : 'translate(0 0)');
+          attr('directionalFarEye', 'opacity', quarter ? 1 : 0);
+          attr('directionalCheek', 'opacity', showFace ? 1 : 0);
+          attr('directionalCheek', 'transform', quarter ? 'translate(-175 0)' : 'translate(0 0)');
+          attr('directionalBeak', 'opacity', rear ? 0 : 1);
+          attr('directionalBeak', 'transform', quarter ? 'translate(-145 0)' : 'translate(0 0)');
+          const eyelid = Math.max(c.lidL, c.lidR);
+          const top = 265 + eyelid * 220;
+          const lid = top + (410 - top) * blinking;
+          const bottom = 505 - 95 * blinking;
+          attr('directionalLid', 'd', `M700 260 H860 V${lid} Q780 ${lid + 10} 700 ${lid - 6} Z M700 520 H860 V${bottom} H700 Z`);
+          attr('directionalLash', 'd', `M700 ${lid - 6} Q780 ${lid + 10} 860 ${lid}`);
+          attr('directionalLash', 'opacity', Math.min(1, (eyelid + blinking) * 8));
+          attr('directionalFarLid', 'd', `M770 280 H885 V${lid} H770 Z M770 490 H885 V${bottom} H770 Z`);
+          attr('directionalPupil', 'opacity', 1 - c.happy);
+          attr('directionalFarPupil', 'opacity', 1 - c.happy);
+          attr('directionalSmile', 'd', 'M727 399 Q780 325 831 399');
+          attr('directionalFarSmile', 'd', 'M792 393 Q827 335 860 393');
+          attr('directionalSmile', 'opacity', c.happy);
+          attr('directionalFarSmile', 'opacity', c.happy);
+          attr('directionalBrow', 'd', `M736 ${259 - c.surprise * 20} Q779 ${242 - c.question * 14} 811 260`);
+          attr('directionalBrow', 'opacity', c.brow);
+          attr('directionalJaw', 'd', `M868 472 L925 480 Q906 ${508 + jawOpening * 49} 874 ${506 + jawOpening * 34} Z`);
+          const wingSwing = stride * 26;
+          const wingLift = c.happy * -70 + c.spark * (1 - c.proud) * -50 - c.listen * 80 + c.question * -48;
+          attr('directionalNearWing', 'transform', `rotate(${wingSwing + wingLift} 570 685)`);
+          attr('directionalFarWing', 'opacity', quarter || rear || rearQuarter ? 1 : .35);
+          attr('directionalFarWing', 'transform', `rotate(${-wingSwing - wingLift * .5} 738 680)`);
+          attr('directionalNearFoot', 'transform', `translate(${stride * 39} ${-Math.max(0, stride) * 55}) rotate(${-stride * 24} 650 1050)`);
+          attr('directionalFarFoot', 'transform', `translate(${-stride * 39} ${-Math.max(0, -stride) * 55}) rotate(${stride * 24} 605 1050)`);
+          if (el('portraitInside')) {
+            for (const id of ['portraitInside', 'portraitOutside', 'portraitRestFrame']) attr(id, 'opacity', active ? 0 : 1);
+            attr('directionalPortraitBody', 'opacity', active ? 1 : 0);
+            attr('directionalPortraitUpper', 'opacity', active ? 1 : 0);
+            const frame = `translate(-91 ${-25 - bob + c.sleep * 30}) scale(.95)`;
+            attr('directionalPortraitBody', 'transform', frame);
+            attr('directionalPortraitUpper', 'transform', frame);
+            for (const id of ['directionalPortraitBodyFacing', 'directionalPortraitUpperFacing']) attr(id, 'transform', mirrored ? 'translate(1240 0) scale(-1 1)' : 'translate(0 0)');
+          }
+          // Dedicated artwork traced against the front-right panel of the turnaround.
+          const referenceView = quarter;
+          attr('referenceQuarter', 'opacity', referenceView ? 1 : 0);
+          if (referenceView) attr('directionalCharacter', 'opacity', 0);
+          attr('quarterFacing', 'transform', mirrored ? 'translate(1240 0) scale(-1 1)' : 'translate(0 0)');
+          const referenceBounce = reduced ? 0 : runBounce * .65;
+          attr('quarterMotion', 'transform', `translate(0 ${105*c.flap-referenceBounce})`);
+          attr('quarterFeet', 'transform', `translate(0 ${referenceBounce/2.65})`);
+          attr('quarterHead', 'transform', `rotate(${c.tilt*.35} 155 235)`);
+          attr('quarterFarEye', 'transform', 'translate(-6 3) translate(246 141) scale(1.12 1.02) translate(-246 -141)');
+          attr('quarterNearEye', 'transform', 'translate(151 146) scale(.96 .97) translate(-151 -146)');
+          attr('quarterNearWing', 'transform', `rotate(${stride*9-c.happy*65-c.listen*60-c.question*42} 113 233)`);
+          attr('quarterFarWing', 'transform', `rotate(${-stride*9+c.happy*35} 235 234)`);
+          attr('quarterFootNear', 'transform', `translate(${stride*9} ${-Math.max(0,stride)*15}) rotate(${-Math.max(0,stride)*16} 122 369)`);
+          attr('quarterFootFar', 'transform', `translate(${-stride*9} ${-Math.max(0,-stride)*15}) rotate(${-Math.max(0,-stride)*16} 192 369)`);
+          for (const [prefix, cx, cy, rx, ry] of [['Near', 151, 146, 46, 53], ['Far', 246, 141, 20, 40]] as const) {
+            const restTop=cy-ry+Math.max(c.lidL,c.lidR)*ry*2;
+            const lidY=restTop+(cy+ry*.18-restTop)*blinking;
+            const bottom=cy+ry-(ry*.82)*blinking;
+            attr('quarter'+prefix+'Lid','d',`M${cx-rx-2} ${cy-ry-3} H${cx+rx+2} V${lidY} Q${cx} ${lidY+4} ${cx-rx-2} ${lidY}Z M${cx-rx-2} ${cy+ry+3} H${cx+rx+2} V${bottom} H${cx-rx-2}Z`);
+            attr('quarter'+prefix+'Lash','d',`M${cx-rx-2} ${lidY} Q${cx} ${lidY+4} ${cx+rx+2} ${lidY}`);
+            attr('quarter'+prefix+'Lash','opacity',Math.min(1,(Math.max(c.lidL,c.lidR)+blinking)*8));
+            attr('quarter'+prefix+'Pupil','opacity',1-c.happy);
+            attr('quarter'+prefix+'Smile','d',`M${cx-rx*.7} ${cy+8} Q${cx} ${cy-ry*.65} ${cx+rx*.7} ${cy+8}`);
+            attr('quarter'+prefix+'Smile','opacity',c.happy);
+          }
+          attr('quarterBrows','opacity',c.brow);
+          attr('quarterJaw','d',`M194 178 Q213 ${211+jawOpening*17} 234 180 Z`);
+          attr('quarterJaw','fill',jawOpening>.3?'#951e24':'url(#gold)');
+          if (el('portraitInside')) {
+            if(referenceView){attr('directionalPortraitBody','opacity',0);attr('directionalPortraitUpper','opacity',0);}
+            for(const id of ['quarterPortraitBody','quarterPortraitUpper'])attr(id,'opacity',referenceView?1:0);
+            const portraitFrame=`translate(-146 ${48-referenceBounce}) scale(1.04)`;
+            for(const id of ['quarterPortraitBody','quarterPortraitUpper'])attr(id,'transform',portraitFrame);
+            for(const id of ['quarterPortraitBodyFacing','quarterPortraitUpperFacing'])attr(id,'transform',mirrored?'translate(1240 0) scale(-1 1)':'translate(0 0)');
+          }
+
+        }
+
     function step(now: number) {
         const dt = last ? Math.min(now - last, 50) : 0
         last = now
@@ -228,22 +346,33 @@ export function createOwlRig(root: Element, initial: OwlRigOptions, firstEmotion
         const c = current
         const breath = idle ? Math.sin(clock * (c.sleep ? 1.1 : 1.8)) : 0
         const entry = !reduced ? Math.sin(clamp(gesture / 1.2) * Math.PI) : 0
+        // The loading weight also controls the turn, so it blends with every emotion.
+        const turn = 0
+        attr('turnedFace', 'transform', `translate(${82 * turn} 0) translate(622 430) scale(${1 - 0.12 * turn} 1) translate(-622 -430)`)
+        const farEyeTurn = `translate(785 399) scale(${1 - 0.22 * turn} ${1 - 0.07 * turn}) translate(-785 -399)`
+        for (const id of ['farEyeWhite', 'farEyePupil', 'farEyeLid']) attr(id, 'transform', farEyeTurn)
+        attr('turnedBeak', 'transform', `translate(${30 * turn} 0) translate(621 500) scale(${1 - 0.08 * turn} 1) translate(-621 -500)`)
+        attr('turnedBelly', 'transform', `translate(${48 * turn} 0) translate(622 830) scale(${1 - 0.18 * turn} 1) translate(-622 -830)`)
+        // Loading: a jog. Opposite feet and wings swing together, the body bobs twice a stride.
+        const runPhase = clock * 9
+        const stride = reduced ? 0 : Math.sin(runPhase) * c.flap
+        const runBounce = reduced ? 0 : (1 - Math.cos(runPhase * 2)) * 7 * c.flap
         const jump = entry * (state === 'celebrating' ? 65 : state === 'surprised' ? 30 : state === 'happy' ? 19 : 0)
-        const hover = idle ? Math.sin(clock * 3) * 8 * c.flap : 0
+        const hover = runBounce
 
         attr('character', 'transform', `translate(622 1135) rotate(${c.lean}) scale(1 ${1 - c.squat}) translate(-622 -1135) translate(0 ${-breath * (3 + 5 * c.sleep) - jump - c.lift - hover})`)
         const nod = idle ? Math.sin(clock * 2) * 1.8 * (state === 'encouraging' ? 1 : 0) : 0
-        attr('head', 'transform', `translate(0 ${c.sleep * 125}) rotate(${c.tilt + breath * 0.2 + nod} 622 655)`)
-        attr('bodyRig', 'transform', `translate(622 1035) scale(${1 + c.sleep * 0.08} ${1 - c.sleep * 0.22}) translate(-622 -1035)`)
+        attr('head', 'transform', `translate(0 ${c.sleep * 125}) rotate(${c.tilt + breath * 0.2 + nod} 622 655) translate(622 430) scale(${1 - 0.06 * turn} 1) translate(-622 -430)`)
+        attr('bodyRig', 'transform', `translate(622 1035) scale(${1 + c.sleep * 0.08 - 0.08 * turn} ${1 - c.sleep * 0.22}) translate(-622 -1035)`)
         attr('earLeft', 'transform', `rotate(${-c.sleep * 39} 360 210)`)
-        attr('earRight', 'transform', `rotate(${c.sleep * 39} 890 210)`)
+        attr('earRight', 'transform', `rotate(${c.sleep * 39} 890 210) translate(890 210) scale(${1 - 0.18 * turn} ${1 - 0.08 * turn}) translate(-890 -210)`)
 
         const l = numbers(wingPath(wingA, wingB, c.left))
         const r = numbers(wingPath(wingA, wingC, c.right))
         const wl = numbers(wingPath(l, wingP, c.proud))
         const wr = numbers(wingPath(r, wingP, c.proud))
-        attr('leftWing', 'd', wingPath(wl, wingSpread, c.flap))
-        attr('rightWing', 'd', wingPath(wr, wingSpread, Math.max(c.flap, c.question)))
+        attr('leftWing', 'd', wingPath(wl, wingP, c.flap))
+        attr('rightWing', 'd', wingPath(numbers(wingPath(wr, wingP, c.flap)), wingSpread, c.question))
         attr('leftWing', 'opacity', (1 - c.question) * (1 - c.sleep))
         attr('rightWing', 'opacity', 1 - c.sleep)
         attr('thinkingWing', 'd', CHEEK_PATH)
@@ -254,12 +383,17 @@ export function createOwlRig(root: Element, initial: OwlRigOptions, firstEmotion
         attr('restWings', 'transform', `translate(0 ${c.sleep * 18})`)
         attr('seatedFeet', 'opacity', c.sleep)
         attr('feetRig', 'opacity', 1 - c.sleep)
-        attr('leftWing', 'transform', `rotate(${idle ? Math.sin(clock * (c.flap ? 10 : 5)) * (3 * c.left + 7 * c.flap) : 0} 398 653)`)
-        attr('rightWing', 'transform', `translate(1245 0) scale(-1 1) rotate(${-c.tilt * 0.8 + (idle ? Math.sin(clock * 10) * 7 * c.flap : 0)} 398 653)`)
+        attr('leftWing', 'transform', `rotate(${(idle ? Math.sin(clock * 5) * 3 * c.left * (1 - c.flap) : 0) + stride * 19} 398 653)`)
+        attr('rightWing', 'transform', `translate(847 653) scale(${1 - 0.25 * turn} ${1 - 0.12 * turn}) translate(-847 -653) translate(1245 0) scale(-1 1) rotate(${-c.tilt * 0.8 - stride * 19} 398 653)`)
         attr('frontWing', 'd', FRONT_PATH)
         attr('frontWing', 'opacity', c.front)
         attr('frontWing', 'transform', `translate(${c.question * -400} ${c.question * -60}) rotate(${-c.question * 20} 900 800)`)
         attr('feetRig', 'transform', `translate(622 1070) rotate(${-c.lean}) scale(${1 + c.spark * 0.06} 1) translate(-622 -1070)`)
+        // Opposite foot phases give a planted step followed by a lifted recovery.
+        attr('runningFootL', 'transform', `translate(${stride * 20} ${-Math.max(0, stride) * 48}) rotate(${-stride * 18 + 8 * turn} 490 1040)`)
+        attr('runningFootR', 'transform', `translate(${-stride * 20} ${-Math.max(0, -stride) * 48}) rotate(${stride * 18 + 10 * turn} 760 1040) translate(760 1040) scale(${1 - 0.18 * turn} ${1 - 0.08 * turn}) translate(-760 -1040)`)
+        attr('runMotion', 'opacity', reduced ? 0 : c.flap * 0.65)
+        attr('runMotion', 'transform', `translate(${-12 * (1 + Math.sin(runPhase))} 0)`)
 
         // Blinks move opaque upper and lower eyelids over the complete eyes.
         const phase = clock % 4.8
@@ -304,19 +438,19 @@ export function createOwlRig(root: Element, initial: OwlRigOptions, firstEmotion
         attr('shadow', 'rx', 255 - (jump + c.lift) * 0.8)
 
         // Portrait layers share one frame; the torso stays joined to the animated head.
-        if (!el('portraitInside')) return
+        if (el('portraitInside')) {
         const celebration = clamp(c.spark - c.proud)
         const encouragement = c.front
         const small = opts.small
-        const portraitBob = reduced ? 0 : breath * (2 + c.sleep * 2) + entry * (9 * c.happy - 8 * c.surprise + 15 * celebration) + (idle ? Math.sin(clock * 3) * 7 * c.flap : 0)
-        const portraitTransform = `translate(-91 ${-25 - portraitBob}) scale(.95)`
+        const portraitBob = reduced ? 0 : breath * (2 + c.sleep * 2) + entry * (9 * c.happy - 8 * c.surprise + 15 * celebration) + runBounce
+        const portraitTransform = `translate(-91 ${-25 - portraitBob}) scale(.95) rotate(${c.lean} 622 650)`
         for (const id of ['portraitInside', 'portraitOutside', 'portraitRestFrame']) attr(id, 'transform', portraitTransform)
         attr('portraitWingL', 'd', read('leftWing', 'd'))
         attr('portraitWingR', 'd', read('rightWing', 'd'))
         const wave = !reduced && gesture < 2.2 ? Math.sin(gesture * 10) * 8 * Math.sin((Math.PI * gesture) / 2.2) * c.happy * (1 - celebration) : 0
-        const flap = idle ? Math.sin(clock * 8) * 7 * c.flap : 0
+        const flap = stride * 19
         attr('portraitWingL', 'transform', `rotate(${wave + flap} 398 653)`)
-        attr('portraitWingR', 'transform', `translate(1245 0) scale(-1 1) rotate(${-c.tilt * 0.8 + flap} 398 653)`)
+        attr('portraitWingR', 'transform', `translate(847 653) scale(${1 - 0.25 * turn} ${1 - 0.12 * turn}) translate(-847 -653) translate(1245 0) scale(-1 1) rotate(${-c.tilt * 0.8 - flap} 398 653)`)
         const leftOut = Math.max(c.happy, c.surprise, c.proud, c.flap, encouragement) * (1 - c.question) * (1 - c.sleep)
         const rightOut = Math.max(celebration, c.surprise, c.proud, c.flap, c.listen, c.question) * (1 - c.sleep)
         attr('portraitWingL', 'opacity', leftOut)
@@ -341,7 +475,9 @@ export function createOwlRig(root: Element, initial: OwlRigOptions, firstEmotion
         attr('portraitSleep', 'transform', `translate(0 ${idle ? -Math.sin(clock) * 12 * c.sleep : 0})`)
         attr('portraitListen', 'opacity', small ? 0 : c.listen * effectLife)
         attr('portraitLoading', 'opacity', c.flap)
-        attr('portraitLoading', 'transform', `rotate(${idle ? clock * 85 : 0} 500 500)`)
+        attr('portraitLoading', 'transform', `rotate(${reduced ? 0 : clock * 85} 500 500)`)
+        }
+        renderDirection(c, reduced, idle, stride, runBounce, jawOpening, blinking)
     }
 
     return {
