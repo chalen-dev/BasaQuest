@@ -10,6 +10,12 @@ import { findFoundationalLevel } from './data/levels.ts'
 import LettersScene from './LettersScene.tsx'
 import type { FoundationalLevel } from './data/types.ts'
 
+// The plain card viewer's own words, in the level's language.
+const TEXT = {
+    en: { back: 'Back to materials', missing: 'This level does not exist.', prev: 'Previous', next: 'Next', of: 'of', sentence: 'Sentence', sound: 'Sound', name: 'Name' },
+    fil: { back: 'Bumalik sa mga materyales', missing: 'Wala ang antas na ito.', prev: 'Nakaraan', next: 'Susunod', of: 'ng', sentence: 'Pangungusap', sound: 'Tunog', name: 'Pangalan' },
+} as const
+
 type Card = {
     key: string
     big: string
@@ -17,16 +23,18 @@ type Card = {
     caption: string
     detail: string
     sentence: string
+    isSentence?: boolean
 }
 
 function buildCards(level: FoundationalLevel): Card[] {
+    const t = TEXT[level.language]
     const wordCards: Card[] = level.letters
         ? level.letters.map((letter) => ({
               key: letter.id,
               big: `${letter.upper} ${letter.lower}`,
               image: letter.image,
               caption: letter.word,
-              detail: `Sound: ${letter.letter_sound} · Name: ${letter.letter_name}`,
+              detail: `${t.sound}: ${letter.letter_sound} · ${t.name}: ${letter.letter_name}`,
               sentence: letter.example_sentence,
           }))
         : level.words.map((word) => ({
@@ -42,8 +50,9 @@ function buildCards(level: FoundationalLevel): Card[] {
         big: sentence.text,
         image: sentence.image,
         caption: '',
-        detail: 'Sentence',
+        detail: t.sentence,
         sentence: '',
+        isSentence: true,
     }))
     return [...wordCards, ...sentenceCards]
 }
@@ -52,14 +61,15 @@ const FoundationalPracticePage: React.FC = () => {
     const navigate = useNavigate()
     const { levelId } = useParams()
     const level = findFoundationalLevel(levelId)
+    const t = TEXT[level?.language ?? 'en']
     const [index, setIndex] = useState(0)
 
     const backButton = (
         <button
             onClick={() => navigate('/reading/proficiency')}
-            className="mb-4 flex cursor-pointer items-center gap-1.5 text-sm font-bold text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            className="mb-4 flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
         >
-            <ArrowLeft size={16} /> Back to materials
+            <ArrowLeft size={16} /> {t.back}
         </button>
     )
 
@@ -67,7 +77,7 @@ const FoundationalPracticePage: React.FC = () => {
         return (
             <div className="mx-auto max-w-3xl px-4 pb-12 pt-6">
                 {backButton}
-                <p className="text-base font-semibold text-gray-700 dark:text-gray-300">This level does not exist.</p>
+                <p className="text-base font-semibold text-gray-700 dark:text-gray-200">{t.missing}</p>
             </div>
         )
     }
@@ -77,13 +87,13 @@ const FoundationalPracticePage: React.FC = () => {
 
     const cards = buildCards(level)
     const card = cards[Math.min(index, cards.length - 1)]
-    const isSentence = card.detail === 'Sentence'
+    const isSentence = card.isSentence === true
 
     return (
         <div className="mx-auto max-w-3xl px-4 pb-12 pt-6">
             {backButton}
             <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-50">{level.title}</h1>
-            <p className="mb-6 text-sm font-medium text-gray-600 dark:text-gray-400">
+            <p className="mb-6 text-sm font-medium text-gray-700 dark:text-gray-200">
                 {level.subtitle} · {level.summary}
             </p>
             <div className="flex flex-col items-center gap-4 rounded-3xl border-2 border-amber-500/25 bg-white p-8 text-center shadow-sm dark:border-amber-400/25 dark:bg-gray-900">
@@ -107,21 +117,21 @@ const FoundationalPracticePage: React.FC = () => {
                 <button
                     onClick={() => setIndex((i) => Math.max(0, i - 1))}
                     disabled={index === 0}
-                    aria-label="Previous"
+                    aria-label={t.prev}
                     className="flex cursor-pointer items-center gap-1 rounded-full bg-amber-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#b45309] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]"
                 >
-                    <ChevronLeft size={18} /> Previous
+                    <ChevronLeft size={18} /> {t.prev}
                 </button>
-                <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
-                    {index + 1} of {cards.length}
+                <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                    {index + 1} {t.of} {cards.length}
                 </span>
                 <button
                     onClick={() => setIndex((i) => Math.min(cards.length - 1, i + 1))}
                     disabled={index >= cards.length - 1}
-                    aria-label="Next"
+                    aria-label={t.next}
                     className="flex cursor-pointer items-center gap-1 rounded-full bg-amber-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#b45309] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]"
                 >
-                    Next <ChevronRight size={18} />
+                    {t.next} <ChevronRight size={18} />
                 </button>
             </div>
         </div>
