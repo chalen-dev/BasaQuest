@@ -141,28 +141,38 @@ const STRINGS: Record<Lang, {
         minutes: (n) => `~${n} min`,
     },
 }
-// A sideways shelf: cards snap into place, with arrow buttons to page left and right.
-const ScrollRow: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// A sideways shelf: a header line with the title and the left/right buttons (so nothing
+// ever covers them), then a row of cards that runs out to the edges of the screen and is
+// clipped only there. The first card lines up with the page content.
+const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }> = ({ title, children }) => {
     const ref = useRef<HTMLDivElement>(null)
     const { lang } = useLang()
     const t = STRINGS[lang]
     const page = (dir: -1 | 1) => {
         const el = ref.current
-        if (el) el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.8), behavior: 'smooth' })
+        if (el) el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.7), behavior: 'smooth' })
     }
     const arrow =
-        'absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-2 border-gray-900/10 bg-white text-gray-800 shadow-md transition-colors hover:bg-teal-500 hover:text-white active:scale-95 dark:border-gray-100/20 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-teal-600 sm:flex'
+        'flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-2 border-gray-900/10 bg-white text-gray-800 shadow-md transition-colors hover:bg-teal-500 hover:text-white active:scale-95 dark:border-gray-100/20 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-teal-600'
     return (
-        <div className="relative">
-            <button type="button" aria-label={t.scrollLeft} onClick={() => page(-1)} className={`${arrow} -left-3`}>
-                <ChevronLeft size={22} />
-            </button>
-            <div ref={ref} className="flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth px-1 pb-4 pt-1">
+        <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">{title}</div>
+                <div className="flex shrink-0 gap-2">
+                    <button type="button" aria-label={t.scrollLeft} onClick={() => page(-1)} className={arrow}>
+                        <ChevronLeft size={22} />
+                    </button>
+                    <button type="button" aria-label={t.scrollRight} onClick={() => page(1)} className={arrow}>
+                        <ChevronRight size={22} />
+                    </button>
+                </div>
+            </div>
+            <div
+                ref={ref}
+                className="flex gap-5 overflow-x-auto scroll-smooth pb-6 pt-2 mx-[calc(50%-50vw)] px-[calc(50vw-50%)]"
+            >
                 {children}
             </div>
-            <button type="button" aria-label={t.scrollRight} onClick={() => page(1)} className={`${arrow} -right-3`}>
-                <ChevronRight size={22} />
-            </button>
         </div>
     )
 }
@@ -187,7 +197,7 @@ const ShelfCard: React.FC<{
     onOpen: () => void
 }> = ({ tone, scene, coverColor, title, subtitle, chips, cta, onOpen }) => (
     <div
-        className={`flex w-64 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border-2 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl dark:bg-gray-900 sm:w-72 ${TONES[tone].border}`}
+        className={`flex w-64 shrink-0 flex-col overflow-hidden rounded-2xl border-2 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl dark:bg-gray-900 sm:w-72 ${TONES[tone].border}`}
     >
         <div className="h-52">
             <BookCover scene={scene} coverColor={coverColor} title={title} subtitle={subtitle} />
@@ -235,6 +245,7 @@ export const MaterialSelectionPage: React.FC = () => {
     const imagesReady = usePreloadImages(Object.values(IMAGE_SCENES))
     if (!imagesReady) return <OwlLoader className="py-32" />
     return (
+        <div className="overflow-x-clip">
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-2">
             {profile?.role === 'teacher' ? (
                 <div className="no-print mb-4">
@@ -371,9 +382,10 @@ export const MaterialSelectionPage: React.FC = () => {
                     <h3 className="mb-1 text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.foundationalHeading}</h3>
                     <p className="mb-4 max-w-2xl text-sm font-medium text-gray-700 dark:text-gray-200">{t.foundationalDesc}</p>
                     {foundationalGroups.map((group) => (
-                        <div key={group.lang} className="mb-6">
-                            <div className="mb-2 text-sm font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">{group.lang}</div>
-                            <ScrollRow>
+                        <div key={group.lang} className="mb-4">
+                            <ScrollRow
+                                title={<div className="text-sm font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">{group.lang}</div>}
+                            >
                                 {group.items.map((item) => (
                                     <ShelfCard
                                         key={item.id}
@@ -394,8 +406,7 @@ export const MaterialSelectionPage: React.FC = () => {
             )}
             {materialsShown.length > 0 && (
                 <>
-                    <h3 className="mb-3 text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.materialsHeading}</h3>
-                    <ScrollRow>
+                    <ScrollRow title={<h3 className="text-lg font-extrabold text-gray-900 dark:text-gray-50">{t.materialsHeading}</h3>}>
                         {materialsShown.map((material) => (
                             <ShelfCard
                                 key={material.id}
@@ -412,6 +423,7 @@ export const MaterialSelectionPage: React.FC = () => {
                     </ScrollRow>
                 </>
             )}
+        </div>
         </div>
     )
 }
