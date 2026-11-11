@@ -10,7 +10,8 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ChevronLeft, ChevronRight, Volume2 } from 'lucide-react'
-import { findFoundationalLevel } from './data/levels.ts'
+import { ALL_FOUNDATIONAL_LEVELS, findFoundationalLevel } from './data/levels.ts'
+import { useLetterArtQuery } from './hooks.ts'
 import LettersScene from './LettersScene.tsx'
 import { usePronounceWord } from '../remediation/session/features/usePronounceWord.ts'
 import type { FoundationalLevel } from './data/types.ts'
@@ -41,6 +42,16 @@ const TEXT = {
     },
 } as const
 
+// Words that have no picture (sight words, the little function words) all share this placeholder emoji.
+const NO_PICTURE = '🔤'
+
+// An emoji -> the first word that uses it, so a sentence (which only carries an emoji) can borrow that word's drawing.
+const WORD_FOR_EMOJI = new Map<string, string>()
+for (const lv of ALL_FOUNDATIONAL_LEVELS) {
+    for (const w of lv.words) if (w.image && w.image !== NO_PICTURE && !WORD_FOR_EMOJI.has(w.image)) WORD_FOR_EMOJI.set(w.image, w.word)
+    for (const letter of lv.letters ?? []) for (const e of letter.extra_words ?? []) if (e.image && !WORD_FOR_EMOJI.has(e.image)) WORD_FOR_EMOJI.set(e.image, e.word)
+}
+
 // A group is split into pages of this many cards when a level lists many words under one heading.
 const MAX_PER_GROUP = 10
 
@@ -49,6 +60,7 @@ type Card = {
     groupKey: string
     big: string
     image: string
+    pictureWord: string
     detail: string
     sentence: string
     say: string
@@ -71,6 +83,7 @@ function buildGroups(level: FoundationalLevel): Group[] {
             groupKey: groupKeyOf(word.phonics_focus),
             big: word.word,
             image: word.image,
+            pictureWord: word.word,
             detail: word.phonics_focus,
             sentence: word.example_sentence,
             say: word.word,
@@ -80,6 +93,7 @@ function buildGroups(level: FoundationalLevel): Group[] {
             groupKey: t.sentences,
             big: sentence.text,
             image: sentence.image,
+            pictureWord: WORD_FOR_EMOJI.get(sentence.image) ?? '',
             detail: t.sentence,
             sentence: '',
             say: sentence.text,
@@ -111,6 +125,15 @@ const pillButton =
 const amberButton =
     'flex cursor-pointer items-center gap-1 rounded-full bg-amber-500 px-5 py-2 text-sm font-bold text-white shadow-[0_4px_0_0_#b45309] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-amber-600 dark:shadow-[0_4px_0_0_#92400e]'
 
+// The picture of a card: the clipart drawing for its word (public/letters-art.js), else its emoji; sight
+// words have no picture at all, so nothing is drawn for them.
+function CardPicture({ card, art, className }: { card: Card; art: Record<string, string>; className: string }) {
+    const svg = art[card.pictureWord]
+    if (svg) return <span className={`block shrink-0 [&>svg]:h-full [&>svg]:w-full ${className}`} aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />
+    if (!card.image || card.image === NO_PICTURE) return null
+    return <span className="text-5xl" aria-hidden="true">{card.image}</span>
+}
+
 function GroupViewer({ level }: { level: FoundationalLevel }) {
     const t = TEXT[level.language]
     const groups = useMemo(() => buildGroups(level), [level])
@@ -119,6 +142,7 @@ function GroupViewer({ level }: { level: FoundationalLevel }) {
     const [groupIndex, setGroupIndex] = useState(0)
     const [pick, setPick] = useState(0)
     const { speak, isLoading, isPlaying } = usePronounceWord()
+    const art = useLetterArtQuery().data ?? {}
 
     const group = groups[Math.min(groupIndex, groups.length - 1)]
     const card = group.cards[Math.min(pick, group.cards.length - 1)]
@@ -155,7 +179,7 @@ function GroupViewer({ level }: { level: FoundationalLevel }) {
                 <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-amber-800 dark:text-amber-200">
                     {group.label}
                 </span>
-                <span className="text-7xl" aria-hidden="true">{card.image}</span>
+                <CardPicture card={card} art={art} className="h-32 w-40" />
                 <span className={`font-extrabold text-gray-900 dark:text-gray-50 ${card.isSentence ? 'text-3xl' : 'text-6xl'}`}>{card.big}</span>
                 {showSentence && card.sentence && <p className="text-base font-medium text-gray-700 dark:text-gray-200">{card.sentence}</p>}
                 <button
@@ -178,7 +202,7 @@ function GroupViewer({ level }: { level: FoundationalLevel }) {
                             i === pick ? 'border-amber-500' : 'border-gray-900/10 dark:border-gray-100/10'
                         }`}
                     >
-                        <span className="text-4xl" aria-hidden="true">{c.image}</span>
+                        <CardPicture card={c} art={art} className="h-12 w-14" />
                         <span className={`font-extrabold ${c.isSentence ? 'max-w-48 text-sm' : 'text-lg'}`}>{c.big}</span>
                     </button>
                 ))}
