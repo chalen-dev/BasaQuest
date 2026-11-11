@@ -1425,7 +1425,13 @@ function meter(){
 }
 const leftMeter=meter(),rightMeter=meter();
 routine.replaceChildren($('mobile-previous'),leftMeter,mic,rightMeter,$('mobile-next'));
-bar.append($('notebook-closed'),routine,practiced,$('end-early'));practiceSpot.append(bar);
+bar.append($('notebook-closed'),routine,practiced);practiceSpot.append(bar);
+/* "End session early" is a back button in the top-left corner (opposite the Day/Night toggle), not a link in the bottom bar. It sits on the page itself, outside the moving desk, so it stays put. */
+{const back=$('end-early');
+ back.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>End session early</span>';
+ const st=document.createElement('style');
+ st.textContent='#end-early{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:auto;bottom:auto;z-index:10;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 16px 6px 10px;border-radius:999px;border:1px solid var(--bubble-edge);background:var(--bubble-bg);color:var(--bubble-ink);font-size:14px;font-weight:700;text-decoration:none;cursor:pointer}#end-early svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}#end-early:hover{filter:brightness(1.08)}@media(max-width:800px){#end-early span{font-size:13px}}';
+ document.head.append(st);document.body.append(back);}
 const notice=document.createElement('div');notice.id='mic-notice';notice.setAttribute('role','status');bar.append(notice);
 /* Recording timer: elapsed / limit, with a bar. One word never needs more than the limit, so the take stops by itself there. */
 const REC_LIMIT=6;
