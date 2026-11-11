@@ -151,7 +151,7 @@ function ProfileForm({ t, dark, userId, username, role, fullName, avatarUrl, onB
     }
 
     return (
-        <div className="mx-auto max-w-2xl px-4 pb-12 pt-6">
+        <div className="mx-auto max-w-6xl px-4 pb-12 pt-6">
             <button
                 onClick={onBack}
                 className="mb-4 flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-900/10 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 shadow-sm transition-colors duration-200 hover:bg-gray-900/5 dark:border-gray-100/10 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-100/10"
@@ -160,14 +160,14 @@ function ProfileForm({ t, dark, userId, username, role, fullName, avatarUrl, onB
             </button>
             <h1 className="mb-4 text-2xl font-extrabold text-gray-900 dark:text-gray-50">{t.title}</h1>
 
-            <div className="flex flex-col gap-4">
+            <div className="grid items-start gap-4 lg:grid-cols-[22rem_1fr]">
                 <section className={frosted} aria-label={t.photo}>
                     <h2 className={label}>{t.photo}</h2>
-                    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-                        <Avatar url={avatarUrl} name={username} size={112} className="border-4 border-white shadow-md dark:border-gray-800" />
-                        <div className="flex min-w-0 flex-1 flex-col items-center gap-3 sm:items-start">
-                            <p className="text-center text-sm font-semibold text-gray-600 dark:text-gray-300 sm:text-left">{t.photoHint}</p>
-                            <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+                    <div className="flex flex-col items-center gap-5">
+                        <Avatar url={avatarUrl} name={username} size={192} className="border-4 border-white shadow-md dark:border-gray-800" />
+                        <div className="flex min-w-0 flex-col items-center gap-3">
+                            <p className="text-center text-sm font-semibold text-gray-600 dark:text-gray-300">{t.photoHint}</p>
+                            <div className="flex flex-wrap justify-center gap-2">
                                 <input ref={fileRef} type="file" accept="image/*" onChange={onPick} className="hidden" />
                                 <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className={`${primary} flex items-center gap-1.5`}>
                                     <Camera size={16} />
@@ -185,7 +185,7 @@ function ProfileForm({ t, dark, userId, username, role, fullName, avatarUrl, onB
 
                 <form className={frosted} onSubmit={onSave}>
                     <h2 className={label}>{t.details}</h2>
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-5">
                         <div>
                             <label htmlFor="profile-name" className={label}>{t.name}</label>
                             <input
