@@ -339,7 +339,7 @@ let curObj=0;
 const emojiSvg=e=>'<svg class="art" aria-hidden="true" viewBox="0 0 64 58"><text x="32" y="46" font-size="46" text-anchor="middle">'+(e||'?')+'</text></svg>';
 const imageSvg=u=>'<svg class="art" aria-hidden="true" viewBox="0 0 64 58"><image href="'+encodeURI(u)+'" x="2" y="1" width="60" height="56" preserveAspectRatio="xMidYMid meet"/></svg>';
 /* Words whose drawing beats the library picture (the library's jeepney is a street photo, its water buffalo a boat, its box a boxing glove). */
-const PREFER_DRAWING=new Set(['carabao','jeepney','box','eskwela']);
+const PREFER_DRAWING=new Set(['carabao','jeepney','box','eskwela','moon']);
 const artHtml=o=>{const d=window.LETTER_ART&&window.LETTER_ART[o.word];if(d&&PREFER_DRAWING.has(o.word))return d;return o.imageUrl?imageSvg(o.imageUrl):d||emojiSvg(o.image)};
 function renderPicture(){
   const p=document.querySelector('#picture'),list=objects[selected],o=list[curObj],many=list.length>1;

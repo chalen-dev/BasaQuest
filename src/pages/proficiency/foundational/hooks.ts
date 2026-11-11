@@ -112,7 +112,7 @@ export function useFoundationalEditorQuery(levelKey: string) {
 export const PICTURE_ALIASES: Record<string, string> = { yam: 'sweet potato' }
 // Words the scene draws itself even when the library has a picture (the library's jeepney is a street
 // photo, its water buffalo a boat, its box a boxing glove). Keep in step with PREFER_DRAWING in public/letters-practice.html.
-export const PREFER_DRAWING = new Set(['carabao', 'jeepney', 'box', 'eskwela'])
+export const PREFER_DRAWING = new Set(['carabao', 'jeepney', 'box', 'eskwela', 'moon'])
 
 export function useLibraryPicturesQuery(words: string[], language: 'en' | 'fil' = 'en') {
     const wanted = words.map(normalizeImageWord).filter(Boolean)
