@@ -15,29 +15,6 @@ interface TrackSceneProps {
 // equalizer/idea-bubble/moon-glow treatment needs to be revisited.
 
 export const TrackScene: React.FC<TrackSceneProps> = ({ name, className = '' }) => {
-    // The Story Builder art is framed tighter than the others, so cropping it to the banner
-    // zoomed in too far. Show it whole (contain) over a blurred copy of itself that fills the
-    // sides.
-    if (name === 'storybuilder') {
-        return (
-            <div className={`overflow-hidden ${className}`}>
-                <img
-                    src={SCENE_IMAGE[name]}
-                    alt=""
-                    aria-hidden="true"
-                    draggable={false}
-                    className="absolute inset-0 h-full w-full scale-125 select-none object-cover blur-xl"
-                />
-                <img
-                    src={SCENE_IMAGE[name]}
-                    alt=""
-                    aria-hidden="true"
-                    draggable={false}
-                    className="absolute inset-0 h-full w-full select-none object-contain transition-transform duration-300 ease-out group-hover:scale-105"
-                />
-            </div>
-        )
-    }
     return (
         <img
             src={SCENE_IMAGE[name]}
