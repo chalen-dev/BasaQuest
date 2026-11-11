@@ -156,11 +156,19 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
     // The arrows only show when the cards do not all fit. Their columns are always kept
     // (just invisible), so every row lines up the same and the check cannot flip-flop.
     const [overflowing, setOverflowing] = useState(false)
+    // Where the row is scrolled to: the left arrow hides at the very start, the right one at the very end.
+    const [atStart, setAtStart] = useState(true)
+    const [atEnd, setAtEnd] = useState(false)
     useEffect(() => {
         const scroller = ref.current
         const outer = outerRef.current
         if (!scroller || !outer) return
-        const measure = () => setOverflowing(scroller.scrollWidth > scroller.clientWidth + 1)
+        const measure = () => {
+            setOverflowing(scroller.scrollWidth > scroller.clientWidth + 1)
+            setAtStart(scroller.scrollLeft <= 1)
+            setAtEnd(scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1)
+        }
+        scroller.addEventListener('scroll', measure, { passive: true })
         // Watch the row and every card in it (cards can change width without the DOM changing).
         const resize = new ResizeObserver(measure)
         const watchCards = () => {
@@ -175,6 +183,7 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
         return () => {
             resize.disconnect()
             mutation.disconnect()
+            scroller.removeEventListener('scroll', measure)
         }
     }, [])
     const { lang } = useLang()
@@ -190,7 +199,7 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
         <div>
             {title && <div className="mb-2 min-w-0">{title}</div>}
             <div ref={outerRef} className="flex items-stretch gap-3 pb-6 pt-2">
-                <button type="button" aria-label={t.scrollLeft} aria-hidden={!overflowing} tabIndex={overflowing ? 0 : -1} onClick={() => page(-1)} className={`${arrow} ${overflowing ? '' : 'invisible'}`}>
+                <button type="button" aria-label={t.scrollLeft} aria-hidden={!overflowing || atStart} tabIndex={overflowing && !atStart ? 0 : -1} onClick={() => page(-1)} className={`${arrow} ${overflowing && !atStart ? '' : 'invisible'}`}>
                     <ChevronLeft className="h-24 w-24" strokeWidth={3.5} />
                 </button>
                 <div
@@ -199,7 +208,7 @@ const ScrollRow: React.FC<{ title?: React.ReactNode; children: React.ReactNode }
                 >
                     {children}
                 </div>
-                <button type="button" aria-label={t.scrollRight} aria-hidden={!overflowing} tabIndex={overflowing ? 0 : -1} onClick={() => page(1)} className={`${arrow} ${overflowing ? '' : 'invisible'}`}>
+                <button type="button" aria-label={t.scrollRight} aria-hidden={!overflowing || atEnd} tabIndex={overflowing && !atEnd ? 0 : -1} onClick={() => page(1)} className={`${arrow} ${overflowing && !atEnd ? '' : 'invisible'}`}>
                     <ChevronRight className="h-24 w-24" strokeWidth={3.5} />
                 </button>
             </div>
