@@ -9,7 +9,7 @@
 // image, else the emoji typed here (shown below as a preview).
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Lock, Music, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { useProfile } from '../../../hooks/useProfile.ts'
 import { normalizeImageWord, useWordImageQuery } from '../../../hooks/useWordImage.ts'
 import { useTheme } from '../../../contexts/ThemeContext.tsx'
@@ -158,18 +158,35 @@ const FoundationalEditPage: React.FC = () => {
     )
 }
 
+type Row = DraftCard & { uid: number; song: boolean }
+let rowCounter = 0
+const makeRow = (card: DraftCard, song: boolean): Row => ({ ...card, uid: rowCounter++, song })
+
 // One letter: a rail on the left (name, sound, save) and its object cards in a wrapping strip.
 function LetterRow({ setId, letter, saved }: { setId: string; letter: FoundationalLetter; saved: FoundationalCardRow[] }) {
     const save = useSaveLetterMutation()
-    const [draft, setDraft] = useState<DraftCard[]>(saved.map((c) => ({ word: c.word, emoji: c.emoji })))
+    // The letter's SONG word (the built-in main word the alphabet song sings) can be moved but never changed or deleted.
+    const songWord = letter.word.trim().toLowerCase()
+    const [draft, setDraft] = useState<Row[]>(() => {
+        let songFound = false
+        return saved.map((c) => {
+            const isSong = !songFound && c.word.trim().toLowerCase() === songWord
+            if (isSong) songFound = true
+            return makeRow({ word: c.word, emoji: c.emoji }, isSong)
+        })
+    })
     const [message, setMessage] = useState('')
 
-    const dirty = JSON.stringify(draft) !== JSON.stringify(saved.map((c) => ({ word: c.word, emoji: c.emoji })))
+    const plain = (rows: DraftCard[]) => rows.map((c) => ({ word: c.word, emoji: c.emoji }))
+    const dirty = JSON.stringify(plain(draft)) !== JSON.stringify(plain(saved))
     const blank = draft.some((d) => d.word.trim() === '')
+    const songMissing = !draft.some((d) => d.song)
+    // A second card must not use the song word, or the lock would be meaningless.
+    const dupSong = draft.some((d) => !d.song && d.word.trim().toLowerCase() === songWord)
 
     const update = (index: number, patch: Partial<DraftCard>) => {
         setMessage('')
-        setDraft((list) => list.map((d, i) => (i === index ? { ...d, ...patch } : d)))
+        setDraft((list) => list.map((d, i) => (i === index && !d.song ? { ...d, ...patch } : d)))
     }
     const move = (index: number, by: number) => {
         setMessage('')
@@ -183,21 +200,25 @@ function LetterRow({ setId, letter, saved }: { setId: string; letter: Foundation
     }
     const remove = (index: number) => {
         setMessage('')
-        setDraft((list) => list.filter((_, i) => i !== index))
+        setDraft((list) => list.filter((d, i) => i !== index || d.song))
+    }
+    const restoreSong = () => {
+        setMessage('')
+        setDraft((list) => [...list, makeRow({ word: letter.word, emoji: letter.image }, true)])
     }
     const add = () => {
         setMessage('')
-        setDraft((list) => [...list, { word: '', emoji: '' }])
+        setDraft((list) => [...list, makeRow({ word: '', emoji: '' }, false)])
     }
     const onSave = () => {
         save.mutate(
-            { setId, letter: letter.lower, items: draft.filter((d) => d.word.trim() !== ''), oldIds: saved.map((c) => c.id) },
+            { setId, letter: letter.lower, items: plain(draft.filter((d) => d.word.trim() !== '')), oldIds: saved.map((c) => c.id) },
             { onSuccess: () => setMessage('Saved'), onError: () => setMessage('Could not save. Try again.') },
         )
     }
 
-    const status = message || (blank ? 'Fill in or remove the empty card' : dirty ? 'Unsaved changes' : 'Saved')
-    const statusColor = dirty || blank ? 'text-amber-700 dark:text-amber-300' : 'text-gray-600 dark:text-gray-300'
+    const status = message || (blank ? 'Fill in or remove the empty card' : dupSong ? `"${letter.word}" is already the song word` : dirty ? 'Unsaved changes' : 'Saved')
+    const statusColor = dirty || blank || dupSong ? 'text-amber-700 dark:text-amber-300' : 'text-gray-600 dark:text-gray-300'
 
     return (
         <section
@@ -214,7 +235,7 @@ function LetterRow({ setId, letter, saved }: { setId: string; letter: Foundation
                 </div>
                 <div className="flex flex-col items-end gap-1 sm:mt-auto sm:items-start">
                     <span className={`text-xs font-bold ${statusColor}`}>{status}</span>
-                    <button className={primary} onClick={onSave} disabled={!dirty || blank || save.isPending}>
+                    <button className={primary} onClick={onSave} disabled={!dirty || blank || dupSong || save.isPending}>
                         {save.isPending ? 'Saving…' : 'Save'}
                     </button>
                 </div>
@@ -227,7 +248,8 @@ function LetterRow({ setId, letter, saved }: { setId: string; letter: Foundation
                 )}
                 {draft.map((card, index) => (
                     <CardTile
-                        key={index}
+                        key={card.uid}
+                        locked={card.song}
                         letter={letter.lower}
                         language={letter.language}
                         card={card}
@@ -240,6 +262,15 @@ function LetterRow({ setId, letter, saved }: { setId: string; letter: Foundation
                         canRight={index < draft.length - 1}
                     />
                 ))}
+                {songMissing && (
+                    <button
+                        onClick={restoreSong}
+                        className="flex min-h-40 w-36 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-amber-500/60 px-2 text-center text-xs font-bold text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-gray-800"
+                    >
+                        <Music size={20} />
+                        Add back the song word: {letter.word}
+                    </button>
+                )}
                 <button
                     onClick={add}
                     className="flex min-h-40 w-36 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-900/20 text-sm font-bold text-gray-600 transition-colors hover:border-amber-500 hover:bg-amber-50 hover:text-amber-700 dark:border-gray-100/20 dark:text-gray-300 dark:hover:bg-gray-800"
@@ -254,6 +285,7 @@ function LetterRow({ setId, letter, saved }: { setId: string; letter: Foundation
 
 // One object on a letter: picture on top, word and emoji below, and move / delete in the footer.
 function CardTile({
+    locked,
     letter,
     language,
     card,
@@ -265,6 +297,7 @@ function CardTile({
     canLeft,
     canRight,
 }: {
+    locked: boolean
     letter: string
     language: FoundationalLanguage
     card: DraftCard
@@ -313,6 +346,14 @@ function CardTile({
                         <span aria-hidden="true">{card.emoji || '?'}</span>
                     )}
                 </button>
+                {locked && (
+                    <span
+                        title="This word is sung in the alphabet song, so it stays on the letter. You can still move it."
+                        className="pointer-events-none absolute right-1 top-1 flex items-center gap-0.5 rounded-full bg-violet-600 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white"
+                    >
+                        <Music size={9} /> Song
+                    </span>
+                )}
                 {isMain && (
                     <span className="pointer-events-none absolute left-1 top-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">Main</span>
                 )}
@@ -355,6 +396,8 @@ function CardTile({
                 maxLength={40}
                 placeholder={isMain ? 'Main word' : 'Word'}
                 aria-label={isMain ? 'Main word' : 'Word'}
+                disabled={locked}
+                title={locked ? 'Song word: it cannot be changed' : undefined}
                 onChange={(e) => onChange({ word: e.target.value })}
             />
             <input
@@ -363,6 +406,7 @@ function CardTile({
                 maxLength={16}
                 placeholder="Emoji (Win + .)"
                 aria-label="Emoji"
+                disabled={locked}
                 onChange={(e) => onChange({ emoji: e.target.value })}
             />
             {offLetter && <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">Does not start with {letter.toUpperCase()}.</span>}
@@ -377,9 +421,15 @@ function CardTile({
                         <ArrowRight size={14} />
                     </button>
                 </div>
-                <button aria-label="Remove" onClick={onRemove} className="cursor-pointer rounded p-1 text-red-600 hover:bg-red-500/10 dark:text-red-400">
-                    <Trash2 size={14} />
-                </button>
+                {locked ? (
+                    <span title="Song word: it cannot be removed" aria-label="Song word, cannot be removed" className="p-1 text-gray-500 dark:text-gray-400">
+                        <Lock size={14} />
+                    </span>
+                ) : (
+                    <button aria-label="Remove" onClick={onRemove} className="cursor-pointer rounded p-1 text-red-600 hover:bg-red-500/10 dark:text-red-400">
+                        <Trash2 size={14} />
+                    </button>
+                )}
             </div>
         </div>
     )
