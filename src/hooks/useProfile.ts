@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 
@@ -17,43 +17,33 @@ export type Profile = {
     is_test: boolean
 }
 
+export const profileKey = (userId: string | undefined) => ['profile', userId] as const
+
+// One shared copy of the signed-in person's profile. The top bar and every page
+// read the same cache entry, so a change made on the profile page (a new picture,
+// a new name) shows up in the header at once instead of after a reload.
+// Keyed on the id, not the user object: Supabase hands out a new object whenever
+// the tab regains focus or the token refreshes.
 export function useProfile() {
     const { user } = useAuth()
-    // Key the effect on the id, not the user object: Supabase hands out a new
-    // object whenever the tab regains focus or the token refreshes, and
-    // re-fetching then would flash the loading state and remount the page.
     const userId = user?.id
-    const [profile, setProfile] = useState<Profile | null>(null)
-    const [loading, setLoading] = useState(true)
+    const query = useQuery({
+        queryKey: profileKey(userId),
+        enabled: !!userId,
+        staleTime: 5 * 60_000,
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, username, full_name, role, avatar_url, grade_level, section, teacher_id, is_non_reader, is_test')
+                .eq('id', userId!)
+                .single()
+            if (error) {
+                console.error('useProfile: failed to load profile', error)
+                throw error
+            }
+            return data as Profile
+        },
+    })
 
-    useEffect(() => {
-        if (!userId) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setProfile(null)
-            setLoading(false)
-            return
-        }
-        let cancelled = false
-        setLoading(true)
-        supabase
-            .from('profiles')
-            .select('id, username, full_name, role, avatar_url, grade_level, section, teacher_id, is_non_reader, is_test')
-            .eq('id', userId)
-            .single()
-            .then(({ data, error }) => {
-                if (cancelled) return
-                if (error) {
-                    console.error('useProfile: failed to load profile', error)
-                    setProfile(null)
-                } else {
-                    setProfile(data as Profile)
-                }
-                setLoading(false)
-            })
-        return () => {
-            cancelled = true
-        }
-    }, [userId])
-
-    return { profile, loading }
+    return { profile: userId ? (query.data ?? null) : null, loading: !!userId && query.isPending }
 }

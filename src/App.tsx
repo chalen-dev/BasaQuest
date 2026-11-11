@@ -49,6 +49,7 @@ import WordImagesPage from "./pages/admin/word_images/WordImagesPage.tsx";
 import { DesktopOnly } from "./components/routes/DesktopOnly.tsx";
 import CoachPreviewPage from "./pages/admin/word_images/CoachPreviewPage.tsx";
 import PictureCreditsPage from "./pages/credits/PictureCreditsPage.tsx";
+import ProfilePage from "./pages/profile/ProfilePage.tsx";
 // MIGRATED FROM <BrowserRouter><Routes>...</Routes></BrowserRouter> TO A
 // DATA ROUTER (createBrowserRouter + RouterProvider) — required for
 // useBlocker (see src/hooks/useUnsavedChangesBlocker.ts), used on the
@@ -138,6 +139,7 @@ const router = createBrowserRouter(
                         <Route path="/students/review/:attemptId/remediation-preview" element={<RemediationPassagePreviewPage />} />
                         <Route path="/students/remediation/:studentId" element={<StudentRemediationDetailPage />} />
                         <Route path="/home" element={<HomePage />} />
+                        <Route path="/profile" element={<ProfilePage />} />
                         <Route path="/credits" element={<PictureCreditsPage />} />
                         <Route path="/reading/proficiency" element={<MaterialSelectionPage />} />
                         <Route path="/reading/proficiency/foundational/:levelId/edit" element={<FoundationalEditPage />} />

@@ -1,12 +1,13 @@
 // File: ProtectedHeader.tsx
-import { useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { useState, type ReactNode } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { BookOpen, House, LogOut, Menu, Mic, ScrollText, Shield, Users, X, type LucideIcon } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.tsx'
 import { useTheme } from '../../contexts/ThemeContext.tsx'
 import { useLang } from '../../contexts/LangContext.tsx'
 import { useProfile } from '../../hooks/useProfile.ts'
 import { Owl } from '../../components/ui/Owl.tsx'
+import { Avatar } from '../../components/ui/Avatar.tsx'
 import { Tooltip } from '../../components/ui/Tooltip.tsx'
 import { LangToggle, type Lang } from '../../components/buttons/LangToggle.tsx'
 import { ThemeToggleButton } from '../../components/buttons/ThemeToggleButton.tsx'
@@ -72,6 +73,7 @@ const HEADER_STRINGS: Record<Lang, {
     logoutToast: string
     logoutLabel: string
     logoutTooltip: string
+    profileTooltip: string
     openMenu: string
     closeMenu: string
     themeToLight: string
@@ -84,6 +86,7 @@ const HEADER_STRINGS: Record<Lang, {
         logoutToast: 'Na-logout ka na. Ingat!',
         logoutLabel: 'Logout',
         logoutTooltip: 'Mag-sign out sa iyong account',
+        profileTooltip: 'Buksan ang aking profile',
         openMenu: 'Buksan ang menu',
         closeMenu: 'Isara ang menu',
         themeToLight: 'Lumipat sa araw',
@@ -96,11 +99,31 @@ const HEADER_STRINGS: Record<Lang, {
         logoutToast: "You've been logged out. See you soon!",
         logoutLabel: 'Logout',
         logoutTooltip: 'Sign out of your account',
+        profileTooltip: 'Open my profile',
         openMenu: 'Open menu',
         closeMenu: 'Close menu',
         themeToLight: 'Switch to light mode',
         themeToDark: 'Switch to dark mode',
     },
+}
+
+// The picture-and-name block of the top bar: a link to the profile page for
+// teachers and admins, a plain block for pupils.
+function ProfileLink({ enabled, active, className, children }: {
+    enabled: boolean
+    active: boolean
+    className: string
+    children: ReactNode
+}) {
+    if (!enabled) return <div className={className}>{children}</div>
+    return (
+        <Link
+            to="/profile"
+            className={`${className} cursor-pointer ${active ? 'bg-gray-900/10 dark:bg-gray-100/15' : 'hover:bg-gray-900/5 dark:hover:bg-gray-100/10'}`}
+        >
+            {children}
+        </Link>
+    )
 }
 
 function isNavItemActive(item: NavItem, pathname: string) {
@@ -129,6 +152,10 @@ export default function ProtectedHeader() {
     const closeMenu = () => setMenuOpenedOn(null)
     const username = (user?.user_metadata?.username as string | undefined) ?? user?.email ?? 'Guest'
     const t = HEADER_STRINGS[lang]
+    // The name shown next to the picture: the display name if they set one.
+    const displayName = profile?.full_name?.trim() || username
+    // Teachers and admins open their profile page from here; pupils have none.
+    const canEditProfile = !!profile && profile.role !== 'student'
     const isTeacher = profile?.role === 'teacher'
     const isAdmin = profile?.role === 'admin'
 
@@ -235,11 +262,13 @@ export default function ProtectedHeader() {
                     )}
                 </button>
                 <div className="hidden lg:block">
-                <Tooltip label={username} position="bottom">
-                    <div className="flex shrink-0 items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-orange-500 font-bold text-white shadow-sm dark:border-gray-900">
-                            {username[0]?.toUpperCase()}
-                        </div>
+                <Tooltip label={canEditProfile ? t.profileTooltip : username} position="bottom">
+                    <ProfileLink
+                        enabled={canEditProfile}
+                        active={location.pathname === '/profile'}
+                        className="flex shrink-0 items-center gap-2 rounded-full py-0.5 pl-0.5 pr-2 transition-colors duration-200"
+                    >
+                        <Avatar url={profile?.avatar_url} name={displayName} size={36} className="border-2 border-white shadow-sm dark:border-gray-900" />
                         {profile?.is_test && (
                             <span
                                 title="Test account: its data is fake and will be removed"
@@ -249,12 +278,12 @@ export default function ProtectedHeader() {
                             </span>
                         )}
                         <div className="hidden max-w-[8.5rem] text-right leading-tight sm:block">
-                            <div className="truncate text-sm font-bold text-gray-900 dark:text-gray-50">{username}</div>
+                            <div className="truncate text-sm font-bold text-gray-900 dark:text-gray-50">{displayName}</div>
                             <div className="text-[0.8125rem] font-semibold text-gray-500 dark:text-gray-400">
                                 {profile ? (ROLE_LABEL[lang][profile.role] ?? profile.role) : ''}
                             </div>
                         </div>
-                    </div>
+                    </ProfileLink>
                 </Tooltip>
                 </div>
                 <div className="hidden lg:block">
@@ -307,16 +336,20 @@ export default function ProtectedHeader() {
                             })}
                         </nav>
                         <div className="mx-auto flex max-w-[84rem] items-center gap-3 border-t border-gray-900/10 px-4 py-3 dark:border-gray-100/10">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 font-bold text-white">
-                                {username[0]?.toUpperCase()}
-                            </div>
-                            <div className="min-w-0 flex-1 leading-tight">
-                                <div className="truncate text-sm font-bold text-gray-900 dark:text-gray-50">{username}</div>
-                                <div className="text-[0.8125rem] font-semibold text-gray-500 dark:text-gray-400">
-                                    {profile ? (ROLE_LABEL[lang][profile.role] ?? profile.role) : ''}
-                                    {profile?.is_test ? ' · Test' : ''}
+                            <ProfileLink
+                                enabled={canEditProfile}
+                                active={location.pathname === '/profile'}
+                                className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-0.5 pl-0.5 transition-colors duration-200"
+                            >
+                                <Avatar url={profile?.avatar_url} name={displayName} size={36} />
+                                <div className="min-w-0 flex-1 leading-tight">
+                                    <div className="truncate text-sm font-bold text-gray-900 dark:text-gray-50">{displayName}</div>
+                                    <div className="text-[0.8125rem] font-semibold text-gray-500 dark:text-gray-400">
+                                        {profile ? (ROLE_LABEL[lang][profile.role] ?? profile.role) : ''}
+                                        {profile?.is_test ? ' · Test' : ''}
+                                    </div>
                                 </div>
-                            </div>
+                            </ProfileLink>
                             <button
                                 type="button"
                                 onClick={handleLogout}
