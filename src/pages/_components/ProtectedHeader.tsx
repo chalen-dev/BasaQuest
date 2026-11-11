@@ -266,7 +266,7 @@ export default function ProtectedHeader() {
                     <ProfileLink
                         enabled={canEditProfile}
                         active={location.pathname === '/profile'}
-                        className="flex shrink-0 items-center gap-2 rounded-full py-0.5 pl-0.5 pr-2 transition-colors duration-200"
+                        className={`flex shrink-0 items-center gap-2 rounded-full py-0.5 pl-0.5 pr-3 transition-colors duration-200 ${canEditProfile ? 'border border-gray-900/10 dark:border-gray-100/10' : ''}`}
                     >
                         <Avatar url={profile?.avatar_url} name={displayName} size={36} className="border-2 border-white shadow-sm dark:border-gray-900" />
                         {profile?.is_test && (
