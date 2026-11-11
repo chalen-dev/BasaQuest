@@ -225,13 +225,12 @@ function MaterialCard({
                 {material.words.map((entry, i) => (
                     <span
                         key={`${entry.word}-${entry.errorType}-${i}`}
-                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${ERROR_TYPE_COLOR[entry.errorType]} ${
-                            readPracticed(entry) ? 'opacity-60' : ''
-                        }`}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${ERROR_TYPE_COLOR[entry.errorType]}`}
                     >
-                        {entry.word}
+                        {/* A practiced word fades, but its check stays full-strength green. */}
+                        <span className={readPracticed(entry) ? 'opacity-60' : ''}>{entry.word}</span>
                         {entry.count > 1 && <span className="opacity-70">×{entry.count}</span>}
-                        {readPracticed(entry) && <CheckCircle2 size={13} />}
+                        {readPracticed(entry) && <CheckCircle2 size={14} strokeWidth={2.5} className="text-emerald-500 dark:text-emerald-400" />}
                     </span>
                 ))}
             </div>
