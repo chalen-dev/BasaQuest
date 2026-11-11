@@ -2,8 +2,8 @@
 // English Level 1: Letters & Sounds. A-Z in teaching order (high-use sounds
 // first, look-alike letters kept apart), each with a first-sound word a
 // Filipino child knows. Vowels use a SHORT-sound keyword (apple, elephant, insect,
-// octopus, umbrella); x uses a word that ENDS in x, since x is rarely heard at
-// the start of a word.
+// octopus, umbrella); x uses x-ray, which starts with the letter itself (box and fox,
+// which end in the x sound, are its extra objects).
 import type { FoundationalLetter, FoundationalLevel } from '../types.ts'
 
 // [lower letter, letter name, sound, word, emoji]
@@ -32,14 +32,14 @@ const ROWS: LetterRow[] = [
     ['j', 'jay', '/j/', 'jeepney', '🚌'],
     ['v', 'vee', '/v/', 'van', '🚐'],
     ['w', 'double-yoo', '/w/', 'watermelon', '🍉'],
-    ['x', 'eks', '/ks/', 'box', '📦'],
+    ['x', 'eks', '/ks/', 'x-ray', '🩻'],
     ['y', 'wy', '/y/', 'yo-yo', '🪀'],
     ['z', 'zee', '/z/', 'zebra', '🦓'],
     ['q', 'kyoo', '/kw/', 'queen', '👑'],
 ]
 
 // More objects per letter, shown when the pupil taps the picture. Same rules as
-// the main word: it starts with the letter's sound (x: ends in x). Letters with
+// the main word: it starts with the letter's sound (x: x-ray, then words that end in x). Letters with
 // none listed simply have one object. Add a line here to add an object; no art
 // is needed (the scene falls back to the emoji).
 const EXTRA_WORDS: Record<string, [string, string][]> = {
@@ -64,7 +64,7 @@ const EXTRA_WORDS: Record<string, [string, string][]> = {
     t: [['turtle', '🐢']],
     v: [['volcano', '🌋']],
     w: [['watch', '⌚']],
-    x: [['fox', '🦊']],
+    x: [['box', '📦'], ['fox', '🦊']],
     y: [['yam', '🍠']],
     z: [['zero', '0️⃣']],
 }
@@ -90,7 +90,7 @@ const letters: FoundationalLetter[] = ROWS.map(([lower, letter_name, letter_soun
     phonics_focus: `letter ${lower.toUpperCase()}`,
     image,
     audio: '',
-    example_sentence: lower === 'x' ? 'X is at the end of box.' : `${lower.toUpperCase()} is for ${word}.`,
+    example_sentence: `${lower.toUpperCase()} is for ${word}.`,
     distractors: distractorsFor(index),
     upper: lower.toUpperCase(),
     lower,
