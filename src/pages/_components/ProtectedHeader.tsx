@@ -1,7 +1,7 @@
 // File: ProtectedHeader.tsx
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LogOut, Menu, X } from 'lucide-react'
+import { BookOpen, House, LogOut, Menu, Mic, ScrollText, Shield, Users, X, type LucideIcon } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.tsx'
 import { useTheme } from '../../contexts/ThemeContext.tsx'
 import { useLang } from '../../contexts/LangContext.tsx'
@@ -16,6 +16,16 @@ import { useReadyPassageLangsQuery } from '../proficiency/pre_assessment/savedPa
 import { useUnseenResultCount } from '../proficiency/my_results/hooks.ts'
 
 type NavItem = { to: string; label: string; matchPrefixes?: string[]; badge?: number }
+
+// The small picture shown above each tab's label in the top bar.
+const NAV_ICONS: Record<string, LucideIcon> = {
+    '/home': House,
+    '/reading/proficiency': Mic,
+    '/reading/comprehension': BookOpen,
+    '/history': ScrollText,
+    '/dashboard': Users,
+    '/admin/recording': Shield,
+}
 
 const NAV_ITEMS: Record<Lang, NavItem[]> = {
     fil: [
@@ -99,7 +109,7 @@ function isNavItemActive(item: NavItem, pathname: string) {
 }
 
 function navLinkClass(active: boolean) {
-    return `whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-bold xl:px-4 xl:text-[0.95rem] transition-colors duration-300 ${
+    return `flex flex-col items-center gap-0.5 whitespace-nowrap rounded-2xl px-3.5 py-1 text-sm font-bold xl:px-4 xl:text-[0.95rem] transition-colors duration-300 ${
         active
             ? 'bg-gray-900 text-white dark:bg-gray-50 dark:text-gray-900'
             : 'border border-gray-900/10 text-gray-600 hover:bg-gray-900/5 dark:border-gray-100/10 dark:text-gray-300 dark:hover:bg-gray-100/10'
@@ -178,6 +188,10 @@ export default function ProtectedHeader() {
                                 to={item.to}
                                 className={navLinkClass(isNavItemActive(item, location.pathname))}
                             >
+                                {(() => {
+                                    const Icon = NAV_ICONS[item.to]
+                                    return Icon ? <Icon size={18} /> : null
+                                })()}
                                 {item.label}
                             </NavLink>
                             {!!item.badge && item.badge > 0 && (
