@@ -12,6 +12,8 @@ import { useLang } from '../../contexts/LangContext.tsx'
 import { useTheme } from '../../contexts/ThemeContext.tsx'
 import { Avatar } from '../../components/ui/Avatar.tsx'
 import { showToast } from '../../helpers/swalHelpers.ts'
+import { NameFields } from '../../components/input/NameFields.tsx'
+import { formatFullName, namePartsFromProfile, type NameParts } from '../../helpers/personName.ts'
 import { MAX_PHOTO_BYTES, useRemoveAvatarMutation, useUpdateAvatarMutation, useUpdateNameMutation } from './hooks.ts'
 
 const STRINGS = {
@@ -27,7 +29,7 @@ const STRINGS = {
         details: 'Mga detalye',
         name: 'Pangalan',
         namePlaceholder: 'Ang iyong buong pangalan',
-        nameHint: 'Ito ang makikita ng iba. Maaaring iwanang blangko.',
+        nameHint: 'Ito ang makikita ng iba. Kung maglalagay, kumpletuhin ang unang pangalan at apelyido.',
         username: 'Username',
         usernameHint: 'Ito ang gamit mo sa pag-login at hindi mapapalitan dito.',
         role: 'Tungkulin',
@@ -53,7 +55,7 @@ const STRINGS = {
         details: 'Details',
         name: 'Name',
         namePlaceholder: 'Your full name',
-        nameHint: 'This is what others see. You can leave it blank.',
+        nameHint: 'This is what others see. If you add one, fill in both first and last name.',
         username: 'Username',
         usernameHint: 'You use this to log in, so it cannot be changed here.',
         role: 'Role',
@@ -99,7 +101,7 @@ const ProfilePage: React.FC = () => {
             userId={profile.id}
             username={username}
             role={profile.role}
-            fullName={profile.full_name ?? ''}
+            savedName={namePartsFromProfile(profile)}
             avatarUrl={profile.avatar_url}
             onBack={() => (window.history.length > 1 ? navigate(-1) : navigate('/home'))}
         />
@@ -112,19 +114,21 @@ type FormProps = {
     userId: string
     username: string
     role: string
-    fullName: string
+    savedName: NameParts
     avatarUrl: string | null
     onBack: () => void
 }
 
-function ProfileForm({ t, dark, userId, username, role, fullName, avatarUrl, onBack }: FormProps) {
+function ProfileForm({ t, dark, userId, username, role, savedName, avatarUrl, onBack }: FormProps) {
     const fileRef = useRef<HTMLInputElement>(null)
-    const [name, setName] = useState(fullName)
+    const [name, setName] = useState<NameParts>(savedName)
     const updateAvatar = useUpdateAvatarMutation(userId, avatarUrl)
     const removeAvatar = useRemoveAvatarMutation(userId, avatarUrl)
     const updateName = useUpdateNameMutation(userId)
     const busy = updateAvatar.isPending || removeAvatar.isPending
-    const dirty = name.trim() !== fullName.trim()
+    const dirty = formatFullName(name) !== formatFullName(savedName)
+    // Half a name (a first name with no last name) would sort and print oddly.
+    const incomplete = !!formatFullName(name) && (!name.firstName.trim() || !name.lastName.trim())
 
     const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -187,16 +191,14 @@ function ProfileForm({ t, dark, userId, username, role, fullName, avatarUrl, onB
                     <h2 className={label}>{t.details}</h2>
                     <div className="flex flex-col gap-5">
                         <div>
-                            <label htmlFor="profile-name" className={label}>{t.name}</label>
-                            <input
-                                id="profile-name"
+                            <span className={label}>{t.name}</span>
+                            <NameFields
                                 value={name}
-                                maxLength={60}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder={t.namePlaceholder}
-                                className={field}
+                                onChange={setName}
+                                fieldClassName="mb-3"
+                                inputClassName={field}
                             />
-                            <p className="mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">{t.nameHint}</p>
+                            <p className="-mt-1 text-xs font-semibold text-gray-500 dark:text-gray-400">{t.nameHint}</p>
                         </div>
                         <div>
                             <label htmlFor="profile-username" className={label}>{t.username}</label>
@@ -208,7 +210,7 @@ function ProfileForm({ t, dark, userId, username, role, fullName, avatarUrl, onB
                             <p className="text-sm font-bold text-gray-900 dark:text-gray-50">{t.roles[role] ?? role}</p>
                         </div>
                         <div className="flex justify-end">
-                            <button type="submit" disabled={!dirty || updateName.isPending} className={primary}>
+                            <button type="submit" disabled={!dirty || incomplete || updateName.isPending} className={primary}>
                                 {updateName.isPending ? t.saving : t.save}
                             </button>
                         </div>

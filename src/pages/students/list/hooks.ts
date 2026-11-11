@@ -1,11 +1,16 @@
 // File: src/pages/students/list/hooks.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabaseClient'
+import { EMPTY_NAME, namePartsToColumns, type NameParts } from '../../../helpers/personName'
 
 export type StudentRow = {
     id: string
     username: string | null
     full_name: string | null
+    first_name: string | null
+    middle_initial: string | null
+    last_name: string | null
+    suffix: string | null
     grade_level: number | null
     section: string | null
     is_non_reader: boolean
@@ -14,7 +19,7 @@ export type StudentRow = {
 
 export type CreateStudentPayload = {
     username: string
-    fullName: string
+    name: NameParts
     password: string
     gradeLevel: number | null
     section: string | null
@@ -23,7 +28,7 @@ export type CreateStudentPayload = {
 
 export type UpdateStudentPayload = {
     id: string
-    full_name: string
+    name: NameParts
     grade_level: number | null
     section: string | null
     is_non_reader: boolean
@@ -55,7 +60,7 @@ export const PAGE_SIZE = 6
 // shared non-component file for this feature.
 export type FormState = {
     username: string
-    fullName: string
+    name: NameParts
     password: string
     gradeLevel: string
     section: string
@@ -64,7 +69,7 @@ export type FormState = {
 
 export const EMPTY_FORM: FormState = {
     username: '',
-    fullName: '',
+    name: EMPTY_NAME,
     password: '',
     gradeLevel: '',
     section: '',
@@ -104,18 +109,18 @@ export function useStudentsQuery({ teacherId, page, search, sort, gradeFilter, r
             const from = page * PAGE_SIZE
             const to = from + PAGE_SIZE - 1
 
-            const primarySort: { column: 'full_name' | 'grade_level'; ascending: boolean } =
+            const primarySort: { column: 'last_name' | 'grade_level'; ascending: boolean } =
                 sort === 'grade_asc'
                     ? { column: 'grade_level', ascending: true }
                     : sort === 'grade_desc'
                         ? { column: 'grade_level', ascending: false }
                         : sort === 'name_desc'
-                            ? { column: 'full_name', ascending: false }
-                            : { column: 'full_name', ascending: true }
+                            ? { column: 'last_name', ascending: false }
+                            : { column: 'last_name', ascending: true }
 
             let query = supabase
                 .from('profiles')
-                .select('id, username, full_name, grade_level, section, is_non_reader, is_disabled', { count: 'exact' })
+                .select('id, username, full_name, first_name, middle_initial, last_name, suffix, grade_level, section, is_non_reader, is_disabled', { count: 'exact' })
                 .eq('teacher_id', teacherId as string)
                 .eq('role', 'student')
 
@@ -155,6 +160,7 @@ export function useStudentsQuery({ teacherId, page, search, sort, gradeFilter, r
             // are common.
             query = query
                 .order(primarySort.column, { ascending: primarySort.ascending, nullsFirst: false })
+                .order('first_name', { ascending: true })
                 .order('full_name', { ascending: true })
                 .range(from, to)
 
@@ -174,7 +180,7 @@ export function useCreateStudentMutation(teacherId: string | undefined) {
             const { data, error } = await supabase.functions.invoke('create-student', {
                 body: {
                     username: payload.username,
-                    fullName: payload.fullName,
+                    fullName: namePartsToColumns(payload.name).full_name ?? '',
                     password: payload.password,
                     gradeLevel: payload.gradeLevel,
                     section: payload.section,
@@ -183,6 +189,15 @@ export function useCreateStudentMutation(teacherId: string | undefined) {
             })
             if (error) throw error
             if (data?.error) throw new Error(data.error)
+            // The function only knows the combined name; store the parts too so
+            // the roster can sort by last name.
+            const id = data?.profile?.id as string | undefined
+            if (id) {
+                const { full_name: _full, ...parts } = namePartsToColumns(payload.name)
+                void _full
+                const { error: partsErr } = await supabase.from('profiles').update(parts).eq('id', id)
+                if (partsErr) throw partsErr
+            }
             return data
         },
         onSuccess: () => {
@@ -194,8 +209,8 @@ export function useCreateStudentMutation(teacherId: string | undefined) {
 export function useUpdateStudentMutation(teacherId: string | undefined) {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: async ({ id, ...payload }: UpdateStudentPayload) => {
-            const { error } = await supabase.from('profiles').update(payload).eq('id', id)
+        mutationFn: async ({ id, name, ...payload }: UpdateStudentPayload) => {
+            const { error } = await supabase.from('profiles').update({ ...payload, ...namePartsToColumns(name) }).eq('id', id)
             if (error) throw error
         },
         onSuccess: () => {

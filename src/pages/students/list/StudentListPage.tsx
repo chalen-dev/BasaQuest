@@ -10,6 +10,7 @@ import { Pagination } from '../../../components/ui/Pagination'
 import { Skeleton } from '../../../components/ui/Skeleton'
 import { showConfirmation, showToast } from '../../../helpers/swalHelpers'
 import type { Lang } from '../../../components/buttons/LangToggle'
+import { namePartsFromProfile } from '../../../helpers/personName'
 import { StudentFilters } from './features/StudentFilters.tsx'
 import { StudentAccountDrawer } from './features/StudentAccountDrawer.tsx'
 import { StudentRow } from './features/StudentRow.tsx'
@@ -343,7 +344,7 @@ export const StudentListPage: React.FC = () => {
         setEditing(student)
         setForm({
             username: student.username ?? '',
-            fullName: student.full_name ?? '',
+            name: namePartsFromProfile(student),
             password: '',
             gradeLevel: student.grade_level != null ? String(student.grade_level) : '',
             section: student.section ?? '',
@@ -363,7 +364,7 @@ export const StudentListPage: React.FC = () => {
             if (editing) {
                 await updateMutation.mutateAsync({
                     id: editing.id,
-                    full_name: form.fullName,
+                    name: form.name,
                     grade_level: form.gradeLevel ? Number(form.gradeLevel) : null,
                     section: form.section || null,
                     is_non_reader: form.isNonReader,
@@ -372,7 +373,7 @@ export const StudentListPage: React.FC = () => {
             } else {
                 await createMutation.mutateAsync({
                     username: form.username,
-                    fullName: form.fullName,
+                    name: form.name,
                     password: form.password,
                     gradeLevel: form.gradeLevel ? Number(form.gradeLevel) : null,
                     section: form.section || null,

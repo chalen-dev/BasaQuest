@@ -8,6 +8,8 @@ import { PasswordInput } from '../../components/input/PasswordInput';
 import { AuthHeaderBanner } from './components/AuthHeaderBanner';
 import { AuthTabs } from './components/AuthTabs';
 import type { Lang } from '../../components/buttons/LangToggle';
+import { NameFields } from '../../components/input/NameFields';
+import { EMPTY_NAME, type NameParts } from '../../helpers/personName';
 
 const STRINGS: Record<Lang, {
     welcome: string
@@ -57,6 +59,7 @@ export const RegisterPage: React.FC = () => {
     const { signUp } = useAuth();
     const { lang } = useLang();
     const navigate = useNavigate();
+    const [name, setName] = useState<NameParts>(EMPTY_NAME);
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -74,7 +77,7 @@ export const RegisterPage: React.FC = () => {
         }
         setSubmitting(true);
         try {
-            await signUp(email, password, username);
+            await signUp(email, password, username, name);
             navigate('/dashboard');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Registration failed');
@@ -97,6 +100,14 @@ export const RegisterPage: React.FC = () => {
                     <AuthTabs active="register" labels={{ login: t.login, register: t.register }} />
                     {/* One column on a phone; two columns on a wider screen so the form stays short. */}
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
+                        <div className="md:col-span-2">
+                            <NameFields
+                                value={name}
+                                onChange={setName}
+                                required
+                                inputClassName="px-4 py-3 rounded-xl transition-colors duration-300"
+                            />
+                        </div>
                         <TextInput
                             name="username"
                             label={t.username}

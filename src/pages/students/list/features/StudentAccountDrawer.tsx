@@ -4,6 +4,7 @@ import { Ban, MonitorOff, ShieldCheck, Trash2, UserPlus } from 'lucide-react'
 import { Drawer } from '../../../../components/ui/Drawer.tsx'
 import { TextInput } from '../../../../components/input/TextInput.tsx'
 import { PasswordInput } from '../../../../components/input/PasswordInput.tsx'
+import { NameFields } from '../../../../components/input/NameFields.tsx'
 import type { StudentRow as StudentRowData, FormState } from '../hooks.ts'
 type Strings = {
     formCreateTitle: string
@@ -162,13 +163,11 @@ export const StudentAccountDrawer: React.FC<StudentAccountDrawerProps> = ({
                         inputClassName="px-4 py-3.5 text-base rounded-xl transition-colors duration-300"
                     />
                 )}
-                <TextInput
-                    name="fullName"
-                    label={t.fieldFullName}
-                    value={form.fullName}
-                    onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+                <NameFields
+                    value={form.name}
+                    onChange={(name) => setForm((f) => ({ ...f, name }))}
                     required
-                    className="mb-5"
+                    fieldClassName="mb-5"
                     inputClassName="px-4 py-3.5 text-base rounded-xl transition-colors duration-300"
                 />
                 {!editing && (

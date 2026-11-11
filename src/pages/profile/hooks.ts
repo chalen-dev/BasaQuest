@@ -7,6 +7,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabaseClient.ts'
 import { profileKey, type Profile } from '../../hooks/useProfile.ts'
+import { namePartsToColumns, type NameParts } from '../../helpers/personName.ts'
 
 const BUCKET = 'avatars'
 // Photos are cropped to a square and shrunk; this is plenty for a 96px disc.
@@ -82,12 +83,12 @@ export function useRemoveAvatarMutation(userId: string, currentUrl: string | nul
 export function useUpdateNameMutation(userId: string) {
     const update = useCacheUpdate(userId)
     return useMutation({
-        mutationFn: async (fullName: string) => {
-            const value = fullName.trim() || null
-            const { error } = await supabase.from('profiles').update({ full_name: value }).eq('id', userId)
+        mutationFn: async (name: NameParts) => {
+            const columns = namePartsToColumns(name)
+            const { error } = await supabase.from('profiles').update(columns).eq('id', userId)
             if (error) throw error
-            return value
+            return columns
         },
-        onSuccess: (value) => update({ full_name: value }),
+        onSuccess: (columns) => update(columns),
     })
 }

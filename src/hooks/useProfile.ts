@@ -7,6 +7,10 @@ export type Profile = {
     id: string
     username: string | null
     full_name: string | null
+    first_name: string | null
+    middle_initial: string | null
+    last_name: string | null
+    suffix: string | null
     role: string
     avatar_url: string | null
     grade_level: number | null
@@ -34,7 +38,7 @@ export function useProfile() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, username, full_name, role, avatar_url, grade_level, section, teacher_id, is_non_reader, is_test')
+                .select('id, username, full_name, first_name, middle_initial, last_name, suffix, role, avatar_url, grade_level, section, teacher_id, is_non_reader, is_test')
                 .eq('id', userId!)
                 .single()
             if (error) {

@@ -2,13 +2,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
+import type { NameParts } from '../helpers/personName'
 
 type AuthContextType = {
     session: Session | null
     user: User | null
     isAuthenticated: boolean
     loading: boolean
-    signUp: (email: string, password: string, username: string) => Promise<void>
+    signUp: (email: string, password: string, username: string, name?: NameParts) => Promise<void>
     login: (identifier: string, password: string) => Promise<void>
     logout: () => Promise<void>
 }
@@ -32,12 +33,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => listener.subscription.unsubscribe()
     }, [])
 
-    const signUp = async (email: string, password: string, username: string) => {
+    const signUp = async (email: string, password: string, username: string, name?: NameParts) => {
         const { error } = await supabase.auth.signUp({
             email,
             password,
             options: {
-                data: { username }, // this is what your trigger reads via raw_user_meta_data
+                // this is what the handle_new_user trigger reads via raw_user_meta_data
+                data: {
+                    username,
+                    first_name: name?.firstName.trim() || undefined,
+                    middle_initial: name?.middleInitial.trim() || undefined,
+                    last_name: name?.lastName.trim() || undefined,
+                    suffix: name?.suffix.trim() || undefined,
+                },
             },
         })
         if (error) throw error
