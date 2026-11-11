@@ -185,6 +185,55 @@ html[data-theme] .hear,html[data-theme] .arrow,html[data-theme] .back-button{
 html[data-theme] .back-button{--control-high:#46405c;--control-low:#322e45;color:color-mix(in srgb,#f4effb,#4d3529 var(--day-mix))}
 html[data-theme] .bubble{background:color-mix(in srgb,#d7d0e4,#fff5df var(--day-mix))}
 html[data-theme] .bubble:after{background:color-mix(in srgb,#d7d0e4,#fff5df var(--day-mix))}
+#vowel-mode,#alphabet-return{padding:10px 18px;border-radius:24px;border:1px solid #b9add1;color:#f3eafa;background:#39304d;font-size:18px;min-height:44px}
+html[data-theme=day] #vowel-mode,html[data-theme=day] #alphabet-return{background:#fff3db;color:#503727;border-color:#bc9d79}
+#vowel-mode{display:none}
+@media(min-width:761px){#vowel-mode{display:block}}
+section .left,section .right,section .tools{transition:opacity .18s ease}
+section.mode-changing .left,section.mode-changing .right,section.mode-changing .tools,section.vowel-expanded .left,section.vowel-expanded .right,section.vowel-expanded .tools{opacity:0;pointer-events:none}
+section.vowel-expanded{position:fixed;z-index:10;margin:0;display:block;transition:left .65s ease-in-out,top .65s ease-in-out,width .65s ease-in-out,height .65s ease-in-out}
+.vowel-panel{position:absolute;inset:0;padding:clamp(24px,4vh,44px) 5%;opacity:0;transition:opacity .2s ease}
+.vowel-panel[hidden]{display:none}
+.vowel-panel.visible{opacity:1}
+.vowel-tiles{display:flex;justify-content:center;gap:clamp(18px,3vw,58px);margin-top:clamp(30px,5vh,54px)}
+.vowel-tiles button{width:clamp(140px,12vw,220px);height:clamp(130px,18vh,195px);font-size:clamp(44px,4vw,72px);font-weight:800;border-radius:24px;background:linear-gradient(#e8def6,#b6a7cb);color:#30243c;border:2px solid #cbbadd;box-shadow:0 5px #756080}
+html[data-theme=day] .vowel-tiles button{background:linear-gradient(#fff0ce,#e4c998);color:#443025;border-color:#e5c28d;box-shadow:0 5px #ac825d}
+html[data-theme] .vowel-tiles button[aria-pressed=true]{background:linear-gradient(#ff9dd3,#f17bb4);color:#322037;outline:4px solid #ffda72;box-shadow:0 0 14px #ffc85e55,0 5px #75536a}
+.board-slot{margin:16px 18px 20px;min-width:0;min-height:0}
+@media(prefers-reduced-motion:reduce){section.vowel-expanded,.vowel-panel,section .left,section .right,section .tools{transition:none}}
+
+.vowel-panel{display:grid;grid-template-rows:auto minmax(0,1fr);justify-items:center;padding:clamp(52px,5.5vh,64px) 4% 4vh;gap:3vh}
+#alphabet-return{position:absolute;left:-12px;top:-12px;z-index:2}.vowel-card .hear{margin:1.4vh auto 0}.vowel-picture.many{cursor:pointer}
+.vowel-tiles{width:100%;margin:0}
+.vowel-tiles button{width:min(12vw,200px);height:clamp(90px,14vh,152px)}
+.vowel-card{align-self:center;justify-self:center;transform:none;width:min(43.92vw,59.78vh,598px);padding:2.44vh 1.83vw 3.05vh}.vowel-card:before,.vowel-card:after{top:clamp(10px,1.6vh,18px)}.vowel-card:before{left:clamp(12px,1.2vw,21px)}.vowel-card:after{right:clamp(12px,1.2vw,21px)}
+.vowel-card h2{font-size:clamp(58.56px,8.54vh,95.16px);line-height:1.06;margin:0}
+.vowel-picture{height:clamp(176.9px,30.5vh,323.3px);margin:1.83vh 0}
+.vowel-picture svg.art{width:96%;height:100%}
+.vowel-card .word{font-size:clamp(34.16px,5.246vh,58.56px)}
+@media(min-width:761px){
+  section:not(.vowel-expanded){grid-template-columns:25% minmax(0,50%) 25%}
+  section:not(.vowel-expanded)>.left{grid-column:2;grid-row:1;min-width:0}
+  section:not(.vowel-expanded)>.right{grid-column:3;grid-row:1}
+  section:not(.vowel-expanded) .phrase{left:2%;width:21%;top:50%;transform:translateY(-50%) rotate(-4deg);font-size:min(6.6cqh,2.85cqw)}
+  section:not(.vowel-expanded) .owl{right:0;width:25%}
+  html[data-theme] section:not(.vowel-expanded) .bubble{right:1.5%;width:22%;max-width:none}
+  section:not(.vowel-expanded) .tools{left:22%;width:min(13%,30cqh)}
+}@media(min-width:761px){
+  section:not(.vowel-expanded)>.left .row{
+    display:grid;grid-template-columns:auto min(35cqw,81cqh) auto;
+    align-items:center;justify-content:center;gap:clamp(14px,1.25cqw,24px);padding:0
+  }
+  section:not(.vowel-expanded)>.left .card{
+    width:100%;transform:none;padding:1.75cqh 2cqh 2.35cqh
+  }
+  .left .card h1{font-size:min(14cqh,5.95cqw)}
+  .left #picture{height:40.95cqh;margin:.95cqh 0}
+  .left .card .word{font-size:min(7.25cqh,3.5cqw)}
+  .left .card:before,.left .card:after{top:clamp(9px,1.7cqh,16px)}
+  .left .card:before{left:clamp(10px,2cqh,18px)}
+  .left .card:after{right:clamp(10px,2cqh,18px)}
+}
 .hear.is-loading{opacity:.6;cursor:progress}
 @media(max-width:760px){.back-button{display:inline-flex;position:fixed;left:10px;top:8px;z-index:5;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border-radius:16px;border:1px solid #81738f;font-size:15px;font-weight:700}.back-button svg{width:18px;height:18px}}
 #picture.many{cursor:pointer}#picture.many:focus-visible{outline:3px solid #66e4ed;outline-offset:2px;border-radius:12px}
@@ -193,8 +242,8 @@ html[data-theme] .bubble:after{background:color-mix(in srgb,#d7d0e4,#fff5df var(
 .themebar{gap:10px}.edit-cards .label{font-style:normal}
 @media(max-width:560px){.edit-cards .label{display:none}.edit-cards span{padding:6px 9px}}
 </style>
-<svg aria-hidden="true" class="window" viewBox="0 0 150 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sky" x2=".4" y2="1"><stop stop-color="#15173f"/><stop offset="1" stop-color="#7272bd"/></linearGradient></defs><rect x="5" y="6" width="138" height="375" rx="5" fill="url(#sky)" stroke="#342744" stroke-width="10"/><path d="M87 42a22 22 0 1 0 23 27Q82 69 87 42" fill="#ffdf95"/><g class="sunscape"><circle cx="98" cy="56" r="18" fill="#ffe784"/><path d="M11 113q0-8 9-9 6-16 18-5 13-3 14 14z" fill="#fff9e6"/></g><circle cx="10" cy="15" r="1" fill="#e4dcff"/><circle cx="47" cy="76" r="2" fill="#e4dcff"/><circle cx="84" cy="137" r="1" fill="#e4dcff"/><circle cx="121" cy="198" r="2" fill="#e4dcff"/><circle cx="34" cy="259" r="1" fill="#e4dcff"/><circle cx="71" cy="43" r="2" fill="#e4dcff"/><circle cx="108" cy="104" r="1" fill="#e4dcff"/><circle cx="21" cy="165" r="2" fill="#e4dcff"/><circle cx="58" cy="226" r="1" fill="#e4dcff"/><circle cx="95" cy="287" r="2" fill="#e4dcff"/><circle cx="132" cy="71" r="1" fill="#e4dcff"/><circle cx="45" cy="132" r="2" fill="#e4dcff"/><circle cx="82" cy="193" r="1" fill="#e4dcff"/><circle cx="119" cy="254" r="2" fill="#e4dcff"/><circle cx="32" cy="38" r="1" fill="#e4dcff"/><circle cx="69" cy="99" r="2" fill="#e4dcff"/><circle cx="106" cy="160" r="1" fill="#e4dcff"/><circle cx="19" cy="221" r="2" fill="#e4dcff"/><circle cx="56" cy="282" r="1" fill="#e4dcff"/><circle cx="93" cy="66" r="2" fill="#e4dcff"/><circle cx="130" cy="127" r="1" fill="#e4dcff"/><circle cx="43" cy="188" r="2" fill="#e4dcff"/><circle cx="80" cy="249" r="1" fill="#e4dcff"/><circle cx="117" cy="33" r="2" fill="#e4dcff"/><circle cx="30" cy="94" r="1" fill="#e4dcff"/><circle cx="67" cy="155" r="2" fill="#e4dcff"/><circle cx="104" cy="216" r="1" fill="#e4dcff"/><path d="M7 275q30-48 62-17 34-72 71-53v170H7" fill="#585781"/><path d="M7 311q48-72 73-37 32-49 60-41v143H7" fill="#333658"/><g fill="none" stroke="#a993bc" stroke-width="9"><rect x="7" y="7" width="134" height="369"/><path d="M75 9v365M7 185h134"/></g><rect x="0" y="375" width="150" height="13" rx="4" fill="#c2a3c0" stroke="#645073" stroke-width="3"/></svg><svg aria-hidden="true" class="plant" viewBox="0 0 140 175" xmlns="http://www.w3.org/2000/svg"><g stroke="#296465" stroke-width="2.5" stroke-linejoin="round"><path fill="#55aa91" d="M70 117Q45 56 5 60q10 36 65 57Z"/><path fill="#83c7a5" d="M71 111Q23 71 30 19q40 19 41 92Z"/><path fill="#3c967e" d="M69 111Q50 47 77 5q20 46-8 106Z"/><path fill="#69b89a" d="M72 116q0-74 50-90-3 51-50 90Z"/><path fill="#97cba2" d="M69 118q24-52 68-47-18 37-68 47Z"/></g><path d="M32 113h77l-12 52q-23 11-52 0Z" fill="#ba7e94" stroke="#70465d" stroke-width="3"/><rect x="28" y="105" width="85" height="17" rx="6" fill="#e9a7af" stroke="#754c69" stroke-width="3"/><path d="M44 128l6 25" stroke="#e4adb5" stroke-width="5" stroke-linecap="round"/></svg><svg class="books" aria-hidden="true" viewBox="0 0 160 86"><ellipse cx="81" cy="79" rx="76" ry="5" fill="#302337" opacity=".34"/><g transform="translate(4 55) rotate(0 75.0 24)"><rect y="22" width="150" height="5" rx="3" fill="#372935" opacity=".32"/><rect width="150" height="24" rx="5" fill="#9680bc" stroke="#514253" stroke-width="2"/><path d="M13 4H147q-2 6 0 16H13q-5-5 0-16Z" fill="#f5e6cf"/><path d="M15 8H143M20 17H144" stroke="#cdbda9" stroke-width="1"/><path d="M6 4v16" stroke="#fff" opacity=".3" stroke-width="2"/></g><g transform="translate(13 35) rotate(0.8 66.5 20)"><rect y="18" width="133" height="5" rx="3" fill="#372935" opacity=".32"/><rect width="133" height="20" rx="5" fill="#58a5ad" stroke="#514253" stroke-width="2"/><path d="M13 4H130q-2 6 0 12H13q-5-5 0-12Z" fill="#f5e6cf"/><path d="M15 8H126M20 13H127" stroke="#cdbda9" stroke-width="1"/><path d="M6 4v12" stroke="#fff" opacity=".3" stroke-width="2"/></g><g transform="translate(20 17) rotate(-1 55.0 19)"><rect y="17" width="110" height="5" rx="3" fill="#372935" opacity=".32"/><rect width="110" height="19" rx="5" fill="#cf859b" stroke="#514253" stroke-width="2"/><path d="M13 4H107q-2 6 0 11H13q-5-5 0-11Z" fill="#f5e6cf"/><path d="M15 8H103M20 12H104" stroke="#cdbda9" stroke-width="1"/><path d="M6 4v11" stroke="#fff" opacity=".3" stroke-width="2"/></g></svg><button type="button" class="back-button" title="Go back in browser history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4m7-7-7 7 7 7"/></svg>Back</button><main><div class="themebar"><button id="theme" type="button" role="switch" aria-label="Night mode" aria-checked="true"><span class="day"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>Day</span><span class="night"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19.8 14.8A8.7 8.7 0 0 1 9.2 4a8.8 8.8 0 1 0 10.6 10.8Z"/></svg>Night</span></button><button type="button" class="edit-cards" aria-label="Edit cards" hidden><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z M14 6l4 4" stroke-width="1.9"/></svg><i class="label">Edit cards</i></span></button></div><nav aria-label="Choose a letter"></nav><section aria-live="polite"><svg class="timber" aria-hidden="true" viewBox="0 0 1000 500" preserveAspectRatio="none"><g stroke="#66516e" stroke-width="1.5"><path fill="#b299b6" d="M1 1h998l-16 16H17Z"/><path fill="#987f9e" d="M1 1l16 16v466L1 499Z"/><path fill="#89718f" d="M999 1l-16 16v466l16 16Z"/></g><g fill="none" stroke="#68516f" opacity=".5"><path d="M12 5q220 7 370 0t340 2 260-1M25 12q212-6 354-1t323-1 259 2M5 18q8 92 1 180t2 278M992 16q-6 130 0 223t0 240"/><ellipse cx="721" cy="8" rx="31" ry="2.7"/><ellipse cx="721" cy="8" rx="15" ry="1"/></g></svg><svg class="board-patina" aria-hidden="true" viewBox="0 0 1200 500" preserveAspectRatio="none"><defs><filter id="dust"><feTurbulence type="fractalNoise" baseFrequency=".77" numOctaves="2" stitchTiles="stitch"/></filter><filter id="rub"><feGaussianBlur stdDeviation="2.8"/></filter></defs><rect width="100%" height="100%" filter="url(#dust)" opacity=".047"/><g fill="none" stroke="#dfd6db" opacity=".055" stroke-width="4" stroke-linecap="round" filter="url(#rub)"><path d="M46 94q85-22 125-16m-143 32q105-25 150-17M623 357q88-29 149-26m-132 37q72-21 123-22M991 149q77-24 143-20"/></g></svg><div class="left"><div class="row"><button class="arrow" id="prev" aria-label="Previous letter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4l-8 8 8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button><article class="card"><h1></h1><div id="picture"></div><p class="word"></p><div class="dots" aria-hidden="true"></div></article><button class="arrow" id="next" aria-label="Next letter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l8 8-8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button></div><button class="hear"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-5v16l-5-5H3z M16 8q4 4 0 8m3-11q7 7 0 14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg> Hear it</button><small></small><progress max="26" aria-label="Alphabet progress"></progress></div><div class="right"><p class="phrase"></p>
-<p class="bubble"></p><div class="owl" role="img" aria-label="BasaQuest owl"></div></div><svg aria-hidden="true" class="tools" viewBox="0 0 180 42" xmlns="http://www.w3.org/2000/svg"><g stroke="#544668" stroke-width="2"><rect x="5" y="29" width="38" height="9" rx="4" fill="#eee7ef" transform="rotate(-6 5 29)"/><rect x="45" y="26" width="30" height="9" rx="4" fill="#9edbd2"/><rect x="89" y="15" width="77" height="21" rx="6" fill="#63566b"/><rect x="88" y="10" width="79" height="13" rx="5" fill="#d2aa94"/></g></svg></section></main>
+<svg aria-hidden="true" class="window" viewBox="0 0 150 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sky" x2=".4" y2="1"><stop stop-color="#15173f"/><stop offset="1" stop-color="#7272bd"/></linearGradient></defs><rect x="5" y="6" width="138" height="375" rx="5" fill="url(#sky)" stroke="#342744" stroke-width="10"/><path d="M87 42a22 22 0 1 0 23 27Q82 69 87 42" fill="#ffdf95"/><g class="sunscape"><circle cx="98" cy="56" r="18" fill="#ffe784"/><path d="M11 113q0-8 9-9 6-16 18-5 13-3 14 14z" fill="#fff9e6"/></g><circle cx="10" cy="15" r="1" fill="#e4dcff"/><circle cx="47" cy="76" r="2" fill="#e4dcff"/><circle cx="84" cy="137" r="1" fill="#e4dcff"/><circle cx="121" cy="198" r="2" fill="#e4dcff"/><circle cx="34" cy="259" r="1" fill="#e4dcff"/><circle cx="71" cy="43" r="2" fill="#e4dcff"/><circle cx="108" cy="104" r="1" fill="#e4dcff"/><circle cx="21" cy="165" r="2" fill="#e4dcff"/><circle cx="58" cy="226" r="1" fill="#e4dcff"/><circle cx="95" cy="287" r="2" fill="#e4dcff"/><circle cx="132" cy="71" r="1" fill="#e4dcff"/><circle cx="45" cy="132" r="2" fill="#e4dcff"/><circle cx="82" cy="193" r="1" fill="#e4dcff"/><circle cx="119" cy="254" r="2" fill="#e4dcff"/><circle cx="32" cy="38" r="1" fill="#e4dcff"/><circle cx="69" cy="99" r="2" fill="#e4dcff"/><circle cx="106" cy="160" r="1" fill="#e4dcff"/><circle cx="19" cy="221" r="2" fill="#e4dcff"/><circle cx="56" cy="282" r="1" fill="#e4dcff"/><circle cx="93" cy="66" r="2" fill="#e4dcff"/><circle cx="130" cy="127" r="1" fill="#e4dcff"/><circle cx="43" cy="188" r="2" fill="#e4dcff"/><circle cx="80" cy="249" r="1" fill="#e4dcff"/><circle cx="117" cy="33" r="2" fill="#e4dcff"/><circle cx="30" cy="94" r="1" fill="#e4dcff"/><circle cx="67" cy="155" r="2" fill="#e4dcff"/><circle cx="104" cy="216" r="1" fill="#e4dcff"/><path d="M7 275q30-48 62-17 34-72 71-53v170H7" fill="#585781"/><path d="M7 311q48-72 73-37 32-49 60-41v143H7" fill="#333658"/><g fill="none" stroke="#a993bc" stroke-width="9"><rect x="7" y="7" width="134" height="369"/><path d="M75 9v365M7 185h134"/></g><rect x="0" y="375" width="150" height="13" rx="4" fill="#c2a3c0" stroke="#645073" stroke-width="3"/></svg><svg aria-hidden="true" class="plant" viewBox="0 0 140 175" xmlns="http://www.w3.org/2000/svg"><g stroke="#296465" stroke-width="2.5" stroke-linejoin="round"><path fill="#55aa91" d="M70 117Q45 56 5 60q10 36 65 57Z"/><path fill="#83c7a5" d="M71 111Q23 71 30 19q40 19 41 92Z"/><path fill="#3c967e" d="M69 111Q50 47 77 5q20 46-8 106Z"/><path fill="#69b89a" d="M72 116q0-74 50-90-3 51-50 90Z"/><path fill="#97cba2" d="M69 118q24-52 68-47-18 37-68 47Z"/></g><path d="M32 113h77l-12 52q-23 11-52 0Z" fill="#ba7e94" stroke="#70465d" stroke-width="3"/><rect x="28" y="105" width="85" height="17" rx="6" fill="#e9a7af" stroke="#754c69" stroke-width="3"/><path d="M44 128l6 25" stroke="#e4adb5" stroke-width="5" stroke-linecap="round"/></svg><svg class="books" aria-hidden="true" viewBox="0 0 160 86"><ellipse cx="81" cy="79" rx="76" ry="5" fill="#302337" opacity=".34"/><g transform="translate(4 55) rotate(0 75.0 24)"><rect y="22" width="150" height="5" rx="3" fill="#372935" opacity=".32"/><rect width="150" height="24" rx="5" fill="#9680bc" stroke="#514253" stroke-width="2"/><path d="M13 4H147q-2 6 0 16H13q-5-5 0-16Z" fill="#f5e6cf"/><path d="M15 8H143M20 17H144" stroke="#cdbda9" stroke-width="1"/><path d="M6 4v16" stroke="#fff" opacity=".3" stroke-width="2"/></g><g transform="translate(13 35) rotate(0.8 66.5 20)"><rect y="18" width="133" height="5" rx="3" fill="#372935" opacity=".32"/><rect width="133" height="20" rx="5" fill="#58a5ad" stroke="#514253" stroke-width="2"/><path d="M13 4H130q-2 6 0 12H13q-5-5 0-12Z" fill="#f5e6cf"/><path d="M15 8H126M20 13H127" stroke="#cdbda9" stroke-width="1"/><path d="M6 4v12" stroke="#fff" opacity=".3" stroke-width="2"/></g><g transform="translate(20 17) rotate(-1 55.0 19)"><rect y="17" width="110" height="5" rx="3" fill="#372935" opacity=".32"/><rect width="110" height="19" rx="5" fill="#cf859b" stroke="#514253" stroke-width="2"/><path d="M13 4H107q-2 6 0 11H13q-5-5 0-11Z" fill="#f5e6cf"/><path d="M15 8H103M20 12H104" stroke="#cdbda9" stroke-width="1"/><path d="M6 4v11" stroke="#fff" opacity=".3" stroke-width="2"/></g></svg><button type="button" class="back-button" title="Go back in browser history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4m7-7-7 7 7 7"/></svg>Back</button><main><div class="themebar"><button id="theme" type="button" role="switch" aria-label="Night mode" aria-checked="true"><span class="day"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg>Day</span><span class="night"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19.8 14.8A8.7 8.7 0 0 1 9.2 4a8.8 8.8 0 1 0 10.6 10.8Z"/></svg>Night</span></button><button id="vowel-mode" type="button">Vowel Mode</button><button type="button" class="edit-cards" aria-label="Edit cards" hidden><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z M14 6l4 4" stroke-width="1.9"/></svg><i class="label">Edit cards</i></span></button></div><nav aria-label="Choose a letter"></nav><section aria-live="polite"><svg class="timber" aria-hidden="true" viewBox="0 0 1000 500" preserveAspectRatio="none"><g stroke="#66516e" stroke-width="1.5"><path fill="#b299b6" d="M1 1h998l-16 16H17Z"/><path fill="#987f9e" d="M1 1l16 16v466L1 499Z"/><path fill="#89718f" d="M999 1l-16 16v466l16 16Z"/></g><g fill="none" stroke="#68516f" opacity=".5"><path d="M12 5q220 7 370 0t340 2 260-1M25 12q212-6 354-1t323-1 259 2M5 18q8 92 1 180t2 278M992 16q-6 130 0 223t0 240"/><ellipse cx="721" cy="8" rx="31" ry="2.7"/><ellipse cx="721" cy="8" rx="15" ry="1"/></g></svg><svg class="board-patina" aria-hidden="true" viewBox="0 0 1200 500" preserveAspectRatio="none"><defs><filter id="dust"><feTurbulence type="fractalNoise" baseFrequency=".77" numOctaves="2" stitchTiles="stitch"/></filter><filter id="rub"><feGaussianBlur stdDeviation="2.8"/></filter></defs><rect width="100%" height="100%" filter="url(#dust)" opacity=".047"/><g fill="none" stroke="#dfd6db" opacity=".055" stroke-width="4" stroke-linecap="round" filter="url(#rub)"><path d="M46 94q85-22 125-16m-143 32q105-25 150-17M623 357q88-29 149-26m-132 37q72-21 123-22M991 149q77-24 143-20"/></g></svg><div class="left"><div class="row"><button class="arrow" id="prev" aria-label="Previous letter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4l-8 8 8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button><article class="card"><h1></h1><div id="picture"></div><p class="word"></p><div class="dots" aria-hidden="true"></div></article><button class="arrow" id="next" aria-label="Next letter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l8 8-8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button></div><button class="hear"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-5v16l-5-5H3z M16 8q4 4 0 8m3-11q7 7 0 14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg> Hear it</button><small></small><progress max="26" aria-label="Alphabet progress"></progress></div><div class="right"><p class="phrase"></p>
+<p class="bubble"></p><div class="owl" role="img" aria-label="BasaQuest owl"></div></div><svg aria-hidden="true" class="tools" viewBox="0 0 180 42" xmlns="http://www.w3.org/2000/svg"><g stroke="#544668" stroke-width="2"><rect x="5" y="29" width="38" height="9" rx="4" fill="#eee7ef" transform="rotate(-6 5 29)"/><rect x="45" y="26" width="30" height="9" rx="4" fill="#9edbd2"/><rect x="89" y="15" width="77" height="21" rx="6" fill="#63566b"/><rect x="88" y="10" width="79" height="13" rx="5" fill="#d2aa94"/></g></svg><div class="vowel-panel" hidden><button id="alphabet-return" type="button">← Back to Alphabet</button><div class="vowel-tiles" role="group" aria-label="Choose a vowel"></div><article class="card vowel-card"><h2></h2><div class="vowel-picture"></div><p class="word"></p><button type="button" class="hear" id="vowel-hear"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-5v16l-5-5H3z M16 8q4 4 0 8m3-11q7 7 0 14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg> Hear it</button></article></div></section></main>
 <script src="letters-art.js"></script>
 <script src="owl-rig.js"></script>
 <script>
@@ -269,11 +318,11 @@ const uppers=letters.map(l=>l.toUpperCase());
 const tileLabel=i=>uppers[i]+(uppers[i].length>1?' ':'')+letters[i];
 /* All the words the scene says itself, per language. The host passes the language with lettersLoad. */
 const TEXT={
-  en:{htmlLang:'en',back:'Back',day:'Day',night:'Night',nightAria:'Night mode',edit:'Edit cards',hear:' Hear it',prev:'Previous letter',next:'Next letter',nav:'Choose a letter',progress:'Alphabet progress',hello:'Tap a letter above!',another:'Show another picture',speech:'en-US',
+  en:{htmlLang:'en',back:'Back',day:'Day',night:'Night',nightAria:'Night mode',edit:'Edit cards',hear:' Hear it',prev:'Previous letter',next:'Next letter',nav:'Choose a letter',progress:'Alphabet progress',hello:'Tap a letter above!',vowel:'Vowel Mode',vowelBack:'← Back to Alphabet',vowelPick:'Choose a vowel',another:'Show another picture',speech:'en-US',
     tab:(u,w)=>u+' for '+w,counter:(n,t)=>'Letter '+n+' of '+t,
     phrase:(u,w,start)=>u+(start?' is for ':' is at the end of ')+'<b>'+w+'</b>',
     says:(u,l,snd)=>u+l+' says /'+snd+'/. '},
-  fil:{htmlLang:'fil',back:'Bumalik',day:'Araw',night:'Gabi',nightAria:'Panggabing tema',edit:'I-edit ang mga kard',hear:' Pakinggan',prev:'Nakaraang titik',next:'Susunod na titik',nav:'Pumili ng titik',progress:'Pag-usad sa alpabeto',hello:'Pindutin ang titik sa itaas!',another:'Ipakita ang susunod na larawan',speech:'fil-PH',
+  fil:{htmlLang:'fil',back:'Bumalik',day:'Araw',night:'Gabi',nightAria:'Panggabing tema',edit:'I-edit ang mga kard',hear:' Pakinggan',prev:'Nakaraang titik',next:'Susunod na titik',nav:'Pumili ng titik',progress:'Pag-usad sa alpabeto',hello:'Pindutin ang titik sa itaas!',vowel:'Mga Patinig',vowelBack:'← Bumalik sa Alpabeto',vowelPick:'Pumili ng patinig',another:'Ipakita ang susunod na larawan',speech:'fil-PH',
     tab:(u,w)=>u+' para sa '+w,counter:(n,t)=>'Titik '+n+' ng '+t,
     phrase:(u,w,start)=>'Ang '+u+(start?' ay para sa ':' ay nasa ')+'<b>'+w+'</b>',
     says:(u,l,snd)=>'Ang tunog ng '+u+' ay /'+snd+'/. '}
@@ -327,7 +376,19 @@ function fitIllustration(){
 }
 matchMedia('(min-width:761px)').addEventListener('change',fitIllustration);
 function show(i,keep){const total=letters.length;selected=(i+total)%total;if(!keep)curObj=0;const word=objects[selected][curObj].word,letter=uppers[selected];document.querySelector('h1').textContent=tileLabel(selected);document.querySelector('.word').textContent=word;document.querySelector('.phrase').innerHTML=tx().phrase(letter,word,word.toLowerCase().startsWith(letters[selected]));renderBubble(letter,word,selected);document.querySelector('small').textContent=tx().counter(selected+1,total);renderPicture();fitIllustration();Array.from(nav.children).forEach((b,n)=>b.setAttribute('aria-pressed',n===selected));document.querySelector('progress').max=total;document.querySelector('progress').value=selected+1;revealSelection();stopAudio()}
-document.querySelector('#prev').onclick=()=>userShow(selected-1);document.querySelector('#next').onclick=()=>userShow(selected+1);document.onkeydown=e=>{if(e.key==='ArrowRight')userShow(selected+1);if(e.key==='ArrowLeft')userShow(selected-1)};
+document.querySelector('#prev').onclick=()=>userShow(selected-1);document.querySelector('#next').onclick=()=>userShow(selected+1);document.onkeydown=e=>{
+  if(vowelActive){
+    if(modeBusy)return;
+    const dir={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[e.key];
+    if(dir){e.preventDefault();chooseVowel(vowelIndex+dir,true)}
+    if(e.key==='Home'){e.preventDefault();chooseVowel(0,true)}
+    if(e.key==='End'){e.preventDefault();chooseVowel(vowelSlots().length-1,true)}
+    if(e.key==='Escape')changeMode(false);
+  }else{
+    if(e.key==='ArrowRight')userShow(selected+1);
+    if(e.key==='ArrowLeft')userShow(selected-1);
+  }
+};
 /* The owl greets first and asks for a letter; the first real pick replaces the greeting. */
 let hello=true;
 function userShow(i){hello=false;show(i)}
@@ -343,9 +404,8 @@ function stopAudio(){
   if(window.parent!==window)window.parent.postMessage({type:'letters:stop'},location.origin);
   setOwl('neutral',false);
 }
-hear.onclick=()=>{
+function speakWord(word){
   if(hearLoading)return;
-  const word=objects[selected][curObj].word;
   if(window.lettersSpeak){window.lettersSpeak(word);return}
   if('speechSynthesis' in window){
     speechSynthesis.cancel();
@@ -353,7 +413,8 @@ hear.onclick=()=>{
     say.onstart=()=>setOwl('happy',true);say.onend=()=>setOwl('neutral',false);
     speechSynthesis.speak(say);
   }
-};
+}
+hear.onclick=()=>speakWord(objects[selected][curObj].word);
 /* Host hooks: lettersTalking(on) the voice is playing; lettersSpeaking(on) it is loading. */
 window.lettersTalking=on=>setOwl(on?'happy':'neutral',!!on);
 window.lettersSpeaking=on=>{hearLoading=!!on;hear.classList.toggle('is-loading',hearLoading);hear.setAttribute('aria-busy',String(hearLoading))};
@@ -374,6 +435,82 @@ function revealSelection(){
   }
 }
 revealSelection();
+/* Vowel Mode: the board grows to fill the page and shows the five vowels one at a time, big. */
+const board=document.querySelector('section');
+const vowelPanel=document.querySelector('.vowel-panel');
+const vowelTiles=document.querySelector('.vowel-tiles');
+const vowelCard=vowelPanel.querySelector('.vowel-card');
+const vowelPicture=vowelCard.querySelector('.vowel-picture');
+const vowelHear=document.querySelector('#vowel-hear');
+const modeButton=document.querySelector('#vowel-mode');
+const VOWELS=['a','e','i','o','u'];
+let vowelActive=false,modeBusy=false,vowelIndex=0,vowelObj=0,boardSlot=null;
+const vowelSlots=()=>VOWELS.map(v=>letters.indexOf(v)).filter(i=>i>=0);
+const classroomControls=[nav,document.querySelector('.themebar'),document.querySelector('.back-button'),...board.querySelectorAll('.left,.right')];
+function chooseVowel(index,focus,keepObj){
+  const slots=vowelSlots();if(!slots.length)return;
+  vowelIndex=(index+slots.length)%slots.length;
+  if(!keepObj)vowelObj=0;
+  Array.from(vowelTiles.children).forEach((b,i)=>{b.setAttribute('aria-pressed',String(i===vowelIndex));b.tabIndex=i===vowelIndex?0:-1});
+  const at=slots[vowelIndex],list=objects[at],o=list[vowelObj%list.length];
+  vowelCard.querySelector('h2').textContent=tileLabel(at);
+  vowelPicture.innerHTML=artHtml(o);
+  vowelPicture.classList.toggle('many',list.length>1);
+  vowelPicture.setAttribute('role',list.length>1?'button':'img');
+  vowelPicture.tabIndex=list.length>1?0:-1;
+  vowelPicture.setAttribute('aria-label',list.length>1?tx().another:o.word);
+  vowelCard.querySelector('.word').textContent=o.word;
+  if(focus&&vowelTiles.children[vowelIndex])vowelTiles.children[vowelIndex].focus();
+}
+function buildVowelTiles(){
+  vowelTiles.replaceChildren();
+  vowelSlots().forEach((at,i)=>{
+    const b=document.createElement('button');b.type='button';b.textContent=tileLabel(at);
+    b.onclick=()=>chooseVowel(i);vowelTiles.append(b);
+  });
+  modeButton.hidden=vowelSlots().length===0;
+}
+buildVowelTiles();
+vowelPicture.onclick=()=>{const list=objects[vowelSlots()[vowelIndex]];if(list&&list.length>1){vowelObj=(vowelObj+1)%list.length;chooseVowel(vowelIndex,false,true)}};
+vowelPicture.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();vowelPicture.onclick()}};
+vowelHear.onclick=()=>{const list=objects[vowelSlots()[vowelIndex]];if(list)speakWord(list[vowelObj%list.length].word)};
+function placeBoard(r){Object.assign(board.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'})}
+const expandedBounds=()=>({left:20,top:20,width:innerWidth-40,height:innerHeight-44});
+const modeDelay=ms=>new Promise(res=>setTimeout(res,motionPreference.matches?0:ms));
+async function changeMode(enter){
+  if(modeBusy||enter===vowelActive)return;
+  modeBusy=true;
+  if(enter){
+    stopAudio();vowelActive=true;chooseVowel(0);
+    classroomControls.forEach(el=>el.inert=true);
+    board.classList.add('mode-changing');
+    await modeDelay(190);
+    const rect=board.getBoundingClientRect();
+    boardSlot=document.createElement('div');boardSlot.className='board-slot';board.before(boardSlot);
+    board.classList.add('vowel-expanded');
+    placeBoard(rect);board.getBoundingClientRect();placeBoard(expandedBounds());
+    await modeDelay(670);
+    vowelPanel.hidden=false;vowelPanel.getBoundingClientRect();vowelPanel.classList.add('visible');
+    chooseVowel(0,true);
+  }else{
+    stopAudio();
+    vowelPanel.classList.remove('visible');
+    await modeDelay(200);
+    vowelPanel.hidden=true;
+    placeBoard(boardSlot.getBoundingClientRect());
+    await modeDelay(670);
+    board.classList.remove('vowel-expanded','mode-changing');
+    board.removeAttribute('style');
+    boardSlot.remove();boardSlot=null;
+    vowelActive=false;
+    classroomControls.forEach(el=>el.inert=false);
+    modeButton.focus();
+  }
+  modeBusy=false;
+}
+modeButton.onclick=()=>changeMode(true);
+document.querySelector('#alphabet-return').onclick=()=>changeMode(false);
+window.addEventListener('resize',()=>{if(vowelActive&&!modeBusy)placeBoard(expandedBounds())});
 /* applyLang(code): the fixed words of the page (buttons, labels) in that language. */
 function applyLang(code){
   lang=TEXT[code]?code:'en';
@@ -391,6 +528,10 @@ function applyLang(code){
   document.querySelector('#next').setAttribute('aria-label',t.next);
   nav.setAttribute('aria-label',t.nav);
   document.querySelector('progress').setAttribute('aria-label',t.progress);
+  modeButton.textContent=t.vowel;
+  document.querySelector('#alphabet-return').textContent=t.vowelBack;
+  vowelTiles.setAttribute('aria-label',t.vowelPick);
+  vowelHear.lastChild.textContent=t.hear;
 }
 /* lettersLoad(list, language): swap in the level's letters, in teaching order:
    [{upper,lower,word,sound,image,imageUrl,extras:[{word,image,imageUrl}]}]. Any number of letters (26 English, 20 Filipino). */
@@ -408,5 +549,7 @@ window.lettersLoad=(list,language)=>{
   buildNav();
   show(selected);
   if(hello)showHello();
+  buildVowelTiles();
+  if(vowelActive)chooseVowel(vowelIndex,false,true);
 };
 </script></html>
